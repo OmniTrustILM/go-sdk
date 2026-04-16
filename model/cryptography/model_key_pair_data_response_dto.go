@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type KeyPairDataResponseDto struct {
 	PublicKeyData KeyDataResponseDto `json:"publicKeyData"`
 	// Data of the Private Key
 	PrivateKeyData KeyDataResponseDto `json:"privateKeyData"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _KeyPairDataResponseDto KeyPairDataResponseDto
@@ -109,6 +109,11 @@ func (o KeyPairDataResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["publicKeyData"] = o.PublicKeyData
 	toSerialize["privateKeyData"] = o.PrivateKeyData
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *KeyPairDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varKeyPairDataResponseDto := _KeyPairDataResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varKeyPairDataResponseDto)
+	err = json.Unmarshal(data, &varKeyPairDataResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = KeyPairDataResponseDto(varKeyPairDataResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "publicKeyData")
+		delete(additionalProperties, "privateKeyData")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

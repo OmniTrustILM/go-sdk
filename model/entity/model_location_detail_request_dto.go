@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &LocationDetailRequestDto{}
 type LocationDetailRequestDto struct {
 	// List of Location Attributes
 	LocationAttributes []RequestAttribute `json:"locationAttributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _LocationDetailRequestDto LocationDetailRequestDto
@@ -81,6 +81,11 @@ func (o LocationDetailRequestDto) MarshalJSON() ([]byte, error) {
 func (o LocationDetailRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["locationAttributes"] = o.LocationAttributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *LocationDetailRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varLocationDetailRequestDto := _LocationDetailRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varLocationDetailRequestDto)
+	err = json.Unmarshal(data, &varLocationDetailRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = LocationDetailRequestDto(varLocationDetailRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "locationAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

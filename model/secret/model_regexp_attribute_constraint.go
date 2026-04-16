@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type RegexpAttributeConstraint struct {
 	Type AttributeConstraintType `json:"type"`
 	// Regular Expression Attribute Constraint Data
 	Data *string `json:"data,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RegexpAttributeConstraint RegexpAttributeConstraint
@@ -192,6 +192,11 @@ func (o RegexpAttributeConstraint) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Data) {
 		toSerialize["data"] = o.Data
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -219,15 +224,23 @@ func (o *RegexpAttributeConstraint) UnmarshalJSON(data []byte) (err error) {
 
 	varRegexpAttributeConstraint := _RegexpAttributeConstraint{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRegexpAttributeConstraint)
+	err = json.Unmarshal(data, &varRegexpAttributeConstraint)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RegexpAttributeConstraint(varRegexpAttributeConstraint)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "errorMessage")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

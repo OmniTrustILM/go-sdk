@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &ErrorMessageDto{}
 type ErrorMessageDto struct {
 	// Error message detail
 	Message string `json:"message"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ErrorMessageDto ErrorMessageDto
@@ -81,6 +81,11 @@ func (o ErrorMessageDto) MarshalJSON() ([]byte, error) {
 func (o ErrorMessageDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["message"] = o.Message
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *ErrorMessageDto) UnmarshalJSON(data []byte) (err error) {
 
 	varErrorMessageDto := _ErrorMessageDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varErrorMessageDto)
+	err = json.Unmarshal(data, &varErrorMessageDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ErrorMessageDto(varErrorMessageDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "message")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

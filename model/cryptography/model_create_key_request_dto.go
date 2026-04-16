@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type CreateKeyRequestDto struct {
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
 	// List of Attributes to create a Key
 	CreateKeyAttributes []RequestAttribute `json:"createKeyAttributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CreateKeyRequestDto CreateKeyRequestDto
@@ -109,6 +109,11 @@ func (o CreateKeyRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
 	toSerialize["createKeyAttributes"] = o.CreateKeyAttributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *CreateKeyRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCreateKeyRequestDto := _CreateKeyRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCreateKeyRequestDto)
+	err = json.Unmarshal(data, &varCreateKeyRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CreateKeyRequestDto(varCreateKeyRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "tokenProfileAttributes")
+		delete(additionalProperties, "createKeyAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

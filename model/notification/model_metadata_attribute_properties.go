@@ -13,7 +13,6 @@ package notification
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -34,6 +33,7 @@ type MetadataAttributeProperties struct {
 	Overwrite *bool `json:"overwrite,omitempty"`
 	// Protection level of the attribute content
 	ProtectionLevel *ProtectionLevel `json:"protectionLevel,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _MetadataAttributeProperties MetadataAttributeProperties
@@ -271,6 +271,11 @@ func (o MetadataAttributeProperties) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.ProtectionLevel) {
 		toSerialize["protectionLevel"] = o.ProtectionLevel
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -299,15 +304,25 @@ func (o *MetadataAttributeProperties) UnmarshalJSON(data []byte) (err error) {
 
 	varMetadataAttributeProperties := _MetadataAttributeProperties{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varMetadataAttributeProperties)
+	err = json.Unmarshal(data, &varMetadataAttributeProperties)
 
 	if err != nil {
 		return err
 	}
 
 	*o = MetadataAttributeProperties(varMetadataAttributeProperties)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "label")
+		delete(additionalProperties, "visible")
+		delete(additionalProperties, "group")
+		delete(additionalProperties, "global")
+		delete(additionalProperties, "overwrite")
+		delete(additionalProperties, "protectionLevel")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -34,6 +33,7 @@ type CertificateLocationDto struct {
 	PushAttributes []BaseAttributeDto `json:"pushAttributes,omitempty"`
 	// List of Attributes to renew Certificate
 	CsrAttributes []BaseAttributeDto `json:"csrAttributes,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertificateLocationDto CertificateLocationDto
@@ -261,6 +261,11 @@ func (o CertificateLocationDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.CsrAttributes) {
 		toSerialize["csrAttributes"] = o.CsrAttributes
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -289,15 +294,25 @@ func (o *CertificateLocationDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCertificateLocationDto := _CertificateLocationDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertificateLocationDto)
+	err = json.Unmarshal(data, &varCertificateLocationDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertificateLocationDto(varCertificateLocationDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificateData")
+		delete(additionalProperties, "metadata")
+		delete(additionalProperties, "certificateType")
+		delete(additionalProperties, "withKey")
+		delete(additionalProperties, "pushAttributes")
+		delete(additionalProperties, "csrAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type EntityInstanceRequestDto struct {
 	Kind string `json:"kind"`
 	// List of Entity instance Attributes
 	Attributes []RequestAttribute `json:"attributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _EntityInstanceRequestDto EntityInstanceRequestDto
@@ -137,6 +137,11 @@ func (o EntityInstanceRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["name"] = o.Name
 	toSerialize["kind"] = o.Kind
 	toSerialize["attributes"] = o.Attributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *EntityInstanceRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varEntityInstanceRequestDto := _EntityInstanceRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varEntityInstanceRequestDto)
+	err = json.Unmarshal(data, &varEntityInstanceRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = EntityInstanceRequestDto(varEntityInstanceRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "kind")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

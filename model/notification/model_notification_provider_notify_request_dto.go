@@ -13,7 +13,6 @@ package notification
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -32,6 +31,7 @@ type NotificationProviderNotifyRequestDto struct {
 	// Resource which is represented by data
 	Resource *Resource `json:"resource,omitempty"`
 	NotificationData interface{} `json:"notificationData,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _NotificationProviderNotifyRequestDto NotificationProviderNotifyRequestDto
@@ -224,6 +224,11 @@ func (o NotificationProviderNotifyRequestDto) ToMap() (map[string]interface{}, e
 	if o.NotificationData != nil {
 		toSerialize["notificationData"] = o.NotificationData
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -252,15 +257,24 @@ func (o *NotificationProviderNotifyRequestDto) UnmarshalJSON(data []byte) (err e
 
 	varNotificationProviderNotifyRequestDto := _NotificationProviderNotifyRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varNotificationProviderNotifyRequestDto)
+	err = json.Unmarshal(data, &varNotificationProviderNotifyRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = NotificationProviderNotifyRequestDto(varNotificationProviderNotifyRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "recipients")
+		delete(additionalProperties, "eventType")
+		delete(additionalProperties, "event")
+		delete(additionalProperties, "resource")
+		delete(additionalProperties, "notificationData")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

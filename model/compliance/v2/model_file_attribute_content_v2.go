@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type FileAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// File attribute content data
 	Data FileAttributeContentData `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _FileAttributeContentV2 FileAttributeContentV2
@@ -118,6 +118,11 @@ func (o FileAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *FileAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varFileAttributeContentV2 := _FileAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varFileAttributeContentV2)
+	err = json.Unmarshal(data, &varFileAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = FileAttributeContentV2(varFileAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

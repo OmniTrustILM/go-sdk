@@ -13,7 +13,6 @@ package notification
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type NotificationProviderInstanceRequestDto struct {
 	Kind string `json:"kind"`
 	// List of Notification instance Attributes
 	Attributes []RequestAttribute `json:"attributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _NotificationProviderInstanceRequestDto NotificationProviderInstanceRequestDto
@@ -137,6 +137,11 @@ func (o NotificationProviderInstanceRequestDto) ToMap() (map[string]interface{},
 	toSerialize["name"] = o.Name
 	toSerialize["kind"] = o.Kind
 	toSerialize["attributes"] = o.Attributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *NotificationProviderInstanceRequestDto) UnmarshalJSON(data []byte) (err
 
 	varNotificationProviderInstanceRequestDto := _NotificationProviderInstanceRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varNotificationProviderInstanceRequestDto)
+	err = json.Unmarshal(data, &varNotificationProviderInstanceRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = NotificationProviderInstanceRequestDto(varNotificationProviderInstanceRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "kind")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

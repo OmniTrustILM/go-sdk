@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type ComplianceRulesBatchRequestDto struct {
 	GroupUuids []string `json:"groupUuids"`
 	// Flag to determine whether to include group rules in the response
 	WithGroupRules *bool `json:"withGroupRules,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceRulesBatchRequestDto ComplianceRulesBatchRequestDto
@@ -150,6 +150,11 @@ func (o ComplianceRulesBatchRequestDto) ToMap() (map[string]interface{}, error) 
 	if !IsNil(o.WithGroupRules) {
 		toSerialize["withGroupRules"] = o.WithGroupRules
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -178,15 +183,22 @@ func (o *ComplianceRulesBatchRequestDto) UnmarshalJSON(data []byte) (err error) 
 
 	varComplianceRulesBatchRequestDto := _ComplianceRulesBatchRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceRulesBatchRequestDto)
+	err = json.Unmarshal(data, &varComplianceRulesBatchRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceRulesBatchRequestDto(varComplianceRulesBatchRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "ruleUuids")
+		delete(additionalProperties, "groupUuids")
+		delete(additionalProperties, "withGroupRules")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

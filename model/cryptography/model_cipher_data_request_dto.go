@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type CipherDataRequestDto struct {
 	CipherAttributes []RequestAttribute `json:"cipherAttributes"`
 	// Encrypted/decrypted data
 	CipherData []CipherRequestData `json:"cipherData"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CipherDataRequestDto CipherDataRequestDto
@@ -109,6 +109,11 @@ func (o CipherDataRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["cipherAttributes"] = o.CipherAttributes
 	toSerialize["cipherData"] = o.CipherData
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *CipherDataRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCipherDataRequestDto := _CipherDataRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCipherDataRequestDto)
+	err = json.Unmarshal(data, &varCipherDataRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CipherDataRequestDto(varCipherDataRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "cipherAttributes")
+		delete(additionalProperties, "cipherData")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

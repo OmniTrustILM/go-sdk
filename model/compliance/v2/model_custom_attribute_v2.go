@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -38,6 +37,7 @@ type CustomAttributeV2 struct {
 	ContentType AttributeContentType `json:"contentType"`
 	// Properties of the Attributes
 	Properties CustomAttributeProperties `json:"properties"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CustomAttributeV2 CustomAttributeV2
@@ -295,6 +295,11 @@ func (o CustomAttributeV2) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["contentType"] = o.ContentType
 	toSerialize["properties"] = o.Properties
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -327,15 +332,27 @@ func (o *CustomAttributeV2) UnmarshalJSON(data []byte) (err error) {
 
 	varCustomAttributeV2 := _CustomAttributeV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCustomAttributeV2)
+	err = json.Unmarshal(data, &varCustomAttributeV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CustomAttributeV2(varCustomAttributeV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "version")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "contentType")
+		delete(additionalProperties, "properties")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

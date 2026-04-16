@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -32,6 +31,7 @@ type EndpointDto struct {
 	Method string `json:"method"`
 	// True if the Endpoint is required for implementation
 	Required bool `json:"required"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _EndpointDto EndpointDto
@@ -193,6 +193,11 @@ func (o EndpointDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["context"] = o.Context
 	toSerialize["method"] = o.Method
 	toSerialize["required"] = o.Required
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -224,15 +229,24 @@ func (o *EndpointDto) UnmarshalJSON(data []byte) (err error) {
 
 	varEndpointDto := _EndpointDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varEndpointDto)
+	err = json.Unmarshal(data, &varEndpointDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = EndpointDto(varEndpointDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "context")
+		delete(additionalProperties, "method")
+		delete(additionalProperties, "required")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

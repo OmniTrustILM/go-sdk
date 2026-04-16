@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &CertificateRevocationListResponseDto{}
 type CertificateRevocationListResponseDto struct {
 	// Base64 encoded CRL data
 	CrlData string `json:"crlData"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertificateRevocationListResponseDto CertificateRevocationListResponseDto
@@ -81,6 +81,11 @@ func (o CertificateRevocationListResponseDto) MarshalJSON() ([]byte, error) {
 func (o CertificateRevocationListResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["crlData"] = o.CrlData
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *CertificateRevocationListResponseDto) UnmarshalJSON(data []byte) (err e
 
 	varCertificateRevocationListResponseDto := _CertificateRevocationListResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertificateRevocationListResponseDto)
+	err = json.Unmarshal(data, &varCertificateRevocationListResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertificateRevocationListResponseDto(varCertificateRevocationListResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "crlData")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

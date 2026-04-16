@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &SignDataResponseDto{}
 type SignDataResponseDto struct {
 	// Signatures
 	Signatures []SignatureResponseData `json:"signatures"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _SignDataResponseDto SignDataResponseDto
@@ -81,6 +81,11 @@ func (o SignDataResponseDto) MarshalJSON() ([]byte, error) {
 func (o SignDataResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["signatures"] = o.Signatures
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *SignDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varSignDataResponseDto := _SignDataResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varSignDataResponseDto)
+	err = json.Unmarshal(data, &varSignDataResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = SignDataResponseDto(varSignDataResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "signatures")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

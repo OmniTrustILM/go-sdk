@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type PrivateKeySecretContent struct {
 	Type SecretType `json:"type"`
 	// BASE64 encoded content of key in PEM format
 	Content string `json:"content"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _PrivateKeySecretContent PrivateKeySecretContent
@@ -109,6 +109,11 @@ func (o PrivateKeySecretContent) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["content"] = o.Content
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *PrivateKeySecretContent) UnmarshalJSON(data []byte) (err error) {
 
 	varPrivateKeySecretContent := _PrivateKeySecretContent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varPrivateKeySecretContent)
+	err = json.Unmarshal(data, &varPrivateKeySecretContent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = PrivateKeySecretContent(varPrivateKeySecretContent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

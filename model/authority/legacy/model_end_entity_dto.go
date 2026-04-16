@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -34,6 +33,7 @@ type EndEntityDto struct {
 	Status string `json:"status"`
 	// End Entity name
 	Username string `json:"username"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _EndEntityDto EndEntityDto
@@ -248,6 +248,11 @@ func (o EndEntityDto) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["status"] = o.Status
 	toSerialize["username"] = o.Username
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -277,15 +282,25 @@ func (o *EndEntityDto) UnmarshalJSON(data []byte) (err error) {
 
 	varEndEntityDto := _EndEntityDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varEndEntityDto)
+	err = json.Unmarshal(data, &varEndEntityDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = EndEntityDto(varEndEntityDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "subjectDN")
+		delete(additionalProperties, "email")
+		delete(additionalProperties, "extensionData")
+		delete(additionalProperties, "subjectAltName")
+		delete(additionalProperties, "status")
+		delete(additionalProperties, "username")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

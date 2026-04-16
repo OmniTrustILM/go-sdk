@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type TimeAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// Time attribute value in format HH:mm:ss
 	Data string `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _TimeAttributeContentV2 TimeAttributeContentV2
@@ -118,6 +118,11 @@ func (o TimeAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *TimeAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varTimeAttributeContentV2 := _TimeAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varTimeAttributeContentV2)
+	err = json.Unmarshal(data, &varTimeAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = TimeAttributeContentV2(varTimeAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &DecryptDataResponseDto{}
 type DecryptDataResponseDto struct {
 	// Decrypted data
 	DecryptedData []CipherResponseData `json:"decryptedData"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DecryptDataResponseDto DecryptDataResponseDto
@@ -81,6 +81,11 @@ func (o DecryptDataResponseDto) MarshalJSON() ([]byte, error) {
 func (o DecryptDataResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["decryptedData"] = o.DecryptedData
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *DecryptDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varDecryptDataResponseDto := _DecryptDataResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDecryptDataResponseDto)
+	err = json.Unmarshal(data, &varDecryptDataResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DecryptDataResponseDto(varDecryptDataResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "decryptedData")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

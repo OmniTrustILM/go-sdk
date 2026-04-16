@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type ComplianceResponseDtoV2 struct {
 	Status *ComplianceStatus `json:"status,omitempty"`
 	// List of rules applied and their status
 	Rules []ComplianceResponseRuleDtoV2 `json:"rules"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceResponseDtoV2 ComplianceResponseDtoV2
@@ -118,6 +118,11 @@ func (o ComplianceResponseDtoV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["status"] = o.Status
 	}
 	toSerialize["rules"] = o.Rules
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *ComplianceResponseDtoV2) UnmarshalJSON(data []byte) (err error) {
 
 	varComplianceResponseDtoV2 := _ComplianceResponseDtoV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceResponseDtoV2)
+	err = json.Unmarshal(data, &varComplianceResponseDtoV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceResponseDtoV2(varComplianceResponseDtoV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "status")
+		delete(additionalProperties, "rules")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

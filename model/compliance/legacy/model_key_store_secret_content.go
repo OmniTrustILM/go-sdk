@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type KeyStoreSecretContent struct {
 	Content string `json:"content"`
 	// Password for key store
 	Password string `json:"password"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _KeyStoreSecretContent KeyStoreSecretContent
@@ -165,6 +165,11 @@ func (o KeyStoreSecretContent) ToMap() (map[string]interface{}, error) {
 	toSerialize["keyStoreType"] = o.KeyStoreType
 	toSerialize["content"] = o.Content
 	toSerialize["password"] = o.Password
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -195,15 +200,23 @@ func (o *KeyStoreSecretContent) UnmarshalJSON(data []byte) (err error) {
 
 	varKeyStoreSecretContent := _KeyStoreSecretContent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varKeyStoreSecretContent)
+	err = json.Unmarshal(data, &varKeyStoreSecretContent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = KeyStoreSecretContent(varKeyStoreSecretContent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "keyStoreType")
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "password")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

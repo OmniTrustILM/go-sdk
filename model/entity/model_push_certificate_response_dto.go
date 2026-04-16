@@ -24,7 +24,10 @@ type PushCertificateResponseDto struct {
 	CertificateMetadata []MetadataAttribute `json:"certificateMetadata,omitempty"`
 	// Is private key available for the certificate in location
 	WithKey *bool `json:"withKey,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
+
+type _PushCertificateResponseDto PushCertificateResponseDto
 
 // NewPushCertificateResponseDto instantiates a new PushCertificateResponseDto object
 // This constructor will assign default values to properties that have it defined,
@@ -123,7 +126,34 @@ func (o PushCertificateResponseDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.WithKey) {
 		toSerialize["withKey"] = o.WithKey
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
+}
+
+func (o *PushCertificateResponseDto) UnmarshalJSON(data []byte) (err error) {
+	varPushCertificateResponseDto := _PushCertificateResponseDto{}
+
+	err = json.Unmarshal(data, &varPushCertificateResponseDto)
+
+	if err != nil {
+		return err
+	}
+
+	*o = PushCertificateResponseDto(varPushCertificateResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificateMetadata")
+		delete(additionalProperties, "withKey")
+		o.AdditionalProperties = additionalProperties
+	}
+
+	return err
 }
 
 type NullablePushCertificateResponseDto struct {

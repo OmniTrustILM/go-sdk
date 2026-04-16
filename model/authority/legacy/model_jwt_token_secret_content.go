@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type JwtTokenSecretContent struct {
 	Type SecretType `json:"type"`
 	// JWT Token content in compact (dot-separated) format specified in [RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519#section-3)
 	Content string `json:"content"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _JwtTokenSecretContent JwtTokenSecretContent
@@ -109,6 +109,11 @@ func (o JwtTokenSecretContent) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["content"] = o.Content
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *JwtTokenSecretContent) UnmarshalJSON(data []byte) (err error) {
 
 	varJwtTokenSecretContent := _JwtTokenSecretContent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varJwtTokenSecretContent)
+	err = json.Unmarshal(data, &varJwtTokenSecretContent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = JwtTokenSecretContent(varJwtTokenSecretContent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

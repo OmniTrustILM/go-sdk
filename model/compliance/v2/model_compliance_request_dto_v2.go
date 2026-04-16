@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -34,6 +33,7 @@ type ComplianceRequestDtoV2 struct {
 	Rules []ComplianceRuleRequestDto `json:"rules"`
 	// List of UUIDs of Compliance groups
 	Groups []string `json:"groups"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceRequestDtoV2 ComplianceRequestDtoV2
@@ -248,6 +248,11 @@ func (o ComplianceRequestDtoV2) ToMap() (map[string]interface{}, error) {
 	toSerialize["data"] = o.Data
 	toSerialize["rules"] = o.Rules
 	toSerialize["groups"] = o.Groups
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -277,15 +282,25 @@ func (o *ComplianceRequestDtoV2) UnmarshalJSON(data []byte) (err error) {
 
 	varComplianceRequestDtoV2 := _ComplianceRequestDtoV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceRequestDtoV2)
+	err = json.Unmarshal(data, &varComplianceRequestDtoV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceRequestDtoV2(varComplianceRequestDtoV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "resource")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "format")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "rules")
+		delete(additionalProperties, "groups")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

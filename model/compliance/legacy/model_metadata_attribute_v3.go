@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -40,6 +39,7 @@ type MetadataAttributeV3 struct {
 	Properties MetadataAttributeProperties `json:"properties"`
 	// Schema version of the Attribute
 	SchemaVersion AttributeVersion `json:"schemaVersion"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _MetadataAttributeV3 MetadataAttributeV3
@@ -323,6 +323,11 @@ func (o MetadataAttributeV3) ToMap() (map[string]interface{}, error) {
 	toSerialize["contentType"] = o.ContentType
 	toSerialize["properties"] = o.Properties
 	toSerialize["schemaVersion"] = o.SchemaVersion
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -356,15 +361,28 @@ func (o *MetadataAttributeV3) UnmarshalJSON(data []byte) (err error) {
 
 	varMetadataAttributeV3 := _MetadataAttributeV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varMetadataAttributeV3)
+	err = json.Unmarshal(data, &varMetadataAttributeV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = MetadataAttributeV3(varMetadataAttributeV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "version")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "contentType")
+		delete(additionalProperties, "properties")
+		delete(additionalProperties, "schemaVersion")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

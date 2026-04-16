@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type RangeAttributeConstraint struct {
 	Type AttributeConstraintType `json:"type"`
 	// Integer Range Attribute Constraint Data
 	Data *RangeAttributeConstraintData `json:"data,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RangeAttributeConstraint RangeAttributeConstraint
@@ -192,6 +192,11 @@ func (o RangeAttributeConstraint) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Data) {
 		toSerialize["data"] = o.Data
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -219,15 +224,23 @@ func (o *RangeAttributeConstraint) UnmarshalJSON(data []byte) (err error) {
 
 	varRangeAttributeConstraint := _RangeAttributeConstraint{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRangeAttributeConstraint)
+	err = json.Unmarshal(data, &varRangeAttributeConstraint)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RangeAttributeConstraint(varRangeAttributeConstraint)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "errorMessage")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

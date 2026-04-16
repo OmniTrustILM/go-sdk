@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type IntegerAttributeContentV3 struct {
 	Data int32 `json:"data"`
 	// Content Type of the attribute
 	ContentType AttributeContentType `json:"contentType"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _IntegerAttributeContentV3 IntegerAttributeContentV3
@@ -146,6 +146,11 @@ func (o IntegerAttributeContentV3) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["data"] = o.Data
 	toSerialize["contentType"] = o.ContentType
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -174,15 +179,22 @@ func (o *IntegerAttributeContentV3) UnmarshalJSON(data []byte) (err error) {
 
 	varIntegerAttributeContentV3 := _IntegerAttributeContentV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varIntegerAttributeContentV3)
+	err = json.Unmarshal(data, &varIntegerAttributeContentV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = IntegerAttributeContentV3(varIntegerAttributeContentV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "contentType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

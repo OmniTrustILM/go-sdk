@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type CertificateIdentificationRequestDto struct {
 	Certificate string `json:"certificate"`
 	// List of RA Profiles attributes
 	RaProfileAttributes []RequestAttribute `json:"raProfileAttributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertificateIdentificationRequestDto CertificateIdentificationRequestDto
@@ -109,6 +109,11 @@ func (o CertificateIdentificationRequestDto) ToMap() (map[string]interface{}, er
 	toSerialize := map[string]interface{}{}
 	toSerialize["certificate"] = o.Certificate
 	toSerialize["raProfileAttributes"] = o.RaProfileAttributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *CertificateIdentificationRequestDto) UnmarshalJSON(data []byte) (err er
 
 	varCertificateIdentificationRequestDto := _CertificateIdentificationRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertificateIdentificationRequestDto)
+	err = json.Unmarshal(data, &varCertificateIdentificationRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertificateIdentificationRequestDto(varCertificateIdentificationRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificate")
+		delete(additionalProperties, "raProfileAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

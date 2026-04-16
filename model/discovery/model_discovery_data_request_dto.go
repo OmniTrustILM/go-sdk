@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type DiscoveryDataRequestDto struct {
 	PageNumber int32 `json:"pageNumber"`
 	// Number of certificates per page
 	ItemsPerPage int32 `json:"itemsPerPage"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DiscoveryDataRequestDto DiscoveryDataRequestDto
@@ -165,6 +165,11 @@ func (o DiscoveryDataRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["kind"] = o.Kind
 	toSerialize["pageNumber"] = o.PageNumber
 	toSerialize["itemsPerPage"] = o.ItemsPerPage
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -195,15 +200,23 @@ func (o *DiscoveryDataRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varDiscoveryDataRequestDto := _DiscoveryDataRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDiscoveryDataRequestDto)
+	err = json.Unmarshal(data, &varDiscoveryDataRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DiscoveryDataRequestDto(varDiscoveryDataRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "kind")
+		delete(additionalProperties, "pageNumber")
+		delete(additionalProperties, "itemsPerPage")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

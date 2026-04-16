@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -31,6 +30,7 @@ type RequestAttributeV2 struct {
 	Content []BaseAttributeContentDtoV2 `json:"content,omitempty"`
 	// Version of the Attribute
 	Version AttributeVersion `json:"version"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RequestAttributeV2 RequestAttributeV2
@@ -201,6 +201,11 @@ func (o RequestAttributeV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["content"] = o.Content
 	}
 	toSerialize["version"] = o.Version
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -231,15 +236,24 @@ func (o *RequestAttributeV2) UnmarshalJSON(data []byte) (err error) {
 
 	varRequestAttributeV2 := _RequestAttributeV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRequestAttributeV2)
+	err = json.Unmarshal(data, &varRequestAttributeV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RequestAttributeV2(varRequestAttributeV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "contentType")
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "version")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

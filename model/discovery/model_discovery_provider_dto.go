@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -34,6 +33,7 @@ type DiscoveryProviderDto struct {
 	CertificateData []DiscoveryProviderCertificateDataDto `json:"certificateData"`
 	// Certificate Metadata
 	Meta []MetadataAttribute `json:"meta"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DiscoveryProviderDto DiscoveryProviderDto
@@ -234,6 +234,11 @@ func (o DiscoveryProviderDto) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["certificateData"] = o.CertificateData
 	toSerialize["meta"] = o.Meta
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -265,15 +270,25 @@ func (o *DiscoveryProviderDto) UnmarshalJSON(data []byte) (err error) {
 
 	varDiscoveryProviderDto := _DiscoveryProviderDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDiscoveryProviderDto)
+	err = json.Unmarshal(data, &varDiscoveryProviderDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DiscoveryProviderDto(varDiscoveryProviderDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "status")
+		delete(additionalProperties, "totalCertificatesDiscovered")
+		delete(additionalProperties, "certificateData")
+		delete(additionalProperties, "meta")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

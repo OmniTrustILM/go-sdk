@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type DiscoveryProviderCertificateDataDto struct {
 	Base64Content string `json:"base64Content"`
 	// Metadata for the Certificate
 	Meta []MetadataAttribute `json:"meta"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DiscoveryProviderCertificateDataDto DiscoveryProviderCertificateDataDto
@@ -137,6 +137,11 @@ func (o DiscoveryProviderCertificateDataDto) ToMap() (map[string]interface{}, er
 	toSerialize["uuid"] = o.Uuid
 	toSerialize["base64Content"] = o.Base64Content
 	toSerialize["meta"] = o.Meta
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *DiscoveryProviderCertificateDataDto) UnmarshalJSON(data []byte) (err er
 
 	varDiscoveryProviderCertificateDataDto := _DiscoveryProviderCertificateDataDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDiscoveryProviderCertificateDataDto)
+	err = json.Unmarshal(data, &varDiscoveryProviderCertificateDataDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DiscoveryProviderCertificateDataDto(varDiscoveryProviderCertificateDataDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "base64Content")
+		delete(additionalProperties, "meta")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

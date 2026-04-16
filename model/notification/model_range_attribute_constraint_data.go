@@ -24,7 +24,10 @@ type RangeAttributeConstraintData struct {
 	From *int32 `json:"from,omitempty"`
 	// End of the range for validation
 	To *int32 `json:"to,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
+
+type _RangeAttributeConstraintData RangeAttributeConstraintData
 
 // NewRangeAttributeConstraintData instantiates a new RangeAttributeConstraintData object
 // This constructor will assign default values to properties that have it defined,
@@ -123,7 +126,34 @@ func (o RangeAttributeConstraintData) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.To) {
 		toSerialize["to"] = o.To
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
+}
+
+func (o *RangeAttributeConstraintData) UnmarshalJSON(data []byte) (err error) {
+	varRangeAttributeConstraintData := _RangeAttributeConstraintData{}
+
+	err = json.Unmarshal(data, &varRangeAttributeConstraintData)
+
+	if err != nil {
+		return err
+	}
+
+	*o = RangeAttributeConstraintData(varRangeAttributeConstraintData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "from")
+		delete(additionalProperties, "to")
+		o.AdditionalProperties = additionalProperties
+	}
+
+	return err
 }
 
 type NullableRangeAttributeConstraintData struct {

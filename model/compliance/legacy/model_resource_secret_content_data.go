@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type ResourceSecretContentData struct {
 	Resource AttributeResource `json:"resource"`
 	// Secret content of the resource object
 	Content *SecretContent `json:"content,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ResourceSecretContentData ResourceSecretContentData
@@ -174,6 +174,11 @@ func (o ResourceSecretContentData) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Content) {
 		toSerialize["content"] = o.Content
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -203,15 +208,23 @@ func (o *ResourceSecretContentData) UnmarshalJSON(data []byte) (err error) {
 
 	varResourceSecretContentData := _ResourceSecretContentData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varResourceSecretContentData)
+	err = json.Unmarshal(data, &varResourceSecretContentData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ResourceSecretContentData(varResourceSecretContentData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "resource")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type CertificateDataResponseDto struct {
 	Meta []MetadataAttribute `json:"meta,omitempty"`
 	// Type of the Certificate
 	CertificateType *CertificateType `json:"certificateType,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertificateDataResponseDto CertificateDataResponseDto
@@ -196,6 +196,11 @@ func (o CertificateDataResponseDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.CertificateType) {
 		toSerialize["certificateType"] = o.CertificateType
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -223,15 +228,23 @@ func (o *CertificateDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCertificateDataResponseDto := _CertificateDataResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertificateDataResponseDto)
+	err = json.Unmarshal(data, &varCertificateDataResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertificateDataResponseDto(varCertificateDataResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificateData")
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "meta")
+		delete(additionalProperties, "certificateType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

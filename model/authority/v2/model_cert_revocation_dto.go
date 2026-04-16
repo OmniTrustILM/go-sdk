@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type CertRevocationDto struct {
 	Attributes []RequestAttribute `json:"attributes"`
 	// Base64 Certificate content. (Certificate to be revoked)
 	Certificate string `json:"certificate"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertRevocationDto CertRevocationDto
@@ -165,6 +165,11 @@ func (o CertRevocationDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["raProfileAttributes"] = o.RaProfileAttributes
 	toSerialize["attributes"] = o.Attributes
 	toSerialize["certificate"] = o.Certificate
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -195,15 +200,23 @@ func (o *CertRevocationDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCertRevocationDto := _CertRevocationDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertRevocationDto)
+	err = json.Unmarshal(data, &varCertRevocationDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertRevocationDto(varCertRevocationDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reason")
+		delete(additionalProperties, "raProfileAttributes")
+		delete(additionalProperties, "attributes")
+		delete(additionalProperties, "certificate")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

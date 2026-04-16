@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -34,6 +33,7 @@ type ResponseAttributeV3 struct {
 	ContentType AttributeContentType `json:"contentType"`
 	// Version of the Attribute
 	Version AttributeVersion `json:"version"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ResponseAttributeV3 ResponseAttributeV3
@@ -221,6 +221,11 @@ func (o ResponseAttributeV3) ToMap() (map[string]interface{}, error) {
 	toSerialize["type"] = o.Type
 	toSerialize["contentType"] = o.ContentType
 	toSerialize["version"] = o.Version
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -253,15 +258,25 @@ func (o *ResponseAttributeV3) UnmarshalJSON(data []byte) (err error) {
 
 	varResponseAttributeV3 := _ResponseAttributeV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varResponseAttributeV3)
+	err = json.Unmarshal(data, &varResponseAttributeV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ResponseAttributeV3(varResponseAttributeV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "label")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "contentType")
+		delete(additionalProperties, "version")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

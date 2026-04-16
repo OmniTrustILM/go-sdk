@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -42,6 +41,7 @@ type DataAttributeProperties struct {
 	Resource *AttributeResource `json:"resource,omitempty"`
 	// Boolean determining if a list Attribute can have values other than predefined options
 	ExtensibleList bool `json:"extensibleList"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DataAttributeProperties DataAttributeProperties
@@ -376,6 +376,11 @@ func (o DataAttributeProperties) ToMap() (map[string]interface{}, error) {
 		toSerialize["resource"] = o.Resource
 	}
 	toSerialize["extensibleList"] = o.ExtensibleList
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -409,15 +414,29 @@ func (o *DataAttributeProperties) UnmarshalJSON(data []byte) (err error) {
 
 	varDataAttributeProperties := _DataAttributeProperties{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDataAttributeProperties)
+	err = json.Unmarshal(data, &varDataAttributeProperties)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DataAttributeProperties(varDataAttributeProperties)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "label")
+		delete(additionalProperties, "visible")
+		delete(additionalProperties, "group")
+		delete(additionalProperties, "required")
+		delete(additionalProperties, "readOnly")
+		delete(additionalProperties, "list")
+		delete(additionalProperties, "multiSelect")
+		delete(additionalProperties, "protectionLevel")
+		delete(additionalProperties, "resource")
+		delete(additionalProperties, "extensibleList")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

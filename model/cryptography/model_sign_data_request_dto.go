@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type SignDataRequestDto struct {
 	SignatureAttributes []RequestAttribute `json:"signatureAttributes"`
 	// Data to be signed
 	Data []SignatureRequestData `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _SignDataRequestDto SignDataRequestDto
@@ -109,6 +109,11 @@ func (o SignDataRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["signatureAttributes"] = o.SignatureAttributes
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *SignDataRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varSignDataRequestDto := _SignDataRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varSignDataRequestDto)
+	err = json.Unmarshal(data, &varSignDataRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = SignDataRequestDto(varSignDataRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "signatureAttributes")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

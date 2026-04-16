@@ -22,7 +22,10 @@ var _ MappedNullable = &EndEntityExtendedInfoDto{}
 type EndEntityExtendedInfoDto struct {
 	Name *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
+
+type _EndEntityExtendedInfoDto EndEntityExtendedInfoDto
 
 // NewEndEntityExtendedInfoDto instantiates a new EndEntityExtendedInfoDto object
 // This constructor will assign default values to properties that have it defined,
@@ -121,7 +124,34 @@ func (o EndEntityExtendedInfoDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Value) {
 		toSerialize["value"] = o.Value
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
+}
+
+func (o *EndEntityExtendedInfoDto) UnmarshalJSON(data []byte) (err error) {
+	varEndEntityExtendedInfoDto := _EndEntityExtendedInfoDto{}
+
+	err = json.Unmarshal(data, &varEndEntityExtendedInfoDto)
+
+	if err != nil {
+		return err
+	}
+
+	*o = EndEntityExtendedInfoDto(varEndEntityExtendedInfoDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "value")
+		o.AdditionalProperties = additionalProperties
+	}
+
+	return err
 }
 
 type NullableEndEntityExtendedInfoDto struct {

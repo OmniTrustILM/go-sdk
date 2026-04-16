@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -44,6 +43,7 @@ type RaProfileDto struct {
 	EnabledProtocols []string `json:"enabledProtocols,omitempty"`
 	// Settings for validation of certificates associated with the RA Profile
 	CertificateValidationSettings *RaProfileCertificateValidationSettingsDto `json:"certificateValidationSettings,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RaProfileDto RaProfileDto
@@ -433,6 +433,11 @@ func (o RaProfileDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.CertificateValidationSettings) {
 		toSerialize["certificateValidationSettings"] = o.CertificateValidationSettings
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -462,15 +467,30 @@ func (o *RaProfileDto) UnmarshalJSON(data []byte) (err error) {
 
 	varRaProfileDto := _RaProfileDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRaProfileDto)
+	err = json.Unmarshal(data, &varRaProfileDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RaProfileDto(varRaProfileDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "authorityInstanceUuid")
+		delete(additionalProperties, "authorityInstanceName")
+		delete(additionalProperties, "legacyAuthority")
+		delete(additionalProperties, "enabled")
+		delete(additionalProperties, "attributes")
+		delete(additionalProperties, "customAttributes")
+		delete(additionalProperties, "enabledProtocols")
+		delete(additionalProperties, "certificateValidationSettings")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

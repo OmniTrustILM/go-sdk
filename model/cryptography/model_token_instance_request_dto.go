@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type TokenInstanceRequestDto struct {
 	Kind string `json:"kind"`
 	// List of Token instance Attributes
 	Attributes []RequestAttribute `json:"attributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _TokenInstanceRequestDto TokenInstanceRequestDto
@@ -137,6 +137,11 @@ func (o TokenInstanceRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["name"] = o.Name
 	toSerialize["kind"] = o.Kind
 	toSerialize["attributes"] = o.Attributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *TokenInstanceRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varTokenInstanceRequestDto := _TokenInstanceRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varTokenInstanceRequestDto)
+	err = json.Unmarshal(data, &varTokenInstanceRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = TokenInstanceRequestDto(varTokenInstanceRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "kind")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

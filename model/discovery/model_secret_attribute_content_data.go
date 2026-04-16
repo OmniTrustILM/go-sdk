@@ -24,7 +24,10 @@ type SecretAttributeContentData struct {
 	Secret *string `json:"secret,omitempty"`
 	// Level of protection of the data
 	ProtectionLevel *ProtectionLevel `json:"protectionLevel,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
+
+type _SecretAttributeContentData SecretAttributeContentData
 
 // NewSecretAttributeContentData instantiates a new SecretAttributeContentData object
 // This constructor will assign default values to properties that have it defined,
@@ -123,7 +126,34 @@ func (o SecretAttributeContentData) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.ProtectionLevel) {
 		toSerialize["protectionLevel"] = o.ProtectionLevel
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
+}
+
+func (o *SecretAttributeContentData) UnmarshalJSON(data []byte) (err error) {
+	varSecretAttributeContentData := _SecretAttributeContentData{}
+
+	err = json.Unmarshal(data, &varSecretAttributeContentData)
+
+	if err != nil {
+		return err
+	}
+
+	*o = SecretAttributeContentData(varSecretAttributeContentData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "secret")
+		delete(additionalProperties, "protectionLevel")
+		o.AdditionalProperties = additionalProperties
+	}
+
+	return err
 }
 
 type NullableSecretAttributeContentData struct {

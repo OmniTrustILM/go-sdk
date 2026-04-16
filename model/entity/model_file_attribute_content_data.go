@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type FileAttributeContentData struct {
 	FileName string `json:"fileName"`
 	// Type of the file uploaded
 	MimeType string `json:"mimeType"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _FileAttributeContentData FileAttributeContentData
@@ -137,6 +137,11 @@ func (o FileAttributeContentData) ToMap() (map[string]interface{}, error) {
 	toSerialize["content"] = o.Content
 	toSerialize["fileName"] = o.FileName
 	toSerialize["mimeType"] = o.MimeType
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *FileAttributeContentData) UnmarshalJSON(data []byte) (err error) {
 
 	varFileAttributeContentData := _FileAttributeContentData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varFileAttributeContentData)
+	err = json.Unmarshal(data, &varFileAttributeContentData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = FileAttributeContentData(varFileAttributeContentData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "fileName")
+		delete(additionalProperties, "mimeType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

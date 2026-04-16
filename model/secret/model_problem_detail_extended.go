@@ -14,7 +14,6 @@ package secret
 import (
 	"encoding/json"
 	"time"
-	"bytes"
 	"fmt"
 )
 
@@ -45,6 +44,7 @@ type ProblemDetailExtended struct {
 	Retryable bool `json:"retryable"`
 	// Backoff hint, number of seconds after which the client can retry the operation. Aligns with Retry-After header.
 	RetryAfterSeconds *int32 `json:"retryAfterSeconds,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ProblemDetailExtended ProblemDetailExtended
@@ -416,6 +416,11 @@ func (o ProblemDetailExtended) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.RetryAfterSeconds) {
 		toSerialize["retryAfterSeconds"] = o.RetryAfterSeconds
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -447,15 +452,30 @@ func (o *ProblemDetailExtended) UnmarshalJSON(data []byte) (err error) {
 
 	varProblemDetailExtended := _ProblemDetailExtended{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varProblemDetailExtended)
+	err = json.Unmarshal(data, &varProblemDetailExtended)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ProblemDetailExtended(varProblemDetailExtended)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "title")
+		delete(additionalProperties, "status")
+		delete(additionalProperties, "detail")
+		delete(additionalProperties, "instance")
+		delete(additionalProperties, "properties")
+		delete(additionalProperties, "errorCode")
+		delete(additionalProperties, "timestamp")
+		delete(additionalProperties, "correlationId")
+		delete(additionalProperties, "retryable")
+		delete(additionalProperties, "retryAfterSeconds")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

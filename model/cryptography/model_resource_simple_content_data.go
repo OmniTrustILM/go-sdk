@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type ResourceSimpleContentData struct {
 	Name string `json:"name"`
 	// Attributes of the resource object
 	Attributes []ResponseAttribute `json:"attributes,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ResourceSimpleContentData ResourceSimpleContentData
@@ -174,6 +174,11 @@ func (o ResourceSimpleContentData) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Attributes) {
 		toSerialize["attributes"] = o.Attributes
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -203,15 +208,23 @@ func (o *ResourceSimpleContentData) UnmarshalJSON(data []byte) (err error) {
 
 	varResourceSimpleContentData := _ResourceSimpleContentData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varResourceSimpleContentData)
+	err = json.Unmarshal(data, &varResourceSimpleContentData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ResourceSimpleContentData(varResourceSimpleContentData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "resource")
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type EntityInstanceDto struct {
 	Name string `json:"name"`
 	// List of Entity instance Attributes
 	Attributes []BaseAttributeDto `json:"attributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _EntityInstanceDto EntityInstanceDto
@@ -137,6 +137,11 @@ func (o EntityInstanceDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["uuid"] = o.Uuid
 	toSerialize["name"] = o.Name
 	toSerialize["attributes"] = o.Attributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *EntityInstanceDto) UnmarshalJSON(data []byte) (err error) {
 
 	varEntityInstanceDto := _EntityInstanceDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varEntityInstanceDto)
+	err = json.Unmarshal(data, &varEntityInstanceDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = EntityInstanceDto(varEntityInstanceDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

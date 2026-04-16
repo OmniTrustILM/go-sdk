@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type LocationDetailResponseDto struct {
 	MultipleEntries bool `json:"multipleEntries"`
 	// Support for key pair management in the Location
 	SupportKeyManagement bool `json:"supportKeyManagement"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _LocationDetailResponseDto LocationDetailResponseDto
@@ -178,6 +178,11 @@ func (o LocationDetailResponseDto) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["multipleEntries"] = o.MultipleEntries
 	toSerialize["supportKeyManagement"] = o.SupportKeyManagement
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -207,15 +212,23 @@ func (o *LocationDetailResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varLocationDetailResponseDto := _LocationDetailResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varLocationDetailResponseDto)
+	err = json.Unmarshal(data, &varLocationDetailResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = LocationDetailResponseDto(varLocationDetailResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificates")
+		delete(additionalProperties, "metadata")
+		delete(additionalProperties, "multipleEntries")
+		delete(additionalProperties, "supportKeyManagement")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

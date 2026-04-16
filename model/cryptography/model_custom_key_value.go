@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &CustomKeyValue{}
 type CustomKeyValue struct {
 	// Custom values associated with the Key. It can be anything specific to the implementation,for example external ID, custom handlers, etc. Represented as a map of key-value pairs.
 	Values map[string]string `json:"values"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CustomKeyValue CustomKeyValue
@@ -81,6 +81,11 @@ func (o CustomKeyValue) MarshalJSON() ([]byte, error) {
 func (o CustomKeyValue) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["values"] = o.Values
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *CustomKeyValue) UnmarshalJSON(data []byte) (err error) {
 
 	varCustomKeyValue := _CustomKeyValue{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCustomKeyValue)
+	err = json.Unmarshal(data, &varCustomKeyValue)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CustomKeyValue(varCustomKeyValue)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "values")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

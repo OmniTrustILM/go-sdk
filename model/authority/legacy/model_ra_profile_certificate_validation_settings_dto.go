@@ -26,7 +26,10 @@ type RaProfileCertificateValidationSettingsDto struct {
 	Frequency *int32 `json:"frequency,omitempty"`
 	// How many days before expiration should certificate validation status change to Expiring
 	ExpiringThreshold *int32 `json:"expiringThreshold,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
+
+type _RaProfileCertificateValidationSettingsDto RaProfileCertificateValidationSettingsDto
 
 // NewRaProfileCertificateValidationSettingsDto instantiates a new RaProfileCertificateValidationSettingsDto object
 // This constructor will assign default values to properties that have it defined,
@@ -160,7 +163,35 @@ func (o RaProfileCertificateValidationSettingsDto) ToMap() (map[string]interface
 	if !IsNil(o.ExpiringThreshold) {
 		toSerialize["expiringThreshold"] = o.ExpiringThreshold
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
+}
+
+func (o *RaProfileCertificateValidationSettingsDto) UnmarshalJSON(data []byte) (err error) {
+	varRaProfileCertificateValidationSettingsDto := _RaProfileCertificateValidationSettingsDto{}
+
+	err = json.Unmarshal(data, &varRaProfileCertificateValidationSettingsDto)
+
+	if err != nil {
+		return err
+	}
+
+	*o = RaProfileCertificateValidationSettingsDto(varRaProfileCertificateValidationSettingsDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "enabled")
+		delete(additionalProperties, "frequency")
+		delete(additionalProperties, "expiringThreshold")
+		o.AdditionalProperties = additionalProperties
+	}
+
+	return err
 }
 
 type NullableRaProfileCertificateValidationSettingsDto struct {

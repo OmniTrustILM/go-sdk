@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type ComplianceResponseRuleDtoV2 struct {
 	Name string `json:"name"`
 	// Rule status
 	Status ComplianceRuleStatus `json:"status"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceResponseRuleDtoV2 ComplianceResponseRuleDtoV2
@@ -137,6 +137,11 @@ func (o ComplianceResponseRuleDtoV2) ToMap() (map[string]interface{}, error) {
 	toSerialize["uuid"] = o.Uuid
 	toSerialize["name"] = o.Name
 	toSerialize["status"] = o.Status
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *ComplianceResponseRuleDtoV2) UnmarshalJSON(data []byte) (err error) {
 
 	varComplianceResponseRuleDtoV2 := _ComplianceResponseRuleDtoV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceResponseRuleDtoV2)
+	err = json.Unmarshal(data, &varComplianceResponseRuleDtoV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceResponseRuleDtoV2(varComplianceResponseRuleDtoV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "status")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

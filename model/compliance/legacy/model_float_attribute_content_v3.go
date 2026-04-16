@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type FloatAttributeContentV3 struct {
 	Data float32 `json:"data"`
 	// Content Type of the attribute
 	ContentType AttributeContentType `json:"contentType"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _FloatAttributeContentV3 FloatAttributeContentV3
@@ -146,6 +146,11 @@ func (o FloatAttributeContentV3) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["data"] = o.Data
 	toSerialize["contentType"] = o.ContentType
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -174,15 +179,22 @@ func (o *FloatAttributeContentV3) UnmarshalJSON(data []byte) (err error) {
 
 	varFloatAttributeContentV3 := _FloatAttributeContentV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varFloatAttributeContentV3)
+	err = json.Unmarshal(data, &varFloatAttributeContentV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = FloatAttributeContentV3(varFloatAttributeContentV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "contentType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

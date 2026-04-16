@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &EprkiKeyValue{}
 type EprkiKeyValue struct {
 	// Base64 ASN.1 encoded EncryptedPrivateKeyInfo
 	Value string `json:"value"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _EprkiKeyValue EprkiKeyValue
@@ -81,6 +81,11 @@ func (o EprkiKeyValue) MarshalJSON() ([]byte, error) {
 func (o EprkiKeyValue) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["value"] = o.Value
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *EprkiKeyValue) UnmarshalJSON(data []byte) (err error) {
 
 	varEprkiKeyValue := _EprkiKeyValue{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varEprkiKeyValue)
+	err = json.Unmarshal(data, &varEprkiKeyValue)
 
 	if err != nil {
 		return err
 	}
 
 	*o = EprkiKeyValue(varEprkiKeyValue)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "value")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

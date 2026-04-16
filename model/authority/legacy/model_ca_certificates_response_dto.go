@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &CaCertificatesResponseDto{}
 type CaCertificatesResponseDto struct {
 	// List of Certificates
 	Certificates []CertificateDataResponseDto `json:"certificates"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CaCertificatesResponseDto CaCertificatesResponseDto
@@ -81,6 +81,11 @@ func (o CaCertificatesResponseDto) MarshalJSON() ([]byte, error) {
 func (o CaCertificatesResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["certificates"] = o.Certificates
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *CaCertificatesResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCaCertificatesResponseDto := _CaCertificatesResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCaCertificatesResponseDto)
+	err = json.Unmarshal(data, &varCaCertificatesResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CaCertificatesResponseDto(varCaCertificatesResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificates")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

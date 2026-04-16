@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -39,6 +38,7 @@ type InfoAttributeV3 struct {
 	ContentType AttributeContentType `json:"contentType"`
 	// Properties of the Attributes
 	Properties InfoAttributeProperties `json:"properties"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _InfoAttributeV3 InfoAttributeV3
@@ -322,6 +322,11 @@ func (o InfoAttributeV3) ToMap() (map[string]interface{}, error) {
 	toSerialize["type"] = o.Type
 	toSerialize["contentType"] = o.ContentType
 	toSerialize["properties"] = o.Properties
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -355,15 +360,28 @@ func (o *InfoAttributeV3) UnmarshalJSON(data []byte) (err error) {
 
 	varInfoAttributeV3 := _InfoAttributeV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varInfoAttributeV3)
+	err = json.Unmarshal(data, &varInfoAttributeV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = InfoAttributeV3(varInfoAttributeV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "schemaVersion")
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "version")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "contentType")
+		delete(additionalProperties, "properties")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

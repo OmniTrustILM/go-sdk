@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &RandomDataResponseDto{}
 type RandomDataResponseDto struct {
 	// Random generated data
 	Data string `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RandomDataResponseDto RandomDataResponseDto
@@ -81,6 +81,11 @@ func (o RandomDataResponseDto) MarshalJSON() ([]byte, error) {
 func (o RandomDataResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *RandomDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varRandomDataResponseDto := _RandomDataResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRandomDataResponseDto)
+	err = json.Unmarshal(data, &varRandomDataResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RandomDataResponseDto(varRandomDataResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

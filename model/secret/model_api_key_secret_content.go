@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type ApiKeySecretContent struct {
 	Type SecretType `json:"type"`
 	// API Key content string
 	Content string `json:"content"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ApiKeySecretContent ApiKeySecretContent
@@ -109,6 +109,11 @@ func (o ApiKeySecretContent) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["content"] = o.Content
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *ApiKeySecretContent) UnmarshalJSON(data []byte) (err error) {
 
 	varApiKeySecretContent := _ApiKeySecretContent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varApiKeySecretContent)
+	err = json.Unmarshal(data, &varApiKeySecretContent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ApiKeySecretContent(varApiKeySecretContent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

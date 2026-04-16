@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -44,6 +43,7 @@ type DataAttributeV3 struct {
 	AttributeCallback *AttributeCallback `json:"attributeCallback,omitempty"`
 	// Schema version of the Attribute
 	SchemaVersion AttributeVersion `json:"schemaVersion"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DataAttributeV3 DataAttributeV3
@@ -397,6 +397,11 @@ func (o DataAttributeV3) ToMap() (map[string]interface{}, error) {
 		toSerialize["attributeCallback"] = o.AttributeCallback
 	}
 	toSerialize["schemaVersion"] = o.SchemaVersion
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -430,15 +435,30 @@ func (o *DataAttributeV3) UnmarshalJSON(data []byte) (err error) {
 
 	varDataAttributeV3 := _DataAttributeV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDataAttributeV3)
+	err = json.Unmarshal(data, &varDataAttributeV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DataAttributeV3(varDataAttributeV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "version")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "contentType")
+		delete(additionalProperties, "properties")
+		delete(additionalProperties, "constraints")
+		delete(additionalProperties, "attributeCallback")
+		delete(additionalProperties, "schemaVersion")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

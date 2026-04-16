@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type AuthorityProviderInstanceRequestDto struct {
 	Kind string `json:"kind"`
 	// List of Authority instance Attributes
 	Attributes []RequestAttribute `json:"attributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _AuthorityProviderInstanceRequestDto AuthorityProviderInstanceRequestDto
@@ -137,6 +137,11 @@ func (o AuthorityProviderInstanceRequestDto) ToMap() (map[string]interface{}, er
 	toSerialize["name"] = o.Name
 	toSerialize["kind"] = o.Kind
 	toSerialize["attributes"] = o.Attributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *AuthorityProviderInstanceRequestDto) UnmarshalJSON(data []byte) (err er
 
 	varAuthorityProviderInstanceRequestDto := _AuthorityProviderInstanceRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varAuthorityProviderInstanceRequestDto)
+	err = json.Unmarshal(data, &varAuthorityProviderInstanceRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = AuthorityProviderInstanceRequestDto(varAuthorityProviderInstanceRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "kind")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

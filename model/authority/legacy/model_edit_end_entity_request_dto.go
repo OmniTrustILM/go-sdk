@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -36,6 +35,7 @@ type EditEndEntityRequestDto struct {
 	SubjectDN string `json:"subjectDN"`
 	// End Entity Subject domain name
 	Status string `json:"status"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _EditEndEntityRequestDto EditEndEntityRequestDto
@@ -276,6 +276,11 @@ func (o EditEndEntityRequestDto) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["subjectDN"] = o.SubjectDN
 	toSerialize["status"] = o.Status
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -306,15 +311,26 @@ func (o *EditEndEntityRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varEditEndEntityRequestDto := _EditEndEntityRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varEditEndEntityRequestDto)
+	err = json.Unmarshal(data, &varEditEndEntityRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = EditEndEntityRequestDto(varEditEndEntityRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "raProfile")
+		delete(additionalProperties, "email")
+		delete(additionalProperties, "extensionData")
+		delete(additionalProperties, "password")
+		delete(additionalProperties, "subjectAltName")
+		delete(additionalProperties, "subjectDN")
+		delete(additionalProperties, "status")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

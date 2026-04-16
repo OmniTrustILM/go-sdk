@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type KeyDataResponseDto struct {
 	Association *string `json:"association,omitempty"`
 	// Data of the Key
 	KeyData KeyData `json:"keyData"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _KeyDataResponseDto KeyDataResponseDto
@@ -174,6 +174,11 @@ func (o KeyDataResponseDto) ToMap() (map[string]interface{}, error) {
 		toSerialize["association"] = o.Association
 	}
 	toSerialize["keyData"] = o.KeyData
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -203,15 +208,23 @@ func (o *KeyDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varKeyDataResponseDto := _KeyDataResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varKeyDataResponseDto)
+	err = json.Unmarshal(data, &varKeyDataResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = KeyDataResponseDto(varKeyDataResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "association")
+		delete(additionalProperties, "keyData")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

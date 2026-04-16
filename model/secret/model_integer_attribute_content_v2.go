@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type IntegerAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// Integer attribute value
 	Data int32 `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _IntegerAttributeContentV2 IntegerAttributeContentV2
@@ -118,6 +118,11 @@ func (o IntegerAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *IntegerAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varIntegerAttributeContentV2 := _IntegerAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varIntegerAttributeContentV2)
+	err = json.Unmarshal(data, &varIntegerAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = IntegerAttributeContentV2(varIntegerAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package notification
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -33,6 +32,7 @@ type AttributeCallbackMapping struct {
 	// Set of targets for propagating value.
 	Targets []AttributeValueTarget `json:"targets"`
 	Value interface{} `json:"value,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _AttributeCallbackMapping AttributeCallbackMapping
@@ -257,6 +257,11 @@ func (o AttributeCallbackMapping) ToMap() (map[string]interface{}, error) {
 	if o.Value != nil {
 		toSerialize["value"] = o.Value
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -285,15 +290,25 @@ func (o *AttributeCallbackMapping) UnmarshalJSON(data []byte) (err error) {
 
 	varAttributeCallbackMapping := _AttributeCallbackMapping{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varAttributeCallbackMapping)
+	err = json.Unmarshal(data, &varAttributeCallbackMapping)
 
 	if err != nil {
 		return err
 	}
 
 	*o = AttributeCallbackMapping(varAttributeCallbackMapping)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "from")
+		delete(additionalProperties, "attributeType")
+		delete(additionalProperties, "attributeContentType")
+		delete(additionalProperties, "to")
+		delete(additionalProperties, "targets")
+		delete(additionalProperties, "value")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &CertificateSignResponseDto{}
 type CertificateSignResponseDto struct {
 	// Base64 encoded Certificate
 	CertificateData string `json:"certificateData"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertificateSignResponseDto CertificateSignResponseDto
@@ -81,6 +81,11 @@ func (o CertificateSignResponseDto) MarshalJSON() ([]byte, error) {
 func (o CertificateSignResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["certificateData"] = o.CertificateData
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *CertificateSignResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCertificateSignResponseDto := _CertificateSignResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertificateSignResponseDto)
+	err = json.Unmarshal(data, &varCertificateSignResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertificateSignResponseDto(varCertificateSignResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificateData")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

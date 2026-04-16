@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type CodeBlockAttributeContentData struct {
 	Language ProgrammingLanguageEnum `json:"language"`
 	// Block of the code in Base64. Formatting of the code is specified by variable language
 	Code string `json:"code"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CodeBlockAttributeContentData CodeBlockAttributeContentData
@@ -109,6 +109,11 @@ func (o CodeBlockAttributeContentData) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["language"] = o.Language
 	toSerialize["code"] = o.Code
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *CodeBlockAttributeContentData) UnmarshalJSON(data []byte) (err error) {
 
 	varCodeBlockAttributeContentData := _CodeBlockAttributeContentData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCodeBlockAttributeContentData)
+	err = json.Unmarshal(data, &varCodeBlockAttributeContentData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CodeBlockAttributeContentData(varCodeBlockAttributeContentData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "language")
+		delete(additionalProperties, "code")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

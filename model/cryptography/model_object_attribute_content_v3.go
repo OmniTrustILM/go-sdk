@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -27,6 +26,7 @@ type ObjectAttributeContentV3 struct {
 	Data interface{} `json:"data"`
 	// Content Type of the attribute
 	ContentType AttributeContentType `json:"contentType"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ObjectAttributeContentV3 ObjectAttributeContentV3
@@ -149,6 +149,11 @@ func (o ObjectAttributeContentV3) ToMap() (map[string]interface{}, error) {
 		toSerialize["data"] = o.Data
 	}
 	toSerialize["contentType"] = o.ContentType
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -177,15 +182,22 @@ func (o *ObjectAttributeContentV3) UnmarshalJSON(data []byte) (err error) {
 
 	varObjectAttributeContentV3 := _ObjectAttributeContentV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varObjectAttributeContentV3)
+	err = json.Unmarshal(data, &varObjectAttributeContentV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ObjectAttributeContentV3(varObjectAttributeContentV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "contentType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

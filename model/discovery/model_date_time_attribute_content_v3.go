@@ -14,7 +14,6 @@ package discovery
 import (
 	"encoding/json"
 	"time"
-	"bytes"
 	"fmt"
 )
 
@@ -29,6 +28,7 @@ type DateTimeAttributeContentV3 struct {
 	Data time.Time `json:"data"`
 	// Content Type of the attribute
 	ContentType AttributeContentType `json:"contentType"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DateTimeAttributeContentV3 DateTimeAttributeContentV3
@@ -147,6 +147,11 @@ func (o DateTimeAttributeContentV3) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["data"] = o.Data
 	toSerialize["contentType"] = o.ContentType
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -175,15 +180,22 @@ func (o *DateTimeAttributeContentV3) UnmarshalJSON(data []byte) (err error) {
 
 	varDateTimeAttributeContentV3 := _DateTimeAttributeContentV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDateTimeAttributeContentV3)
+	err = json.Unmarshal(data, &varDateTimeAttributeContentV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DateTimeAttributeContentV3(varDateTimeAttributeContentV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "contentType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

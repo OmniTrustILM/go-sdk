@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type KeyValueSecretContent struct {
 	Type SecretType `json:"type"`
 	// Key-Value pairs stored as the secret content, represented by JSON object
 	Content map[string]interface{} `json:"content"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _KeyValueSecretContent KeyValueSecretContent
@@ -109,6 +109,11 @@ func (o KeyValueSecretContent) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["content"] = o.Content
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *KeyValueSecretContent) UnmarshalJSON(data []byte) (err error) {
 
 	varKeyValueSecretContent := _KeyValueSecretContent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varKeyValueSecretContent)
+	err = json.Unmarshal(data, &varKeyValueSecretContent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = KeyValueSecretContent(varKeyValueSecretContent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

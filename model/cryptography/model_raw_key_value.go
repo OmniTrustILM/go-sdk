@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &RawKeyValue{}
 type RawKeyValue struct {
 	// Base64 raw value of the Key
 	Value string `json:"value"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RawKeyValue RawKeyValue
@@ -81,6 +81,11 @@ func (o RawKeyValue) MarshalJSON() ([]byte, error) {
 func (o RawKeyValue) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["value"] = o.Value
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *RawKeyValue) UnmarshalJSON(data []byte) (err error) {
 
 	varRawKeyValue := _RawKeyValue{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRawKeyValue)
+	err = json.Unmarshal(data, &varRawKeyValue)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RawKeyValue(varRawKeyValue)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "value")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

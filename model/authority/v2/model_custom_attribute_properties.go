@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -40,6 +39,7 @@ type CustomAttributeProperties struct {
 	ExtensibleList bool `json:"extensibleList"`
 	// Protection level of the attribute content
 	ProtectionLevel *ProtectionLevel `json:"protectionLevel,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CustomAttributeProperties CustomAttributeProperties
@@ -339,6 +339,11 @@ func (o CustomAttributeProperties) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.ProtectionLevel) {
 		toSerialize["protectionLevel"] = o.ProtectionLevel
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -372,15 +377,28 @@ func (o *CustomAttributeProperties) UnmarshalJSON(data []byte) (err error) {
 
 	varCustomAttributeProperties := _CustomAttributeProperties{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCustomAttributeProperties)
+	err = json.Unmarshal(data, &varCustomAttributeProperties)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CustomAttributeProperties(varCustomAttributeProperties)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "label")
+		delete(additionalProperties, "visible")
+		delete(additionalProperties, "group")
+		delete(additionalProperties, "required")
+		delete(additionalProperties, "readOnly")
+		delete(additionalProperties, "list")
+		delete(additionalProperties, "multiSelect")
+		delete(additionalProperties, "extensibleList")
+		delete(additionalProperties, "protectionLevel")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

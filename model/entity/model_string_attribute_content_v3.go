@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type StringAttributeContentV3 struct {
 	Data string `json:"data"`
 	// Content Type of the attribute
 	ContentType AttributeContentType `json:"contentType"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _StringAttributeContentV3 StringAttributeContentV3
@@ -146,6 +146,11 @@ func (o StringAttributeContentV3) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["data"] = o.Data
 	toSerialize["contentType"] = o.ContentType
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -174,15 +179,22 @@ func (o *StringAttributeContentV3) UnmarshalJSON(data []byte) (err error) {
 
 	varStringAttributeContentV3 := _StringAttributeContentV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varStringAttributeContentV3)
+	err = json.Unmarshal(data, &varStringAttributeContentV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = StringAttributeContentV3(varStringAttributeContentV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "contentType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

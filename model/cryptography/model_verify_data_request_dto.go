@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type VerifyDataRequestDto struct {
 	Data []SignatureRequestData `json:"data"`
 	// Signatures to verify
 	Signatures []SignatureRequestData `json:"signatures"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _VerifyDataRequestDto VerifyDataRequestDto
@@ -137,6 +137,11 @@ func (o VerifyDataRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["signatureAttributes"] = o.SignatureAttributes
 	toSerialize["data"] = o.Data
 	toSerialize["signatures"] = o.Signatures
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *VerifyDataRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varVerifyDataRequestDto := _VerifyDataRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varVerifyDataRequestDto)
+	err = json.Unmarshal(data, &varVerifyDataRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = VerifyDataRequestDto(varVerifyDataRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "signatureAttributes")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "signatures")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

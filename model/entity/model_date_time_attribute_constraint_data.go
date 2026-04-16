@@ -25,7 +25,10 @@ type DateTimeAttributeConstraintData struct {
 	From *time.Time `json:"from,omitempty"`
 	// End of the datetime for validation
 	To *time.Time `json:"to,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
+
+type _DateTimeAttributeConstraintData DateTimeAttributeConstraintData
 
 // NewDateTimeAttributeConstraintData instantiates a new DateTimeAttributeConstraintData object
 // This constructor will assign default values to properties that have it defined,
@@ -124,7 +127,34 @@ func (o DateTimeAttributeConstraintData) ToMap() (map[string]interface{}, error)
 	if !IsNil(o.To) {
 		toSerialize["to"] = o.To
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
+}
+
+func (o *DateTimeAttributeConstraintData) UnmarshalJSON(data []byte) (err error) {
+	varDateTimeAttributeConstraintData := _DateTimeAttributeConstraintData{}
+
+	err = json.Unmarshal(data, &varDateTimeAttributeConstraintData)
+
+	if err != nil {
+		return err
+	}
+
+	*o = DateTimeAttributeConstraintData(varDateTimeAttributeConstraintData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "from")
+		delete(additionalProperties, "to")
+		o.AdditionalProperties = additionalProperties
+	}
+
+	return err
 }
 
 type NullableDateTimeAttributeConstraintData struct {

@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type DateTimeAttributeConstraint struct {
 	Type AttributeConstraintType `json:"type"`
 	// DateTime Range Attribute Constraint Data
 	Data *DateTimeAttributeConstraintData `json:"data,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DateTimeAttributeConstraint DateTimeAttributeConstraint
@@ -192,6 +192,11 @@ func (o DateTimeAttributeConstraint) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Data) {
 		toSerialize["data"] = o.Data
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -219,15 +224,23 @@ func (o *DateTimeAttributeConstraint) UnmarshalJSON(data []byte) (err error) {
 
 	varDateTimeAttributeConstraint := _DateTimeAttributeConstraint{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDateTimeAttributeConstraint)
+	err = json.Unmarshal(data, &varDateTimeAttributeConstraint)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DateTimeAttributeConstraint(varDateTimeAttributeConstraint)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "errorMessage")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -25,6 +24,7 @@ type ObjectAttributeContentV2 struct {
 	// ContentV2 Reference
 	Reference *string `json:"reference,omitempty"`
 	Data interface{} `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ObjectAttributeContentV2 ObjectAttributeContentV2
@@ -121,6 +121,11 @@ func (o ObjectAttributeContentV2) ToMap() (map[string]interface{}, error) {
 	if o.Data != nil {
 		toSerialize["data"] = o.Data
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -148,15 +153,21 @@ func (o *ObjectAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varObjectAttributeContentV2 := _ObjectAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varObjectAttributeContentV2)
+	err = json.Unmarshal(data, &varObjectAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ObjectAttributeContentV2(varObjectAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

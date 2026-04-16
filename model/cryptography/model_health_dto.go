@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type HealthDto struct {
 	Description *string `json:"description,omitempty"`
 	// Nested status of services
 	Parts map[string]HealthDto `json:"parts,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _HealthDto HealthDto
@@ -155,6 +155,11 @@ func (o HealthDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Parts) {
 		toSerialize["parts"] = o.Parts
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -182,15 +187,22 @@ func (o *HealthDto) UnmarshalJSON(data []byte) (err error) {
 
 	varHealthDto := _HealthDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varHealthDto)
+	err = json.Unmarshal(data, &varHealthDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = HealthDto(varHealthDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "status")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "parts")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type AuthenticationServiceExceptionDto struct {
 	Code string `json:"code"`
 	// Exception message
 	Message string `json:"message"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _AuthenticationServiceExceptionDto AuthenticationServiceExceptionDto
@@ -137,6 +137,11 @@ func (o AuthenticationServiceExceptionDto) ToMap() (map[string]interface{}, erro
 	toSerialize["statusCode"] = o.StatusCode
 	toSerialize["code"] = o.Code
 	toSerialize["message"] = o.Message
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *AuthenticationServiceExceptionDto) UnmarshalJSON(data []byte) (err erro
 
 	varAuthenticationServiceExceptionDto := _AuthenticationServiceExceptionDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varAuthenticationServiceExceptionDto)
+	err = json.Unmarshal(data, &varAuthenticationServiceExceptionDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = AuthenticationServiceExceptionDto(varAuthenticationServiceExceptionDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "statusCode")
+		delete(additionalProperties, "code")
+		delete(additionalProperties, "message")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

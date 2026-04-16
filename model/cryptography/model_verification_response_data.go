@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -27,6 +26,7 @@ type VerificationResponseData struct {
 	// Custom identifier of the data, that should be the same as in the request, if available
 	Identifier *string `json:"identifier,omitempty"`
 	Details interface{} `json:"details,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _VerificationResponseData VerificationResponseData
@@ -155,6 +155,11 @@ func (o VerificationResponseData) ToMap() (map[string]interface{}, error) {
 	if o.Details != nil {
 		toSerialize["details"] = o.Details
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -182,15 +187,22 @@ func (o *VerificationResponseData) UnmarshalJSON(data []byte) (err error) {
 
 	varVerificationResponseData := _VerificationResponseData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varVerificationResponseData)
+	err = json.Unmarshal(data, &varVerificationResponseData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = VerificationResponseData(varVerificationResponseData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "result")
+		delete(additionalProperties, "identifier")
+		delete(additionalProperties, "details")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

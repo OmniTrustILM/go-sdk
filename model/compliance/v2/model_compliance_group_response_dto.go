@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type ComplianceGroupResponseDto struct {
 	Description *string `json:"description,omitempty"`
 	// Resource of the group
 	Resource *Resource `json:"resource,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceGroupResponseDto ComplianceGroupResponseDto
@@ -183,6 +183,11 @@ func (o ComplianceGroupResponseDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Resource) {
 		toSerialize["resource"] = o.Resource
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -211,15 +216,23 @@ func (o *ComplianceGroupResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varComplianceGroupResponseDto := _ComplianceGroupResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceGroupResponseDto)
+	err = json.Unmarshal(data, &varComplianceGroupResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceGroupResponseDto(varComplianceGroupResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "resource")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

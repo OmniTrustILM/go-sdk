@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type InfoResponse struct {
 	Kinds []string `json:"kinds"`
 	// List of end points related to functional group
 	EndPoints []EndpointDto `json:"endPoints"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _InfoResponse InfoResponse
@@ -137,6 +137,11 @@ func (o InfoResponse) ToMap() (map[string]interface{}, error) {
 	toSerialize["functionGroupCode"] = o.FunctionGroupCode
 	toSerialize["kinds"] = o.Kinds
 	toSerialize["endPoints"] = o.EndPoints
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *InfoResponse) UnmarshalJSON(data []byte) (err error) {
 
 	varInfoResponse := _InfoResponse{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varInfoResponse)
+	err = json.Unmarshal(data, &varInfoResponse)
 
 	if err != nil {
 		return err
 	}
 
 	*o = InfoResponse(varInfoResponse)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "functionGroupCode")
+		delete(additionalProperties, "kinds")
+		delete(additionalProperties, "endPoints")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

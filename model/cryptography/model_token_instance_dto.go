@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type TokenInstanceDto struct {
 	Name string `json:"name"`
 	// Token instance Metadata
 	Metadata []MetadataAttribute `json:"metadata,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _TokenInstanceDto TokenInstanceDto
@@ -146,6 +146,11 @@ func (o TokenInstanceDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -174,15 +179,22 @@ func (o *TokenInstanceDto) UnmarshalJSON(data []byte) (err error) {
 
 	varTokenInstanceDto := _TokenInstanceDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varTokenInstanceDto)
+	err = json.Unmarshal(data, &varTokenInstanceDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = TokenInstanceDto(varTokenInstanceDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "metadata")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

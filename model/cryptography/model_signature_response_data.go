@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -27,6 +26,7 @@ type SignatureResponseData struct {
 	// Custom identifier of the data, that should be the same as in the request, if available
 	Identifier *string `json:"identifier,omitempty"`
 	Details interface{} `json:"details,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _SignatureResponseData SignatureResponseData
@@ -155,6 +155,11 @@ func (o SignatureResponseData) ToMap() (map[string]interface{}, error) {
 	if o.Details != nil {
 		toSerialize["details"] = o.Details
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -182,15 +187,22 @@ func (o *SignatureResponseData) UnmarshalJSON(data []byte) (err error) {
 
 	varSignatureResponseData := _SignatureResponseData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varSignatureResponseData)
+	err = json.Unmarshal(data, &varSignatureResponseData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = SignatureResponseData(varSignatureResponseData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "identifier")
+		delete(additionalProperties, "details")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

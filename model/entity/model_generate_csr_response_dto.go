@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type GenerateCsrResponseDto struct {
 	CertificateType *CertificateType `json:"certificateType,omitempty"`
 	// List of Attributes to push Certificate
 	PushAttributes []RequestAttribute `json:"pushAttributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _GenerateCsrResponseDto GenerateCsrResponseDto
@@ -183,6 +183,11 @@ func (o GenerateCsrResponseDto) ToMap() (map[string]interface{}, error) {
 		toSerialize["certificateType"] = o.CertificateType
 	}
 	toSerialize["pushAttributes"] = o.PushAttributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -211,15 +216,23 @@ func (o *GenerateCsrResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varGenerateCsrResponseDto := _GenerateCsrResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varGenerateCsrResponseDto)
+	err = json.Unmarshal(data, &varGenerateCsrResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = GenerateCsrResponseDto(varGenerateCsrResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "csr")
+		delete(additionalProperties, "metadata")
+		delete(additionalProperties, "certificateType")
+		delete(additionalProperties, "pushAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

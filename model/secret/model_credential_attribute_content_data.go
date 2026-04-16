@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type CredentialAttributeContentData struct {
 	Kind string `json:"kind"`
 	// List of Credential Attributes
 	Attributes []DataAttributeV2 `json:"attributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CredentialAttributeContentData CredentialAttributeContentData
@@ -165,6 +165,11 @@ func (o CredentialAttributeContentData) ToMap() (map[string]interface{}, error) 
 	toSerialize["name"] = o.Name
 	toSerialize["kind"] = o.Kind
 	toSerialize["attributes"] = o.Attributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -195,15 +200,23 @@ func (o *CredentialAttributeContentData) UnmarshalJSON(data []byte) (err error) 
 
 	varCredentialAttributeContentData := _CredentialAttributeContentData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCredentialAttributeContentData)
+	err = json.Unmarshal(data, &varCredentialAttributeContentData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CredentialAttributeContentData(varCredentialAttributeContentData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "kind")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

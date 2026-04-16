@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type CertRevocationDto struct {
 	IssuerDN string `json:"issuerDN"`
 	// Revocation reason
 	Reason CertificateRevocationReason `json:"reason"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertRevocationDto CertRevocationDto
@@ -137,6 +137,11 @@ func (o CertRevocationDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["certificateSN"] = o.CertificateSN
 	toSerialize["issuerDN"] = o.IssuerDN
 	toSerialize["reason"] = o.Reason
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *CertRevocationDto) UnmarshalJSON(data []byte) (err error) {
 
 	varCertRevocationDto := _CertRevocationDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertRevocationDto)
+	err = json.Unmarshal(data, &varCertRevocationDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertRevocationDto(varCertRevocationDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificateSN")
+		delete(additionalProperties, "issuerDN")
+		delete(additionalProperties, "reason")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

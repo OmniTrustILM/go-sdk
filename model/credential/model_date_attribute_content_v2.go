@@ -13,7 +13,6 @@ package credential
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type DateAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// Date attribute value in format yyyy-MM-dd
 	Data string `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DateAttributeContentV2 DateAttributeContentV2
@@ -118,6 +118,11 @@ func (o DateAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *DateAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varDateAttributeContentV2 := _DateAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDateAttributeContentV2)
+	err = json.Unmarshal(data, &varDateAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DateAttributeContentV2(varDateAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

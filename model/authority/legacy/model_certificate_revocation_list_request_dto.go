@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type CertificateRevocationListRequestDto struct {
 	Delta *bool `json:"delta,omitempty"`
 	// List of RA Profiles attributes
 	RaProfileAttributes []RequestAttribute `json:"raProfileAttributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertificateRevocationListRequestDto CertificateRevocationListRequestDto
@@ -122,6 +122,11 @@ func (o CertificateRevocationListRequestDto) ToMap() (map[string]interface{}, er
 		toSerialize["delta"] = o.Delta
 	}
 	toSerialize["raProfileAttributes"] = o.RaProfileAttributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -149,15 +154,21 @@ func (o *CertificateRevocationListRequestDto) UnmarshalJSON(data []byte) (err er
 
 	varCertificateRevocationListRequestDto := _CertificateRevocationListRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertificateRevocationListRequestDto)
+	err = json.Unmarshal(data, &varCertificateRevocationListRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertificateRevocationListRequestDto(varCertificateRevocationListRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "delta")
+		delete(additionalProperties, "raProfileAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

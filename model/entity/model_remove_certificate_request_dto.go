@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type RemoveCertificateRequestDto struct {
 	CertificateMetadata []MetadataAttribute `json:"certificateMetadata"`
 	// List of Location Attributes
 	LocationAttributes []RequestAttribute `json:"locationAttributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RemoveCertificateRequestDto RemoveCertificateRequestDto
@@ -109,6 +109,11 @@ func (o RemoveCertificateRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["certificateMetadata"] = o.CertificateMetadata
 	toSerialize["locationAttributes"] = o.LocationAttributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *RemoveCertificateRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varRemoveCertificateRequestDto := _RemoveCertificateRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRemoveCertificateRequestDto)
+	err = json.Unmarshal(data, &varRemoveCertificateRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RemoveCertificateRequestDto(varRemoveCertificateRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificateMetadata")
+		delete(additionalProperties, "locationAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

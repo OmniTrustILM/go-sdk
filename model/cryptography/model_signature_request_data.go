@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type SignatureRequestData struct {
 	Data string `json:"data"`
 	// Custom identifier of the data, that should be the same as in the request, if available
 	Identifier *string `json:"identifier,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _SignatureRequestData SignatureRequestData
@@ -118,6 +118,11 @@ func (o SignatureRequestData) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Identifier) {
 		toSerialize["identifier"] = o.Identifier
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *SignatureRequestData) UnmarshalJSON(data []byte) (err error) {
 
 	varSignatureRequestData := _SignatureRequestData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varSignatureRequestData)
+	err = json.Unmarshal(data, &varSignatureRequestData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = SignatureRequestData(varSignatureRequestData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "identifier")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

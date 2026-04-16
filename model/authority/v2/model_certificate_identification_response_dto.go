@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &CertificateIdentificationResponseDto{}
 type CertificateIdentificationResponseDto struct {
 	// Metadata for identified certificate
 	Meta []MetadataAttribute `json:"meta"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CertificateIdentificationResponseDto CertificateIdentificationResponseDto
@@ -81,6 +81,11 @@ func (o CertificateIdentificationResponseDto) MarshalJSON() ([]byte, error) {
 func (o CertificateIdentificationResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["meta"] = o.Meta
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *CertificateIdentificationResponseDto) UnmarshalJSON(data []byte) (err e
 
 	varCertificateIdentificationResponseDto := _CertificateIdentificationResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCertificateIdentificationResponseDto)
+	err = json.Unmarshal(data, &varCertificateIdentificationResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CertificateIdentificationResponseDto(varCertificateIdentificationResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "meta")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

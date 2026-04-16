@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type GenericSecretContent struct {
 	Type SecretType `json:"type"`
 	// Generic secret content represented as string. In case secret content is binary data, it should be encoded as BASE64 string.
 	Content string `json:"content"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _GenericSecretContent GenericSecretContent
@@ -109,6 +109,11 @@ func (o GenericSecretContent) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["content"] = o.Content
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *GenericSecretContent) UnmarshalJSON(data []byte) (err error) {
 
 	varGenericSecretContent := _GenericSecretContent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varGenericSecretContent)
+	err = json.Unmarshal(data, &varGenericSecretContent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = GenericSecretContent(varGenericSecretContent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

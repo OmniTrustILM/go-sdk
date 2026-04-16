@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type NameAndIdDto struct {
 	Id int32 `json:"id"`
 	// Object name
 	Name string `json:"name"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _NameAndIdDto NameAndIdDto
@@ -109,6 +109,11 @@ func (o NameAndIdDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["id"] = o.Id
 	toSerialize["name"] = o.Name
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *NameAndIdDto) UnmarshalJSON(data []byte) (err error) {
 
 	varNameAndIdDto := _NameAndIdDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varNameAndIdDto)
+	err = json.Unmarshal(data, &varNameAndIdDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = NameAndIdDto(varNameAndIdDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "id")
+		delete(additionalProperties, "name")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

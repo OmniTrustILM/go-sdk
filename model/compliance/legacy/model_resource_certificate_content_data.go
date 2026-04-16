@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -32,6 +31,7 @@ type ResourceCertificateContentData struct {
 	CertificateType *CertificateType `json:"certificateType,omitempty"`
 	// Base64 encoded content of the certificate
 	Content *string `json:"content,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ResourceCertificateContentData ResourceCertificateContentData
@@ -211,6 +211,11 @@ func (o ResourceCertificateContentData) ToMap() (map[string]interface{}, error) 
 	if !IsNil(o.Content) {
 		toSerialize["content"] = o.Content
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -240,15 +245,24 @@ func (o *ResourceCertificateContentData) UnmarshalJSON(data []byte) (err error) 
 
 	varResourceCertificateContentData := _ResourceCertificateContentData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varResourceCertificateContentData)
+	err = json.Unmarshal(data, &varResourceCertificateContentData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ResourceCertificateContentData(varResourceCertificateContentData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "resource")
+		delete(additionalProperties, "certificateType")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

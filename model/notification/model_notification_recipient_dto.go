@@ -13,7 +13,6 @@ package notification
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type NotificationRecipientDto struct {
 	Email *string `json:"email,omitempty"`
 	// Mapped attributes values for recipient
 	MappedAttributes []RequestAttribute `json:"mappedAttributes,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _NotificationRecipientDto NotificationRecipientDto
@@ -155,6 +155,11 @@ func (o NotificationRecipientDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.MappedAttributes) {
 		toSerialize["mappedAttributes"] = o.MappedAttributes
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -182,15 +187,22 @@ func (o *NotificationRecipientDto) UnmarshalJSON(data []byte) (err error) {
 
 	varNotificationRecipientDto := _NotificationRecipientDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varNotificationRecipientDto)
+	err = json.Unmarshal(data, &varNotificationRecipientDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = NotificationRecipientDto(varNotificationRecipientDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "email")
+		delete(additionalProperties, "mappedAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

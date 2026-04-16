@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type DiscoveryRequestDto struct {
 	Kind string `json:"kind"`
 	// Discovery Provider Attributes. Mandatory for creating new Discovery
 	Attributes []RequestAttribute `json:"attributes,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DiscoveryRequestDto DiscoveryRequestDto
@@ -146,6 +146,11 @@ func (o DiscoveryRequestDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Attributes) {
 		toSerialize["attributes"] = o.Attributes
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -174,15 +179,22 @@ func (o *DiscoveryRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varDiscoveryRequestDto := _DiscoveryRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDiscoveryRequestDto)
+	err = json.Unmarshal(data, &varDiscoveryRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DiscoveryRequestDto(varDiscoveryRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "kind")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

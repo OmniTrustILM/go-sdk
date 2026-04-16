@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -33,6 +32,7 @@ type KeyData struct {
 	Length int32 `json:"length"`
 	// Metadata for the Key, specific data that can be technology specific
 	Metadata []MetadataAttribute `json:"metadata,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _KeyData KeyData
@@ -229,6 +229,11 @@ func (o KeyData) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -260,15 +265,25 @@ func (o *KeyData) UnmarshalJSON(data []byte) (err error) {
 
 	varKeyData := _KeyData{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varKeyData)
+	err = json.Unmarshal(data, &varKeyData)
 
 	if err != nil {
 		return err
 	}
 
 	*o = KeyData(varKeyData)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "algorithm")
+		delete(additionalProperties, "format")
+		delete(additionalProperties, "value")
+		delete(additionalProperties, "length")
+		delete(additionalProperties, "metadata")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -34,6 +33,7 @@ type UpdateSecretRequestDto struct {
 	SecretAttributes []RequestAttribute `json:"secretAttributes,omitempty"`
 	// Metadata for the secret
 	Metadata []MetadataAttribute `json:"metadata,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _UpdateSecretRequestDto UpdateSecretRequestDto
@@ -257,6 +257,11 @@ func (o UpdateSecretRequestDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -285,15 +290,25 @@ func (o *UpdateSecretRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varUpdateSecretRequestDto := _UpdateSecretRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varUpdateSecretRequestDto)
+	err = json.Unmarshal(data, &varUpdateSecretRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = UpdateSecretRequestDto(varUpdateSecretRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "secret")
+		delete(additionalProperties, "vaultAttributes")
+		delete(additionalProperties, "vaultProfileAttributes")
+		delete(additionalProperties, "secretAttributes")
+		delete(additionalProperties, "metadata")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

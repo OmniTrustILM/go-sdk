@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type GenerateCsrRequestDto struct {
 	CsrAttributes []RequestAttribute `json:"csrAttributes"`
 	// Is the request for renewal of Certificate
 	Renewal bool `json:"renewal"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _GenerateCsrRequestDto GenerateCsrRequestDto
@@ -137,6 +137,11 @@ func (o GenerateCsrRequestDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["locationAttributes"] = o.LocationAttributes
 	toSerialize["csrAttributes"] = o.CsrAttributes
 	toSerialize["renewal"] = o.Renewal
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -166,15 +171,22 @@ func (o *GenerateCsrRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varGenerateCsrRequestDto := _GenerateCsrRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varGenerateCsrRequestDto)
+	err = json.Unmarshal(data, &varGenerateCsrRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = GenerateCsrRequestDto(varGenerateCsrRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "locationAttributes")
+		delete(additionalProperties, "csrAttributes")
+		delete(additionalProperties, "renewal")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

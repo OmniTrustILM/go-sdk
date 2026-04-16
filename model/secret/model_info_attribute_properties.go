@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type InfoAttributeProperties struct {
 	Visible bool `json:"visible"`
 	// Group of the Attribute, used for the logical grouping of the Attribute
 	Group *string `json:"group,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _InfoAttributeProperties InfoAttributeProperties
@@ -148,6 +148,11 @@ func (o InfoAttributeProperties) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Group) {
 		toSerialize["group"] = o.Group
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -176,15 +181,22 @@ func (o *InfoAttributeProperties) UnmarshalJSON(data []byte) (err error) {
 
 	varInfoAttributeProperties := _InfoAttributeProperties{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varInfoAttributeProperties)
+	err = json.Unmarshal(data, &varInfoAttributeProperties)
 
 	if err != nil {
 		return err
 	}
 
 	*o = InfoAttributeProperties(varInfoAttributeProperties)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "label")
+		delete(additionalProperties, "visible")
+		delete(additionalProperties, "group")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

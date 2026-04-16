@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type PushCertificateRequestDto struct {
 	LocationAttributes []RequestAttribute `json:"locationAttributes"`
 	// List of Attributes to push Certificate
 	PushAttributes []RequestAttribute `json:"pushAttributes"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _PushCertificateRequestDto PushCertificateRequestDto
@@ -178,6 +178,11 @@ func (o PushCertificateRequestDto) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["locationAttributes"] = o.LocationAttributes
 	toSerialize["pushAttributes"] = o.PushAttributes
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -207,15 +212,23 @@ func (o *PushCertificateRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varPushCertificateRequestDto := _PushCertificateRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varPushCertificateRequestDto)
+	err = json.Unmarshal(data, &varPushCertificateRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = PushCertificateRequestDto(varPushCertificateRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "certificate")
+		delete(additionalProperties, "certificateType")
+		delete(additionalProperties, "locationAttributes")
+		delete(additionalProperties, "pushAttributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

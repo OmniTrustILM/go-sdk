@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type ComplianceGroupsResponseDto struct {
 	Name string `json:"name"`
 	// Description of the group
 	Description *string `json:"description,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceGroupsResponseDto ComplianceGroupsResponseDto
@@ -146,6 +146,11 @@ func (o ComplianceGroupsResponseDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Description) {
 		toSerialize["description"] = o.Description
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -174,15 +179,22 @@ func (o *ComplianceGroupsResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varComplianceGroupsResponseDto := _ComplianceGroupsResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceGroupsResponseDto)
+	err = json.Unmarshal(data, &varComplianceGroupsResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceGroupsResponseDto(varComplianceGroupsResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

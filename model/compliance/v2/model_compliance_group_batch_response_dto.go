@@ -13,7 +13,6 @@ package v2
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -32,6 +31,7 @@ type ComplianceGroupBatchResponseDto struct {
 	Resource *Resource `json:"resource,omitempty"`
 	// List of the group rules
 	Rules []ComplianceRuleResponseDto `json:"rules,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceGroupBatchResponseDto ComplianceGroupBatchResponseDto
@@ -220,6 +220,11 @@ func (o ComplianceGroupBatchResponseDto) ToMap() (map[string]interface{}, error)
 	if !IsNil(o.Rules) {
 		toSerialize["rules"] = o.Rules
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -248,15 +253,24 @@ func (o *ComplianceGroupBatchResponseDto) UnmarshalJSON(data []byte) (err error)
 
 	varComplianceGroupBatchResponseDto := _ComplianceGroupBatchResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceGroupBatchResponseDto)
+	err = json.Unmarshal(data, &varComplianceGroupBatchResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceGroupBatchResponseDto(varComplianceGroupBatchResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "resource")
+		delete(additionalProperties, "rules")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

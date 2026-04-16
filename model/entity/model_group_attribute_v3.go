@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -37,6 +36,7 @@ type GroupAttributeV3 struct {
 	Type AttributeType `json:"type"`
 	// Optional definition of callback for getting the content of the Attribute based on the action
 	AttributeCallback *AttributeCallback `json:"attributeCallback,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _GroupAttributeV3 GroupAttributeV3
@@ -312,6 +312,11 @@ func (o GroupAttributeV3) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.AttributeCallback) {
 		toSerialize["attributeCallback"] = o.AttributeCallback
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -342,15 +347,27 @@ func (o *GroupAttributeV3) UnmarshalJSON(data []byte) (err error) {
 
 	varGroupAttributeV3 := _GroupAttributeV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varGroupAttributeV3)
+	err = json.Unmarshal(data, &varGroupAttributeV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = GroupAttributeV3(varGroupAttributeV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "schemaVersion")
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "version")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "attributeCallback")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

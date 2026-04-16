@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type ComplianceRequestRulesDto struct {
 	Uuid string `json:"uuid"`
 	// Attributes for the rule
 	Attributes []RequestAttribute `json:"attributes,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ComplianceRequestRulesDto ComplianceRequestRulesDto
@@ -118,6 +118,11 @@ func (o ComplianceRequestRulesDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Attributes) {
 		toSerialize["attributes"] = o.Attributes
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *ComplianceRequestRulesDto) UnmarshalJSON(data []byte) (err error) {
 
 	varComplianceRequestRulesDto := _ComplianceRequestRulesDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varComplianceRequestRulesDto)
+	err = json.Unmarshal(data, &varComplianceRequestRulesDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ComplianceRequestRulesDto(varComplianceRequestRulesDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

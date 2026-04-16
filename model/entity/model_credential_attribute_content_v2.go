@@ -13,7 +13,6 @@ package entity
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type CredentialAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// Credential attribute content data
 	Data CredentialAttributeContentData `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _CredentialAttributeContentV2 CredentialAttributeContentV2
@@ -118,6 +118,11 @@ func (o CredentialAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *CredentialAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varCredentialAttributeContentV2 := _CredentialAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varCredentialAttributeContentV2)
+	err = json.Unmarshal(data, &varCredentialAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = CredentialAttributeContentV2(varCredentialAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

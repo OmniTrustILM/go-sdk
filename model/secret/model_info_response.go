@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type InfoResponse struct {
 	Connector ConnectorInfo `json:"connector"`
 	// Interfaces supported and implemented by the connector
 	Interfaces []ConnectorInterfaceInfo `json:"interfaces"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _InfoResponse InfoResponse
@@ -109,6 +109,11 @@ func (o InfoResponse) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["connector"] = o.Connector
 	toSerialize["interfaces"] = o.Interfaces
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *InfoResponse) UnmarshalJSON(data []byte) (err error) {
 
 	varInfoResponse := _InfoResponse{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varInfoResponse)
+	err = json.Unmarshal(data, &varInfoResponse)
 
 	if err != nil {
 		return err
 	}
 
 	*o = InfoResponse(varInfoResponse)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "connector")
+		delete(additionalProperties, "interfaces")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

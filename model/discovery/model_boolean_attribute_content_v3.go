@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type BooleanAttributeContentV3 struct {
 	Data bool `json:"data"`
 	// Boolean attribute value
 	ContentType AttributeContentType `json:"contentType"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _BooleanAttributeContentV3 BooleanAttributeContentV3
@@ -146,6 +146,11 @@ func (o BooleanAttributeContentV3) ToMap() (map[string]interface{}, error) {
 	}
 	toSerialize["data"] = o.Data
 	toSerialize["contentType"] = o.ContentType
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -174,15 +179,22 @@ func (o *BooleanAttributeContentV3) UnmarshalJSON(data []byte) (err error) {
 
 	varBooleanAttributeContentV3 := _BooleanAttributeContentV3{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varBooleanAttributeContentV3)
+	err = json.Unmarshal(data, &varBooleanAttributeContentV3)
 
 	if err != nil {
 		return err
 	}
 
 	*o = BooleanAttributeContentV3(varBooleanAttributeContentV3)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		delete(additionalProperties, "contentType")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

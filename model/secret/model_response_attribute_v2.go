@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -35,6 +34,7 @@ type ResponseAttributeV2 struct {
 	ContentType AttributeContentType `json:"contentType"`
 	// Version of the Attribute
 	Version AttributeVersion `json:"version"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ResponseAttributeV2 ResponseAttributeV2
@@ -257,6 +257,11 @@ func (o ResponseAttributeV2) ToMap() (map[string]interface{}, error) {
 	toSerialize["type"] = o.Type
 	toSerialize["contentType"] = o.ContentType
 	toSerialize["version"] = o.Version
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -289,15 +294,26 @@ func (o *ResponseAttributeV2) UnmarshalJSON(data []byte) (err error) {
 
 	varResponseAttributeV2 := _ResponseAttributeV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varResponseAttributeV2)
+	err = json.Unmarshal(data, &varResponseAttributeV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ResponseAttributeV2(varResponseAttributeV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "content")
+		delete(additionalProperties, "uuid")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "label")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "contentType")
+		delete(additionalProperties, "version")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

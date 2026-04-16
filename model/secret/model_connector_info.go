@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -32,6 +31,7 @@ type ConnectorInfo struct {
 	Description *string `json:"description,omitempty"`
 	// Metadata of the connector
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _ConnectorInfo ConnectorInfo
@@ -211,6 +211,11 @@ func (o ConnectorInfo) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -240,15 +245,24 @@ func (o *ConnectorInfo) UnmarshalJSON(data []byte) (err error) {
 
 	varConnectorInfo := _ConnectorInfo{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varConnectorInfo)
+	err = json.Unmarshal(data, &varConnectorInfo)
 
 	if err != nil {
 		return err
 	}
 
 	*o = ConnectorInfo(varConnectorInfo)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "id")
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "version")
+		delete(additionalProperties, "description")
+		delete(additionalProperties, "metadata")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

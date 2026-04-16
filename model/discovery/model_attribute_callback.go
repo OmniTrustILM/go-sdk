@@ -13,7 +13,6 @@ package discovery
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -28,6 +27,7 @@ type AttributeCallback struct {
 	CallbackMethod *string `json:"callbackMethod,omitempty"`
 	// Mappings for the callback method
 	Mappings []AttributeCallbackMapping `json:"mappings"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _AttributeCallback AttributeCallback
@@ -155,6 +155,11 @@ func (o AttributeCallback) ToMap() (map[string]interface{}, error) {
 		toSerialize["callbackMethod"] = o.CallbackMethod
 	}
 	toSerialize["mappings"] = o.Mappings
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -182,15 +187,22 @@ func (o *AttributeCallback) UnmarshalJSON(data []byte) (err error) {
 
 	varAttributeCallback := _AttributeCallback{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varAttributeCallback)
+	err = json.Unmarshal(data, &varAttributeCallback)
 
 	if err != nil {
 		return err
 	}
 
 	*o = AttributeCallback(varAttributeCallback)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "callbackContext")
+		delete(additionalProperties, "callbackMethod")
+		delete(additionalProperties, "mappings")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

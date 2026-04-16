@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type SecretKeySecretContent struct {
 	Type SecretType `json:"type"`
 	// BASE64 encoded binary (raw) content of key
 	Content string `json:"content"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _SecretKeySecretContent SecretKeySecretContent
@@ -109,6 +109,11 @@ func (o SecretKeySecretContent) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["content"] = o.Content
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -137,15 +142,21 @@ func (o *SecretKeySecretContent) UnmarshalJSON(data []byte) (err error) {
 
 	varSecretKeySecretContent := _SecretKeySecretContent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varSecretKeySecretContent)
+	err = json.Unmarshal(data, &varSecretKeySecretContent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = SecretKeySecretContent(varSecretKeySecretContent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "content")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

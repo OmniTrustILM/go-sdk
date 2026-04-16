@@ -13,7 +13,6 @@ package credential
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type BooleanAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// Boolean attribute value
 	Data bool `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _BooleanAttributeContentV2 BooleanAttributeContentV2
@@ -118,6 +118,11 @@ func (o BooleanAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *BooleanAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varBooleanAttributeContentV2 := _BooleanAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varBooleanAttributeContentV2)
+	err = json.Unmarshal(data, &varBooleanAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = BooleanAttributeContentV2(varBooleanAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

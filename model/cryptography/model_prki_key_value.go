@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &PrkiKeyValue{}
 type PrkiKeyValue struct {
 	// Base64 ASN.1 encoded PrivateKeyInfo
 	Value string `json:"value"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _PrkiKeyValue PrkiKeyValue
@@ -81,6 +81,11 @@ func (o PrkiKeyValue) MarshalJSON() ([]byte, error) {
 func (o PrkiKeyValue) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["value"] = o.Value
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *PrkiKeyValue) UnmarshalJSON(data []byte) (err error) {
 
 	varPrkiKeyValue := _PrkiKeyValue{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varPrkiKeyValue)
+	err = json.Unmarshal(data, &varPrkiKeyValue)
 
 	if err != nil {
 		return err
 	}
 
 	*o = PrkiKeyValue(varPrkiKeyValue)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "value")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

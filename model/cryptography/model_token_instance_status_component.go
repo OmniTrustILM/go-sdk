@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type TokenInstanceStatusComponent struct {
 	Status TokenInstanceStatus `json:"status"`
 	// Token instance component details
 	Details map[string]interface{} `json:"details,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _TokenInstanceStatusComponent TokenInstanceStatusComponent
@@ -118,6 +118,11 @@ func (o TokenInstanceStatusComponent) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Details) {
 		toSerialize["details"] = o.Details
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *TokenInstanceStatusComponent) UnmarshalJSON(data []byte) (err error) {
 
 	varTokenInstanceStatusComponent := _TokenInstanceStatusComponent{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varTokenInstanceStatusComponent)
+	err = json.Unmarshal(data, &varTokenInstanceStatusComponent)
 
 	if err != nil {
 		return err
 	}
 
 	*o = TokenInstanceStatusComponent(varTokenInstanceStatusComponent)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "status")
+		delete(additionalProperties, "details")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

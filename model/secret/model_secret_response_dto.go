@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -30,6 +29,7 @@ type SecretResponseDto struct {
 	Version *string `json:"version,omitempty"`
 	// Metadata for the secret
 	Metadata []MetadataAttribute `json:"metadata,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _SecretResponseDto SecretResponseDto
@@ -183,6 +183,11 @@ func (o SecretResponseDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -211,15 +216,23 @@ func (o *SecretResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varSecretResponseDto := _SecretResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varSecretResponseDto)
+	err = json.Unmarshal(data, &varSecretResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = SecretResponseDto(varSecretResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "name")
+		delete(additionalProperties, "type")
+		delete(additionalProperties, "version")
+		delete(additionalProperties, "metadata")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

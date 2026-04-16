@@ -14,7 +14,6 @@ package secret
 import (
 	"encoding/json"
 	"time"
-	"bytes"
 	"fmt"
 )
 
@@ -27,6 +26,7 @@ type DateTimeAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// DateTime attribute value in format yyyy-MM-ddTHH:mm:ss.SSSXXX
 	Data time.Time `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _DateTimeAttributeContentV2 DateTimeAttributeContentV2
@@ -119,6 +119,11 @@ func (o DateTimeAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -146,15 +151,21 @@ func (o *DateTimeAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varDateTimeAttributeContentV2 := _DateTimeAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varDateTimeAttributeContentV2)
+	err = json.Unmarshal(data, &varDateTimeAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = DateTimeAttributeContentV2(varDateTimeAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

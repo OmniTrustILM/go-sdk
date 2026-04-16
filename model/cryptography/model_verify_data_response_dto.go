@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -24,6 +23,7 @@ var _ MappedNullable = &VerifyDataResponseDto{}
 type VerifyDataResponseDto struct {
 	// Signatures
 	Verifications []VerificationResponseData `json:"verifications"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _VerifyDataResponseDto VerifyDataResponseDto
@@ -81,6 +81,11 @@ func (o VerifyDataResponseDto) MarshalJSON() ([]byte, error) {
 func (o VerifyDataResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["verifications"] = o.Verifications
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -108,15 +113,20 @@ func (o *VerifyDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 
 	varVerifyDataResponseDto := _VerifyDataResponseDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varVerifyDataResponseDto)
+	err = json.Unmarshal(data, &varVerifyDataResponseDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = VerifyDataResponseDto(varVerifyDataResponseDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "verifications")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

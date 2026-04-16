@@ -13,7 +13,6 @@ package secret
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type HealthInfo struct {
 	Status HealthStatus `json:"status"`
 	// Health status of connector components
 	Components map[string]HealthInfoComponent `json:"components,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _HealthInfo HealthInfo
@@ -118,6 +118,11 @@ func (o HealthInfo) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Components) {
 		toSerialize["components"] = o.Components
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *HealthInfo) UnmarshalJSON(data []byte) (err error) {
 
 	varHealthInfo := _HealthInfo{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varHealthInfo)
+	err = json.Unmarshal(data, &varHealthInfo)
 
 	if err != nil {
 		return err
 	}
 
 	*o = HealthInfo(varHealthInfo)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "status")
+		delete(additionalProperties, "components")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

@@ -13,7 +13,6 @@ package legacy
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type TextAttributeContentV2 struct {
 	Reference *string `json:"reference,omitempty"`
 	// Text attribute value
 	Data string `json:"data"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _TextAttributeContentV2 TextAttributeContentV2
@@ -118,6 +118,11 @@ func (o TextAttributeContentV2) ToMap() (map[string]interface{}, error) {
 		toSerialize["reference"] = o.Reference
 	}
 	toSerialize["data"] = o.Data
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *TextAttributeContentV2) UnmarshalJSON(data []byte) (err error) {
 
 	varTextAttributeContentV2 := _TextAttributeContentV2{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varTextAttributeContentV2)
+	err = json.Unmarshal(data, &varTextAttributeContentV2)
 
 	if err != nil {
 		return err
 	}
 
 	*o = TextAttributeContentV2(varTextAttributeContentV2)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "reference")
+		delete(additionalProperties, "data")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }

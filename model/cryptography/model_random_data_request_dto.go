@@ -13,7 +13,6 @@ package cryptography
 
 import (
 	"encoding/json"
-	"bytes"
 	"fmt"
 )
 
@@ -26,6 +25,7 @@ type RandomDataRequestDto struct {
 	Length int32 `json:"length"`
 	// Random generator Attributes
 	Attributes []RequestAttribute `json:"attributes,omitempty"`
+	AdditionalProperties map[string]interface{}
 }
 
 type _RandomDataRequestDto RandomDataRequestDto
@@ -118,6 +118,11 @@ func (o RandomDataRequestDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Attributes) {
 		toSerialize["attributes"] = o.Attributes
 	}
+
+	for key, value := range o.AdditionalProperties {
+		toSerialize[key] = value
+	}
+
 	return toSerialize, nil
 }
 
@@ -145,15 +150,21 @@ func (o *RandomDataRequestDto) UnmarshalJSON(data []byte) (err error) {
 
 	varRandomDataRequestDto := _RandomDataRequestDto{}
 
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varRandomDataRequestDto)
+	err = json.Unmarshal(data, &varRandomDataRequestDto)
 
 	if err != nil {
 		return err
 	}
 
 	*o = RandomDataRequestDto(varRandomDataRequestDto)
+
+	additionalProperties := make(map[string]interface{})
+
+	if err = json.Unmarshal(data, &additionalProperties); err == nil {
+		delete(additionalProperties, "length")
+		delete(additionalProperties, "attributes")
+		o.AdditionalProperties = additionalProperties
+	}
 
 	return err
 }
