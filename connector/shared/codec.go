@@ -11,11 +11,15 @@ import (
 // strict=true rejects unknown fields. All decode failures are returned as
 // *Error (BadRequest) with the underlying decoder error attached as Cause —
 // safe to pass straight to WriteProblem.
-func DecodeJSON(r *http.Request, dst any, maxBytes int64, strict bool) error {
+//
+// w is forwarded to http.MaxBytesReader so the underlying TCP connection is
+// closed after an oversized-body response. Without it, a client could reuse
+// the keep-alive connection to repeatedly stream oversized bodies.
+func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any, maxBytes int64, strict bool) error {
 	if r.Body == nil {
 		return BadRequest("INVALID_BODY", "request body required")
 	}
-	body := http.MaxBytesReader(nil, r.Body, maxBytes)
+	body := http.MaxBytesReader(w, r.Body, maxBytes)
 	dec := json.NewDecoder(body)
 	if strict {
 		dec.DisallowUnknownFields()
