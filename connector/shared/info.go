@@ -2,6 +2,7 @@ package shared
 
 import (
 	"net/http"
+	"sort"
 )
 
 // ConnectorInterface enum values from the spec. Shared interfaces ("info",
@@ -189,12 +190,19 @@ func v1InfoHandler(cfg *config) http.HandlerFunc {
 
 	// Remaining extras have no matching V1Reporter — emit as standalone
 	// groups. Multiple extras sharing the same code are merged in the
-	// bucketing pass above, so each code appears at most once.
-	for code, eps := range extrasByGroup {
+	// bucketing pass above, so each code appears at most once. Sort the
+	// codes before emitting so the /v1 info response is deterministic
+	// across requests (Go map iteration order is randomized).
+	codes := make([]string, 0, len(extrasByGroup))
+	for code := range extrasByGroup {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+	for _, code := range codes {
 		groups = append(groups, V1FunctionGroup{
 			FunctionGroupCode: code,
 			Kinds:             []string{},
-			EndPoints:         eps,
+			EndPoints:         extrasByGroup[code],
 		})
 	}
 
