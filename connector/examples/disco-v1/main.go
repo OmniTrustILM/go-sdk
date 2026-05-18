@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -51,7 +52,7 @@ func main() {
 
 	store := NewStore()
 	handler, err := discovery.NewHandler(store,
-		discovery.WithStrictDecode(env("STRICT_DECODE") != ""),
+		discovery.WithStrictDecode(envBool("STRICT_DECODE")),
 		discovery.WithKinds(kinds...),
 	)
 	if err != nil {
@@ -123,11 +124,24 @@ func newLogger(level string) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 }
 
-func env(key string) string { return os.Getenv(key) }
-
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return def
+}
+
+// envBool parses the env var as a boolean via strconv.ParseBool. Accepts
+// the canonical Go set (1/t/T/TRUE/true/True and their false counterparts).
+// Unset or unparseable values return false.
+func envBool(key string) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return false
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false
+	}
+	return b
 }

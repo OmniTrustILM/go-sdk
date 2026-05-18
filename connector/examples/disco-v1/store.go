@@ -74,9 +74,8 @@ func (s *Store) DiscoverCertificate(ctx context.Context, req *mdl.DiscoveryReque
 	}
 
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	e.status = mdl.DISCOVERYSTATUS_COMPLETED
-	s.mu.Unlock()
-
 	return toDTO(e), nil
 }
 
@@ -84,8 +83,8 @@ func (s *Store) DiscoverCertificate(ctx context.Context, req *mdl.DiscoveryReque
 // fields on req are honored against the empty certificate list.
 func (s *Store) GetDiscovery(ctx context.Context, uuid string, req *mdl.DiscoveryDataRequestDto) (*mdl.DiscoveryProviderDto, error) {
 	s.mu.RLock()
+	defer s.mu.RUnlock()
 	e, ok := s.entries[uuid]
-	s.mu.RUnlock()
 	if !ok {
 		return nil, discovery.ErrDiscoveryNotFound.WithProperty("uuid", uuid)
 	}
@@ -104,8 +103,10 @@ func (s *Store) DeleteDiscovery(ctx context.Context, uuid string) error {
 	return nil
 }
 
-// toDTO converts a stored entry into the wire DTO. Holds no lock; callers
-// must ensure consistent reads.
+// toDTO converts a stored entry into the wire DTO. The caller must hold
+// s.mu (read or write) for the duration of the call — toDTO reads multiple
+// fields and concurrent writers (e.g. status flipping to completed) would
+// otherwise race.
 func toDTO(e *entry) *mdl.DiscoveryProviderDto {
 	total := int32(len(e.certs))
 	return &mdl.DiscoveryProviderDto{
