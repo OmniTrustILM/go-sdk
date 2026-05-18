@@ -166,8 +166,9 @@ func (c *Connector) buildHandler() http.Handler {
 // (v1 or v2 based on cfg.healthVersion), info (v1 listSupportedFunctions or
 // /v2/info based on cfg.infoVersion), /v1/metrics when WithMetrics is
 // supplied, and every ExtraEndpoint registered via WithExtraEndpoints.
-// Provider routes are mounted before this is called (in New) so that
-// extras can shadow or extend them deliberately.
+// Called in New before provider Mount; the underlying http.ServeMux panics
+// on duplicate method+pattern registrations, so providers and extras must
+// not collide with builtin paths or with each other.
 func (c *Connector) mountBuiltins(r Router) {
 	mountHealth(r, c.cfg.healthChecker, c.cfg.healthVersion)
 	mountInfo(r, c.cfg)
