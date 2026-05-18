@@ -11,12 +11,16 @@ import (
 // Connector event names emitted to connector_events_total{event,outcome}.
 // Outcome is "ok" on success and "error" on any handler failure path.
 const (
-	eventCreateSecret     = "create_secret"
-	eventUpdateSecret     = "update_secret"
-	eventDeleteSecret     = "delete_secret"
-	eventRotateSecret     = "rotate_secret"
-	eventGetSecretContent = "get_secret_content"
-	eventVaultCheck       = "vault_check"
+	eventCreateSecret              = "create_secret"
+	eventUpdateSecret              = "update_secret"
+	eventDeleteSecret              = "delete_secret"
+	eventRotateSecret              = "rotate_secret"
+	eventGetSecretContent          = "get_secret_content"
+	eventVaultCheck                = "vault_check"
+	eventListVaultAttributes       = "list_vault_attributes"
+	eventListVaultProfileAttributes = "list_vault_profile_attributes"
+	eventListRotateAttributes      = "list_rotate_attributes"
+	eventListSecretAttributes      = "list_secret_attributes"
 )
 
 func emit(ctx context.Context, event string, err error) {
@@ -154,13 +158,14 @@ func (h *Handler) checkVaultConnection(w http.ResponseWriter, r *http.Request) {
 // GET /v1/secretProvider/vaults/attributes
 func (h *Handler) listVaultAttributes(w http.ResponseWriter, r *http.Request) {
 	var out []mdl.BaseAttributeDto
+	var err error
 	if h.vaultAttrs != nil {
-		var err error
 		out, err = h.vaultAttrs.VaultAttributes(r.Context())
-		if err != nil {
-			shared.RenderError(w, r, err)
-			return
-		}
+	}
+	emit(r.Context(), eventListVaultAttributes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listVaultAttributes response", "err", writeErr)
@@ -171,17 +176,19 @@ func (h *Handler) listVaultAttributes(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Request) {
 	var ctxAttrs []mdl.RequestAttribute
 	if err := shared.DecodeJSON(w, r, &ctxAttrs, h.MaxBytes, h.Strict); err != nil {
+		emit(r.Context(), eventListVaultProfileAttributes, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	var out []mdl.BaseAttributeDto
+	var err error
 	if h.vaultProfileAttrs != nil {
-		var err error
 		out, err = h.vaultProfileAttrs.VaultProfileAttributes(r.Context(), ctxAttrs)
-		if err != nil {
-			shared.RenderError(w, r, err)
-			return
-		}
+	}
+	emit(r.Context(), eventListVaultProfileAttributes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listVaultProfileAttributes response", "err", writeErr)
@@ -191,13 +198,14 @@ func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Requ
 // GET /v1/secretProvider/secrets/rotate/attributes
 func (h *Handler) getRotateAttributes(w http.ResponseWriter, r *http.Request) {
 	var out []mdl.BaseAttributeDto
+	var err error
 	if h.rotateAttrs != nil {
-		var err error
 		out, err = h.rotateAttrs.RotateAttributes(r.Context())
-		if err != nil {
-			shared.RenderError(w, r, err)
-			return
-		}
+	}
+	emit(r.Context(), eventListRotateAttributes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write getRotateAttributes response", "err", writeErr)
@@ -209,17 +217,20 @@ func (h *Handler) getSecretAttributes(w http.ResponseWriter, r *http.Request) {
 	raw := r.PathValue("secretType")
 	st := mdl.SecretType(raw)
 	if !isValidSecretType(st) {
-		shared.RenderError(w, r, ErrInvalidSecretType.WithProperty("value", raw))
+		err := ErrInvalidSecretType.WithProperty("value", raw)
+		emit(r.Context(), eventListSecretAttributes, err)
+		shared.RenderError(w, r, err)
 		return
 	}
 	var out []mdl.BaseAttributeDto
+	var err error
 	if h.secretAttrs != nil {
-		var err error
 		out, err = h.secretAttrs.SecretAttributes(r.Context(), st)
-		if err != nil {
-			shared.RenderError(w, r, err)
-			return
-		}
+	}
+	emit(r.Context(), eventListSecretAttributes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write getSecretAttributes response", "err", writeErr)
