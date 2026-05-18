@@ -249,8 +249,17 @@ func Register(r Registrable) Option {
 // VersionV1 mounts GET /v1 (listSupportedFunctions), VersionV2 mounts
 // GET /v2/info. Default VersionV2.
 //
+// Trade-off: only one of the two endpoints is exposed per Connector. With
+// VersionV2, V1Reporter contributions from registered handlers are not
+// reachable — the v1 function-group listing has no endpoint to serve from.
+// Conversely, with VersionV1, the InterfaceInfo values returned by
+// Registrable.Interface() are not surfaced (the /v2/info response shape is
+// not emitted). Pick the version that matches the specs implemented by the
+// registered providers; if a connector mixes v1 and v2 spec providers, run
+// two Connectors or split deployments.
+//
 // The choice is also reflected in the /v2/info response interface list
-// ("info" version field).
+// ("info" version field) when /v2/info is the active endpoint.
 func WithInfoVersion(v string) Option {
 	return func(c *config) error {
 		if v != VersionV1 && v != VersionV2 {

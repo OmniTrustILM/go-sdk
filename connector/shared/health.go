@@ -61,27 +61,43 @@ func (defaultHealthChecker) Health(context.Context) HealthStatus {
 	return HealthStatus{Status: HealthUp}
 }
 
+// probeKind controls how the health handler maps HealthLevel onto an HTTP
+// status. Aggregate probes treat UNKNOWN as 200 (the connector itself is
+// reachable; the operator can read the body to decide). Readiness and
+// liveness probes treat UNKNOWN as 503 because orchestrators interpret a
+// non-200 response as "do not send traffic" / "restart" — receiving a 200
+// when state is genuinely unknown can cause routing to half-broken pods.
+type probeKind int
+
+const (
+	probeAggregate probeKind = iota
+	probeStrict
+)
+
 // mountHealth attaches the health endpoints for the configured version.
 //
 // Version v1 mounts only GET /v1/health (aggregate). Version v2 mounts the
-// three GET /v2/health{,/readiness,/liveness} endpoints. Status DOWN maps to
-// HTTP 503; UP/UNKNOWN to 200 in every case.
+// three GET /v2/health{,/readiness,/liveness} endpoints. Status DOWN always
+// maps to 503; readiness and liveness additionally treat UNKNOWN as 503.
 func mountHealth(r Router, hc HealthChecker, version string) {
 	switch version {
 	case VersionV1:
-		r.Handle(http.MethodGet, "/v1/health", healthHandler(hc.Health, version))
+		r.Handle(http.MethodGet, "/v1/health", healthHandler(hc.Health, version, probeAggregate))
 	default: // v2
-		r.Handle(http.MethodGet, "/v2/health", healthHandler(hc.Health, version))
-		r.Handle(http.MethodGet, "/v2/health/readiness", healthHandler(hc.Readiness, version))
-		r.Handle(http.MethodGet, "/v2/health/liveness", healthHandler(hc.Liveness, version))
+		r.Handle(http.MethodGet, "/v2/health", healthHandler(hc.Health, version, probeAggregate))
+		r.Handle(http.MethodGet, "/v2/health/readiness", healthHandler(hc.Readiness, version, probeStrict))
+		r.Handle(http.MethodGet, "/v2/health/liveness", healthHandler(hc.Liveness, version, probeStrict))
 	}
 }
 
-func healthHandler(probe func(context.Context) HealthStatus, version string) http.HandlerFunc {
+func healthHandler(probe func(context.Context) HealthStatus, version string, kind probeKind) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s := probe(r.Context())
 		code := http.StatusOK
-		if s.Status == HealthDown {
+		switch {
+		case s.Status == HealthDown:
+			code = http.StatusServiceUnavailable
+		case kind == probeStrict && s.Status == HealthUnknown:
 			code = http.StatusServiceUnavailable
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -164,12 +180,9 @@ func healthStatusV1(l HealthLevel) string {
 }
 
 // healthStatusV2 maps the canonical HealthLevel onto the v2 wire enum
-// (UP / DOWN / UNKNOWN).
+// (UP / DOWN / UNKNOWN). HealthLevel is a closed enum in practice — values
+// outside the three constants would only come from misuse, so we let them
+// pass through as-is rather than masking the bug.
 func healthStatusV2(l HealthLevel) string {
-	switch l {
-	case HealthUp, HealthDown, HealthUnknown:
-		return string(l)
-	default:
-		return "UNKNOWN"
-	}
+	return string(l)
 }

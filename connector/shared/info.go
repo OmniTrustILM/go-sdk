@@ -171,9 +171,9 @@ func v1InfoHandler(cfg *config) http.HandlerFunc {
 		})
 	}
 
-	// Start with one group per V1Reporter; append matching extras.
+	// Start with one group per V1Reporter; append matching extras (and
+	// remove them from the bucket so they don't appear twice).
 	groups := make([]V1FunctionGroup, 0, len(cfg.registrables))
-	seen := make(map[string]bool, len(cfg.registrables))
 	for _, reg := range cfg.registrables {
 		vr, ok := reg.(V1Reporter)
 		if !ok {
@@ -185,17 +185,17 @@ func v1InfoHandler(cfg *config) http.HandlerFunc {
 			delete(extrasByGroup, fg.FunctionGroupCode)
 		}
 		groups = append(groups, fg)
-		seen[fg.FunctionGroupCode] = true
 	}
 
-	// Remaining extras have no matching V1Reporter — emit as standalone groups.
+	// Remaining extras have no matching V1Reporter — emit as standalone
+	// groups. Multiple extras sharing the same code are merged in the
+	// bucketing pass above, so each code appears at most once.
 	for code, eps := range extrasByGroup {
 		groups = append(groups, V1FunctionGroup{
 			FunctionGroupCode: code,
 			Kinds:             []string{},
 			EndPoints:         eps,
 		})
-		seen[code] = true
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {

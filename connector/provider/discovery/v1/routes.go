@@ -109,14 +109,14 @@ func (h *Handler) listAttributes(w http.ResponseWriter, r *http.Request) {
 	}
 	kind := r.PathValue("kind")
 	var out []mdl.BaseAttributeDto
+	var err error
 	if h.attrs != nil {
-		var err error
 		out, err = h.attrs.Attributes(r.Context(), kind)
-		emit(r.Context(), eventListAttributes, err)
-		if err != nil {
-			shared.RenderError(w, r, err)
-			return
-		}
+	}
+	emit(r.Context(), eventListAttributes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.loggerFor(r).Error("write listAttributes response", "err", writeErr)

@@ -10,10 +10,15 @@ import (
 
 // missingRequiredPropertyPrefix is the literal prefix emitted by the
 // generated DTOs' UnmarshalJSON when a required property is absent
-// ("no value given for required property NAME"). Matching on this string is
-// brittle but works against every generated package today and lets us return
-// a semantically correct 422 instead of a generic 400. Revisit if openapi-
-// generator ever changes the message.
+// ("no value given for required property NAME").
+//
+// Matching on the string is fragile: a generator update could rename the
+// message and silently demote 422 back to 400. The structural alternatives
+// (typed error from the generated DTOs, sentinel via errors.Is) are not
+// available — openapi-generator emits a raw fmt.Errorf, so we keep the
+// prefix match and additionally treat encoding/json's typed errors as 422
+// where the shape is unambiguous. Revisit when the generator exposes a
+// typed sentinel.
 const missingRequiredPropertyPrefix = "no value given for required property "
 
 // DecodeJSON reads at most maxBytes from r.Body and unmarshals into dst.
@@ -41,8 +46,21 @@ func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any, maxBytes int64,
 		if errors.Is(err, io.EOF) {
 			return BadRequest("EMPTY_BODY", "request body required").WithCause(err)
 		}
-		if strings.HasPrefix(err.Error(), missingRequiredPropertyPrefix) {
-			return Invalid("VALIDATION_FAILED", "%s", err.Error()).WithCause(err)
+		// Field has the wrong JSON type — structural; safe to map to 422.
+		var typeErr *json.UnmarshalTypeError
+		if errors.As(err, &typeErr) {
+			return Invalid("VALIDATION_FAILED", "request body has invalid field type").
+				WithCause(err).
+				WithProperty("field", typeErr.Field).
+				WithProperty("expected_type", typeErr.Type.String())
+		}
+		// Required property missing per generated UnmarshalJSON. Prefix
+		// match — see missingRequiredPropertyPrefix doc for the caveats.
+		if msg := err.Error(); strings.HasPrefix(msg, missingRequiredPropertyPrefix) {
+			field := strings.TrimPrefix(msg, missingRequiredPropertyPrefix)
+			return Invalid("VALIDATION_FAILED", "required field is missing").
+				WithCause(err).
+				WithProperty("field", field)
 		}
 		return BadRequest("INVALID_JSON", "request body is not valid JSON").WithCause(err)
 	}
