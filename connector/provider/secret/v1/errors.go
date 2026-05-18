@@ -29,7 +29,4 @@ var (
 
 	// ErrVaultUnreachable -> 503 SERVICE_UNAVAILABLE (vault backend down or unreachable)
 	ErrVaultUnreachable = shared.Unavailable("SERVICE_UNAVAILABLE", "vault backend unavailable")
-
-	// ErrAttributesNotRegistered -> 404 RESOURCE_NOT_FOUND (attribute endpoint with no registered provider)
-	ErrAttributesNotRegistered = shared.NotFound("RESOURCE_NOT_FOUND", "attribute provider not registered")
 )

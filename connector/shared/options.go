@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -37,7 +38,13 @@ type config struct {
 	healthChecker HealthChecker
 	metrics       MetricsCollector
 
+	infoVersion   string
+	healthVersion string
+
+	errorRenderer ErrorRenderer
+
 	registrables []Registrable
+	extras       []ExtraEndpoint
 
 	maxRequestBytes int64
 	strictDecode    bool
@@ -55,6 +62,9 @@ func defaultConfig() *config {
 		requestIDHeader:   "X-Request-Id",
 		healthChecker:     defaultHealthChecker{},
 		maxRequestBytes:   1 << 20, // 1 MiB
+		infoVersion:       VersionV2,
+		healthVersion:     VersionV2,
+		errorRenderer:     WriteProblem,
 	}
 }
 
@@ -73,6 +83,30 @@ func (c *config) validate() error {
 	}
 	if c.shutdownTimeout <= 0 {
 		return errors.New("shutdownTimeout must be > 0")
+	}
+	if c.infoVersion != VersionV1 && c.infoVersion != VersionV2 {
+		return errors.New(`infoVersion must be "v1" or "v2"`)
+	}
+	if c.healthVersion != VersionV1 && c.healthVersion != VersionV2 {
+		return errors.New(`healthVersion must be "v1" or "v2"`)
+	}
+	for i, e := range c.extras {
+		if e.FunctionGroupCode == "" {
+			return fmt.Errorf("extras[%d]: functionGroupCode must not be empty", i)
+		}
+		if e.Method == "" {
+			return fmt.Errorf("extras[%d]: method must not be empty", i)
+		}
+		if e.Context == "" {
+			return fmt.Errorf("extras[%d]: context must not be empty", i)
+		}
+		if e.Name == "" {
+			return fmt.Errorf("extras[%d]: name must not be empty", i)
+		}
+		// Handler may be nil: such entries are info-only and surface in /v1
+		// info without registering anything on the mux. Useful for declaring
+		// shared endpoints (e.g. /v1/health) that the shared package mounts
+		// itself.
 	}
 	return nil
 }
@@ -207,6 +241,68 @@ func Register(r Registrable) Option {
 			return errors.New("registrable must not be nil")
 		}
 		c.registrables = append(c.registrables, r)
+		return nil
+	}
+}
+
+// WithInfoVersion selects which info endpoint the Connector exposes:
+// VersionV1 mounts GET /v1 (listSupportedFunctions), VersionV2 mounts
+// GET /v2/info. Default VersionV2.
+//
+// The choice is also reflected in the /v2/info response interface list
+// ("info" version field).
+func WithInfoVersion(v string) Option {
+	return func(c *config) error {
+		if v != VersionV1 && v != VersionV2 {
+			return errors.New(`infoVersion must be "v1" or "v2"`)
+		}
+		c.infoVersion = v
+		return nil
+	}
+}
+
+// WithHealthVersion selects which health endpoint(s) the Connector exposes.
+// VersionV1 mounts only GET /v1/health. VersionV2 mounts GET /v2/health,
+// /v2/health/readiness, /v2/health/liveness. Default VersionV2.
+//
+// The choice is reflected in the /v2/info response interface list ("health"
+// version field) when /v2/info is the active info endpoint.
+func WithHealthVersion(v string) Option {
+	return func(c *config) error {
+		if v != VersionV1 && v != VersionV2 {
+			return errors.New(`healthVersion must be "v1" or "v2"`)
+		}
+		c.healthVersion = v
+		return nil
+	}
+}
+
+// WithErrorRenderer overrides the connector-wide error renderer used by the
+// recover middleware and by any code that calls shared.RenderError. Default
+// is WriteProblem (RFC 9457 ProblemDetail). v1 spec connectors must set this
+// to a renderer that emits their spec's error shape (e.g. discovery.WriteError).
+func WithErrorRenderer(r ErrorRenderer) Option {
+	return func(c *config) error {
+		if r == nil {
+			return errors.New("error renderer must not be nil")
+		}
+		c.errorRenderer = r
+		return nil
+	}
+}
+
+// WithExtraEndpoints registers user-supplied HTTP handlers on the Connector's
+// mux and surfaces them under matching function groups in /v1 info. Useful
+// for callback URLs and helper endpoints not part of any canonical spec.
+//
+// Each ExtraEndpoint must specify FunctionGroupCode, Method, Context, and
+// Name; UUID and Required are optional. Handler is optional too — when nil,
+// the entry is info-only (no route mounted) and is used to advertise paths
+// that the shared package already serves itself (/v1, /v1/health). Patterns
+// follow stdlib http.ServeMux syntax.
+func WithExtraEndpoints(eps ...ExtraEndpoint) Option {
+	return func(c *config) error {
+		c.extras = append(c.extras, eps...)
 		return nil
 	}
 }

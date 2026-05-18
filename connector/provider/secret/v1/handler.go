@@ -13,8 +13,8 @@ import (
 const DefaultBasePath = "/v1/secretProvider"
 
 // InterfaceVersion is reported via /v2/info as the implemented version of the
-// "secret" connector interface.
-const InterfaceVersion = "1"
+// "secret" connector interface. Uses the SDK-wide "vN" prefix convention.
+const InterfaceVersion = shared.VersionV1
 
 // Default decode configuration. Mirrors shared.config defaults so behavior
 // stays consistent unless the caller explicitly opts in.

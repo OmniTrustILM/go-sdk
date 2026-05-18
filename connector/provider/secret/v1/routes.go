@@ -145,16 +145,22 @@ func (h *Handler) checkVaultConnection(w http.ResponseWriter, r *http.Request) {
 
 // --- Attribute endpoints ---------------------------------------------------
 
+// Attribute endpoints with no registered sub-provider respond 200 with an
+// empty list. This is the SDK-wide convention: missing optional attribute
+// providers must not break callers that enumerate them — they simply see
+// no attributes for that surface. Apply the same default in every future
+// provider package.
+
 // GET /v1/secretProvider/vaults/attributes
 func (h *Handler) listVaultAttributes(w http.ResponseWriter, r *http.Request) {
-	if h.vaultAttrs == nil {
-		shared.WriteProblem(w, r, ErrAttributesNotRegistered)
-		return
-	}
-	out, err := h.vaultAttrs.VaultAttributes(r.Context())
-	if err != nil {
-		shared.WriteProblem(w, r, err)
-		return
+	var out []mdl.BaseAttributeDto
+	if h.vaultAttrs != nil {
+		var err error
+		out, err = h.vaultAttrs.VaultAttributes(r.Context())
+		if err != nil {
+			shared.WriteProblem(w, r, err)
+			return
+		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.loggerFor(r).Error("write listVaultAttributes response", "err", writeErr)
@@ -163,19 +169,19 @@ func (h *Handler) listVaultAttributes(w http.ResponseWriter, r *http.Request) {
 
 // POST /v1/secretProvider/vaultProfiles/attributes
 func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Request) {
-	if h.vaultProfileAttrs == nil {
-		shared.WriteProblem(w, r, ErrAttributesNotRegistered)
-		return
-	}
 	var ctxAttrs []mdl.RequestAttribute
 	if err := shared.DecodeJSON(w, r, &ctxAttrs, h.maxBytes, h.strict); err != nil {
 		shared.WriteProblem(w, r, err)
 		return
 	}
-	out, err := h.vaultProfileAttrs.VaultProfileAttributes(r.Context(), ctxAttrs)
-	if err != nil {
-		shared.WriteProblem(w, r, err)
-		return
+	var out []mdl.BaseAttributeDto
+	if h.vaultProfileAttrs != nil {
+		var err error
+		out, err = h.vaultProfileAttrs.VaultProfileAttributes(r.Context(), ctxAttrs)
+		if err != nil {
+			shared.WriteProblem(w, r, err)
+			return
+		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.loggerFor(r).Error("write listVaultProfileAttributes response", "err", writeErr)
@@ -184,14 +190,14 @@ func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Requ
 
 // GET /v1/secretProvider/secrets/rotate/attributes
 func (h *Handler) getRotateAttributes(w http.ResponseWriter, r *http.Request) {
-	if h.rotateAttrs == nil {
-		shared.WriteProblem(w, r, ErrAttributesNotRegistered)
-		return
-	}
-	out, err := h.rotateAttrs.RotateAttributes(r.Context())
-	if err != nil {
-		shared.WriteProblem(w, r, err)
-		return
+	var out []mdl.BaseAttributeDto
+	if h.rotateAttrs != nil {
+		var err error
+		out, err = h.rotateAttrs.RotateAttributes(r.Context())
+		if err != nil {
+			shared.WriteProblem(w, r, err)
+			return
+		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.loggerFor(r).Error("write getRotateAttributes response", "err", writeErr)
@@ -200,20 +206,20 @@ func (h *Handler) getRotateAttributes(w http.ResponseWriter, r *http.Request) {
 
 // GET /v1/secretProvider/secrets/{secretType}/attributes
 func (h *Handler) getSecretAttributes(w http.ResponseWriter, r *http.Request) {
-	if h.secretAttrs == nil {
-		shared.WriteProblem(w, r, ErrAttributesNotRegistered)
-		return
-	}
 	raw := r.PathValue("secretType")
 	st := mdl.SecretType(raw)
 	if !isValidSecretType(st) {
 		shared.WriteProblem(w, r, ErrInvalidSecretType.WithProperty("value", raw))
 		return
 	}
-	out, err := h.secretAttrs.SecretAttributes(r.Context(), st)
-	if err != nil {
-		shared.WriteProblem(w, r, err)
-		return
+	var out []mdl.BaseAttributeDto
+	if h.secretAttrs != nil {
+		var err error
+		out, err = h.secretAttrs.SecretAttributes(r.Context(), st)
+		if err != nil {
+			shared.WriteProblem(w, r, err)
+			return
+		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
 		h.loggerFor(r).Error("write getSecretAttributes response", "err", writeErr)

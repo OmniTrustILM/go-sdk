@@ -11,6 +11,17 @@ import (
 // ProblemContentType is the IANA media type for RFC 9457 problem responses.
 const ProblemContentType = "application/problem+json"
 
+// ErrorRenderer writes a JSON error response for err. Different connector
+// specs use different error shapes (RFC 9457 ProblemDetail for v2 specs;
+// ErrorMessageDto + validation arrays for v1 specs), so callers can swap
+// implementations via WithErrorRenderer.
+//
+// The default renderer is WriteProblem (RFC 9457). Provider packages that
+// need a different shape export their own renderer (e.g.
+// discovery.WriteError) and require it to be set via WithErrorRenderer at
+// Connector construction.
+type ErrorRenderer func(w http.ResponseWriter, r *http.Request, err error)
+
 // ProblemDetail mirrors the ProblemDetailExtended schema shared across every
 // connector spec. Hoisted into the shared package so all providers serialize
 // errors with one type rather than each generated copy.

@@ -16,6 +16,7 @@ const (
 	ctxKeyLogger ctxKey = iota
 	ctxKeyRequestID
 	ctxKeyMetrics
+	ctxKeyErrorRenderer
 )
 
 // statusReader is implemented by statusRecorder. Lets inner middleware
@@ -82,7 +83,7 @@ func withSlogLogger(base *slog.Logger) Middleware {
 	}
 }
 
-func withRecover(base *slog.Logger) Middleware {
+func withRecover(base *slog.Logger, renderer ErrorRenderer) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -98,11 +99,34 @@ func withRecover(base *slog.Logger) Middleware {
 					"panic", v,
 					"stack", string(debug.Stack()),
 				)
-				WriteProblem(w, r, Internal("PANIC", "internal server error"))
+				renderer(w, r, Internal("PANIC", "internal server error"))
 			}()
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// withErrorRenderer attaches the connector-wide ErrorRenderer to request
+// context so handlers can resolve it via RenderError without holding a
+// Connector reference.
+func withErrorRenderer(renderer ErrorRenderer) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), ctxKeyErrorRenderer, renderer)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// RenderError writes err using the request-scoped ErrorRenderer (set by the
+// connector). Provider handlers should prefer this over WriteProblem so the
+// response shape always matches the connector's configured renderer.
+func RenderError(w http.ResponseWriter, r *http.Request, err error) {
+	if rndr, ok := r.Context().Value(ctxKeyErrorRenderer).(ErrorRenderer); ok && rndr != nil {
+		rndr(w, r, err)
+		return
+	}
+	WriteProblem(w, r, err)
 }
 
 func withContextDecorator(fn func(context.Context, *http.Request) context.Context) Middleware {

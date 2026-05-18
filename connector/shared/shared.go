@@ -149,11 +149,12 @@ func (c *Connector) buildHandler() http.Handler {
 	for i := len(c.cfg.middleware) - 1; i >= 0; i-- {
 		h = c.cfg.middleware[i](h)
 	}
-	h = withRecover(c.cfg.logger)(h)
+	h = withRecover(c.cfg.logger, c.cfg.errorRenderer)(h)
 	if c.cfg.metrics != nil {
 		h = withMetrics(c.mux, c.cfg.metrics)(h)
 	}
 	h = withSlogLogger(c.cfg.logger)(h)
+	h = withErrorRenderer(c.cfg.errorRenderer)(h)
 	h = withRequestID(c.cfg.requestIDHeader)(h)
 	if c.cfg.contextDecorator != nil {
 		h = withContextDecorator(c.cfg.contextDecorator)(h)
@@ -161,13 +162,17 @@ func (c *Connector) buildHandler() http.Handler {
 	return h
 }
 
-// mountBuiltins attaches endpoints owned by the shared package: /v2/health*,
-// /v2/info, and (when WithMetrics is supplied) /v1/metrics. Provider routes
-// are mounted afterwards by Registrable.Mount.
+// mountBuiltins attaches endpoints owned by the shared package: health
+// (v1 or v2 based on cfg.healthVersion), info (v1 listSupportedFunctions or
+// /v2/info based on cfg.infoVersion), /v1/metrics when WithMetrics is
+// supplied, and every ExtraEndpoint registered via WithExtraEndpoints.
+// Provider routes are mounted before this is called (in New) so that
+// extras can shadow or extend them deliberately.
 func (c *Connector) mountBuiltins(r Router) {
-	mountHealth(r, c.cfg.healthChecker)
-	mountInfo(r, c.cfg.info, c.cfg.registrables, c.cfg.metrics != nil)
+	mountHealth(r, c.cfg.healthChecker, c.cfg.healthVersion)
+	mountInfo(r, c.cfg)
 	if c.cfg.metrics != nil {
 		r.Handle(http.MethodGet, "/v1/metrics", c.cfg.metrics.Handler().ServeHTTP)
 	}
+	mountExtras(r, c.cfg.extras)
 }

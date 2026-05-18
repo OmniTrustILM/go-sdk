@@ -5,7 +5,16 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 )
+
+// missingRequiredPropertyPrefix is the literal prefix emitted by the
+// generated DTOs' UnmarshalJSON when a required property is absent
+// ("no value given for required property NAME"). Matching on this string is
+// brittle but works against every generated package today and lets us return
+// a semantically correct 422 instead of a generic 400. Revisit if openapi-
+// generator ever changes the message.
+const missingRequiredPropertyPrefix = "no value given for required property "
 
 // DecodeJSON reads at most maxBytes from r.Body and unmarshals into dst.
 // strict=true rejects unknown fields. All decode failures are returned as
@@ -31,6 +40,9 @@ func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any, maxBytes int64,
 		}
 		if errors.Is(err, io.EOF) {
 			return BadRequest("EMPTY_BODY", "request body required").WithCause(err)
+		}
+		if strings.HasPrefix(err.Error(), missingRequiredPropertyPrefix) {
+			return Invalid("VALIDATION_FAILED", "%s", err.Error()).WithCause(err)
 		}
 		return BadRequest("INVALID_JSON", "request body is not valid JSON").WithCause(err)
 	}
