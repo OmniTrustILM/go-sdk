@@ -69,8 +69,8 @@ func (h *Handler) Interface() shared.InterfaceInfo {
 // via shared.WithExtraEndpoints if the deployment requires it.
 func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 	endpoints := []shared.V1Endpoint{
-		{Name: "listAttributeDefinitions", Method: http.MethodGet, Context: "/v1/{functionalGroup}/{kind}/attributes"},
-		{Name: "validateAttributes", Method: http.MethodPost, Context: "/v1/{functionalGroup}/{kind}/attributes/validate"},
+		{Name: "listAttributeDefinitions", Method: http.MethodGet, Context: "/v1/" + FunctionGroupCode + "/{kind}/attributes"},
+		{Name: "validateAttributes", Method: http.MethodPost, Context: "/v1/" + FunctionGroupCode + "/{kind}/attributes/validate"},
 		{Name: "discoverCertificate", Method: http.MethodPost, Context: h.BasePath + "/discover"},
 		{Name: "getDiscovery", Method: http.MethodPost, Context: h.BasePath + "/discover/{uuid}"},
 		{Name: "deleteDiscovery", Method: http.MethodDelete, Context: h.BasePath + "/discover/{uuid}"},
