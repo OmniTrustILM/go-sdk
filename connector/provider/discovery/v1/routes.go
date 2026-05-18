@@ -26,19 +26,6 @@ func emit(ctx context.Context, event string, err error) {
 	mc.IncConnectorEvent(event, outcome)
 }
 
-// validateFunctionalGroup checks the {functionalGroup} path parameter against
-// the discoveryProvider literal. Routes a 404 when another provider's group
-// is requested so collisions across mounted handlers are explicit.
-func (h *Handler) validateFunctionalGroup(w http.ResponseWriter, r *http.Request) bool {
-	got := r.PathValue("functionalGroup")
-	if got != FunctionGroupCode {
-		shared.RenderError(w, r, shared.NotFound("FUNCTION_GROUP_NOT_FOUND",
-			"unknown functional group: %s", got).WithProperty("functionalGroup", got))
-		return false
-	}
-	return true
-}
-
 // --- Discovery routes ------------------------------------------------------
 
 // POST /v1/discoveryProvider/discover
@@ -102,11 +89,8 @@ func (h *Handler) deleteDiscovery(w http.ResponseWriter, r *http.Request) {
 
 // --- Attribute routes -----------------------------------------------------
 
-// GET /v1/{functionalGroup}/{kind}/attributes
+// GET /v1/discoveryProvider/{kind}/attributes
 func (h *Handler) listAttributes(w http.ResponseWriter, r *http.Request) {
-	if !h.validateFunctionalGroup(w, r) {
-		return
-	}
 	kind := r.PathValue("kind")
 	var out []mdl.BaseAttributeDto
 	var err error
@@ -123,11 +107,8 @@ func (h *Handler) listAttributes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// POST /v1/{functionalGroup}/{kind}/attributes/validate
+// POST /v1/discoveryProvider/{kind}/attributes/validate
 func (h *Handler) validateAttributes(w http.ResponseWriter, r *http.Request) {
-	if !h.validateFunctionalGroup(w, r) {
-		return
-	}
 	kind := r.PathValue("kind")
 	var attrs []mdl.RequestAttribute
 	if err := shared.DecodeJSON(w, r, &attrs, h.MaxBytes, h.Strict); err != nil {

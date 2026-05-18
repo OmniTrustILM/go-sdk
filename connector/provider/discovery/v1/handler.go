@@ -86,20 +86,20 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 	}
 }
 
-// Mount attaches every Discovery Provider v1 route onto r. Mounts both the
-// discovery-specific routes (under basePath) and the kind-scoped attribute
-// endpoints under the generic functionalGroup wildcard — the literal
-// FunctionGroupCode is validated in the handler so unrelated provider
-// groups do not silently match.
+// Mount attaches every Discovery Provider v1 route onto r.
+//
+// Attribute endpoints are spec-shared across all v1 providers via the
+// /v1/{functionalGroup}/{kind}/attributes(/validate) template, but we mount
+// them with the literal FunctionGroupCode substituted so multiple v1
+// providers (e.g. discovery + authority) can coexist in the same Connector
+// without colliding on the {functionalGroup} wildcard. stdlib http.ServeMux
+// would otherwise panic on the duplicate pattern at startup.
 func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 	r.Handle(http.MethodPost, base+"/discover", h.discoverCertificate)
 	r.Handle(http.MethodPost, base+"/discover/{uuid}", h.getDiscovery)
 	r.Handle(http.MethodDelete, base+"/discover/{uuid}", h.deleteDiscovery)
 
-	// Attribute endpoints are spec-shared across all v1 providers via the
-	// {functionalGroup} wildcard. Mount them once here; the handler checks
-	// that functionalGroup matches "discoveryProvider".
-	r.Handle(http.MethodGet, "/v1/{functionalGroup}/{kind}/attributes", h.listAttributes)
-	r.Handle(http.MethodPost, "/v1/{functionalGroup}/{kind}/attributes/validate", h.validateAttributes)
+	r.Handle(http.MethodGet, "/v1/"+FunctionGroupCode+"/{kind}/attributes", h.listAttributes)
+	r.Handle(http.MethodPost, "/v1/"+FunctionGroupCode+"/{kind}/attributes/validate", h.validateAttributes)
 }
