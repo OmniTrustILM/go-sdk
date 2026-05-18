@@ -33,7 +33,7 @@ func emit(ctx context.Context, event string, err error) {
 // POST /v1/secretProvider/secrets
 func (h *Handler) createSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.CreateSecretRequestDto
-	if err := shared.DecodeJSON(w, r, &in, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventCreateSecret, err)
 		shared.RenderError(w, r, err)
 		return
@@ -45,14 +45,14 @@ func (h *Handler) createSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusCreated, out); writeErr != nil {
-		h.loggerFor(r).Error("write createSecret response", "err", writeErr)
+		h.LoggerFor(r).Error("write createSecret response", "err", writeErr)
 	}
 }
 
 // PUT /v1/secretProvider/secrets
 func (h *Handler) updateSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.UpdateSecretRequestDto
-	if err := shared.DecodeJSON(w, r, &in, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventUpdateSecret, err)
 		shared.RenderError(w, r, err)
 		return
@@ -64,14 +64,14 @@ func (h *Handler) updateSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
-		h.loggerFor(r).Error("write updateSecret response", "err", writeErr)
+		h.LoggerFor(r).Error("write updateSecret response", "err", writeErr)
 	}
 }
 
 // DELETE /v1/secretProvider/secrets
 func (h *Handler) deleteSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.SecretRequestDto
-	if err := shared.DecodeJSON(w, r, &in, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventDeleteSecret, err)
 		shared.RenderError(w, r, err)
 		return
@@ -88,7 +88,7 @@ func (h *Handler) deleteSecret(w http.ResponseWriter, r *http.Request) {
 // POST /v1/secretProvider/secrets/rotate
 func (h *Handler) rotateSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.SecretRequestDto
-	if err := shared.DecodeJSON(w, r, &in, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventRotateSecret, err)
 		shared.RenderError(w, r, err)
 		return
@@ -100,14 +100,14 @@ func (h *Handler) rotateSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
-		h.loggerFor(r).Error("write rotateSecret response", "err", writeErr)
+		h.LoggerFor(r).Error("write rotateSecret response", "err", writeErr)
 	}
 }
 
 // POST /v1/secretProvider/secrets/content
 func (h *Handler) getSecretContent(w http.ResponseWriter, r *http.Request) {
 	var in mdl.SecretRequestDto
-	if err := shared.DecodeJSON(w, r, &in, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventGetSecretContent, err)
 		shared.RenderError(w, r, err)
 		return
@@ -120,7 +120,7 @@ func (h *Handler) getSecretContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
-		h.loggerFor(r).Error("write getSecretContent response", "err", writeErr)
+		h.LoggerFor(r).Error("write getSecretContent response", "err", writeErr)
 	}
 }
 
@@ -129,7 +129,7 @@ func (h *Handler) getSecretContent(w http.ResponseWriter, r *http.Request) {
 // POST /v1/secretProvider/vaults
 func (h *Handler) checkVaultConnection(w http.ResponseWriter, r *http.Request) {
 	var attrs []mdl.RequestAttribute
-	if err := shared.DecodeJSON(w, r, &attrs, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &attrs, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventVaultCheck, err)
 		shared.RenderError(w, r, err)
 		return
@@ -163,14 +163,14 @@ func (h *Handler) listVaultAttributes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
-		h.loggerFor(r).Error("write listVaultAttributes response", "err", writeErr)
+		h.LoggerFor(r).Error("write listVaultAttributes response", "err", writeErr)
 	}
 }
 
 // POST /v1/secretProvider/vaultProfiles/attributes
 func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Request) {
 	var ctxAttrs []mdl.RequestAttribute
-	if err := shared.DecodeJSON(w, r, &ctxAttrs, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &ctxAttrs, h.MaxBytes, h.Strict); err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -184,7 +184,7 @@ func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
-		h.loggerFor(r).Error("write listVaultProfileAttributes response", "err", writeErr)
+		h.LoggerFor(r).Error("write listVaultProfileAttributes response", "err", writeErr)
 	}
 }
 
@@ -200,7 +200,7 @@ func (h *Handler) getRotateAttributes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
-		h.loggerFor(r).Error("write getRotateAttributes response", "err", writeErr)
+		h.LoggerFor(r).Error("write getRotateAttributes response", "err", writeErr)
 	}
 }
 
@@ -222,7 +222,7 @@ func (h *Handler) getSecretAttributes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
-		h.loggerFor(r).Error("write getSecretAttributes response", "err", writeErr)
+		h.LoggerFor(r).Error("write getSecretAttributes response", "err", writeErr)
 	}
 }
 

@@ -27,6 +27,7 @@ import (
 
 	secret "github.com/OmniTrustILM/go-sdk/connector/provider/secret/v1"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
+	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
 const (
@@ -41,7 +42,7 @@ func main() {
 
 	store := NewStore()
 	handler, err := secret.NewHandler(store,
-		secret.WithStrictDecode(envBool("STRICT_DECODE")),
+		secret.Base(handlerbase.WithStrictDecode(envBool("STRICT_DECODE"))),
 		secret.WithVaultProfileAttributes(&Attrs{}),
 	)
 	if err != nil {

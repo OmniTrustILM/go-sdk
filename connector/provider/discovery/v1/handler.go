@@ -3,11 +3,11 @@ package discovery
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/discovery/v1"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
+	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
 // DefaultBasePath is the route prefix discovery-specific endpoints mount under.
@@ -16,9 +16,6 @@ const DefaultBasePath = "/v1/discoveryProvider"
 // InterfaceVersion is reported via /v2/info as the implemented version of
 // the "discovery" connector interface, using the SDK-wide "vN" convention.
 const InterfaceVersion = shared.VersionV1
-
-// Default decode configuration.
-const defaultMaxBytes = 1 << 20 // 1 MiB
 
 // FunctionGroupCode is the canonical code emitted in /v1 info for discovery,
 // pulled from the generated FunctionGroupCode enum.
@@ -32,14 +29,11 @@ const FunctionGroupCode = string(mdl.FUNCTIONGROUPCODE_DISCOVERY_PROVIDER)
 // Construct with NewHandler; mount via shared.Register(handler) on the
 // Connector. Goroutine-safe once constructed.
 type Handler struct {
+	handlerbase.Config
+
 	provider Provider
 	attrs    AttributeProvider
-
-	basePath string
 	kinds    []string
-	maxBytes int64
-	strict   bool
-	logger   *slog.Logger
 }
 
 // NewHandler builds a Handler for the given Provider.
@@ -48,9 +42,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		return nil, errors.New("discovery: provider must not be nil")
 	}
 	h := &Handler{
+		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
-		basePath: DefaultBasePath,
-		maxBytes: defaultMaxBytes,
 	}
 	for _, opt := range opts {
 		if err := opt(h); err != nil {
@@ -78,9 +71,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 	endpoints := []shared.V1Endpoint{
 		{Name: "listAttributeDefinitions", Method: http.MethodGet, Context: "/v1/{functionalGroup}/{kind}/attributes"},
 		{Name: "validateAttributes", Method: http.MethodPost, Context: "/v1/{functionalGroup}/{kind}/attributes/validate"},
-		{Name: "discoverCertificate", Method: http.MethodPost, Context: h.basePath + "/discover"},
-		{Name: "getDiscovery", Method: http.MethodPost, Context: h.basePath + "/discover/{uuid}"},
-		{Name: "deleteDiscovery", Method: http.MethodDelete, Context: h.basePath + "/discover/{uuid}"},
+		{Name: "discoverCertificate", Method: http.MethodPost, Context: h.BasePath + "/discover"},
+		{Name: "getDiscovery", Method: http.MethodPost, Context: h.BasePath + "/discover/{uuid}"},
+		{Name: "deleteDiscovery", Method: http.MethodDelete, Context: h.BasePath + "/discover/{uuid}"},
 	}
 	kinds := h.kinds
 	if kinds == nil {
@@ -99,7 +92,7 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 // FunctionGroupCode is validated in the handler so unrelated provider
 // groups do not silently match.
 func (h *Handler) Mount(r shared.Router) {
-	base := h.basePath
+	base := h.BasePath
 	r.Handle(http.MethodPost, base+"/discover", h.discoverCertificate)
 	r.Handle(http.MethodPost, base+"/discover/{uuid}", h.getDiscovery)
 	r.Handle(http.MethodDelete, base+"/discover/{uuid}", h.deleteDiscovery)
@@ -109,11 +102,4 @@ func (h *Handler) Mount(r shared.Router) {
 	// that functionalGroup matches "discoveryProvider".
 	r.Handle(http.MethodGet, "/v1/{functionalGroup}/{kind}/attributes", h.listAttributes)
 	r.Handle(http.MethodPost, "/v1/{functionalGroup}/{kind}/attributes/validate", h.validateAttributes)
-}
-
-func (h *Handler) loggerFor(r *http.Request) *slog.Logger {
-	if h.logger != nil {
-		return h.logger
-	}
-	return shared.LoggerFromContext(r.Context())
 }

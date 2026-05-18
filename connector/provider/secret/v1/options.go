@@ -2,53 +2,31 @@ package secret
 
 import (
 	"errors"
-	"log/slog"
+
+	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
 // Option configures a Handler. Returned by every With* helper. Applied in
 // order; later options override earlier ones for scalar fields.
 type Option func(*Handler) error
 
-// WithBasePath overrides the route prefix. Default "/v1/secretProvider".
-// Useful when mounting multiple v1 connectors on the same Connector or when
-// fronting the connector with a prefix-stripping proxy.
-func WithBasePath(p string) Option {
+// Base lifts shared handlerbase options (base path, max bytes, strict decode,
+// logger override) into the secret provider's Option type.
+//
+//	secret.NewHandler(p,
+//	    secret.Base(
+//	        handlerbase.WithStrictDecode(true),
+//	        handlerbase.WithMaxRequestBytes(2<<20),
+//	    ),
+//	    secret.WithSecretAttributes(myAttrs),
+//	)
+func Base(opts ...handlerbase.Option) Option {
 	return func(h *Handler) error {
-		if p == "" {
-			return errors.New("base path must not be empty")
+		for _, opt := range opts {
+			if err := opt(&h.Config); err != nil {
+				return err
+			}
 		}
-		h.basePath = p
-		return nil
-	}
-}
-
-// WithMaxRequestBytes caps body size for endpoints that decode JSON. Default
-// 1 MiB. Set independently from the shared.Connector default so providers
-// with notably larger payloads (e.g. keystore uploads) can opt up.
-func WithMaxRequestBytes(n int64) Option {
-	return func(h *Handler) error {
-		if n <= 0 {
-			return errors.New("maxRequestBytes must be > 0")
-		}
-		h.maxBytes = n
-		return nil
-	}
-}
-
-// WithStrictDecode rejects request bodies containing unknown JSON fields.
-// Default false (lenient).
-func WithStrictDecode(b bool) Option {
-	return func(h *Handler) error { h.strict = b; return nil }
-}
-
-// WithLogger overrides the per-handler base logger. When unset, handlers use
-// the request-scoped logger from shared.LoggerFromContext.
-func WithLogger(l *slog.Logger) Option {
-	return func(h *Handler) error {
-		if l == nil {
-			return errors.New("logger must not be nil")
-		}
-		h.logger = l
 		return nil
 	}
 }

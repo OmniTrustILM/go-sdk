@@ -33,6 +33,7 @@ import (
 
 	discovery "github.com/OmniTrustILM/go-sdk/connector/provider/discovery/v1"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
+	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
 const (
@@ -52,7 +53,7 @@ func main() {
 
 	store := NewStore()
 	handler, err := discovery.NewHandler(store,
-		discovery.WithStrictDecode(envBool("STRICT_DECODE")),
+		discovery.Base(handlerbase.WithStrictDecode(envBool("STRICT_DECODE"))),
 		discovery.WithKinds(kinds...),
 	)
 	if err != nil {

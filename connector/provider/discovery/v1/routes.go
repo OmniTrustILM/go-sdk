@@ -44,7 +44,7 @@ func (h *Handler) validateFunctionalGroup(w http.ResponseWriter, r *http.Request
 // POST /v1/discoveryProvider/discover
 func (h *Handler) discoverCertificate(w http.ResponseWriter, r *http.Request) {
 	var in mdl.DiscoveryRequestDto
-	if err := shared.DecodeJSON(w, r, &in, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventDiscoverCertificate, err)
 		shared.RenderError(w, r, err)
 		return
@@ -56,7 +56,7 @@ func (h *Handler) discoverCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
-		h.loggerFor(r).Error("write discoverCertificate response", "err", writeErr)
+		h.LoggerFor(r).Error("write discoverCertificate response", "err", writeErr)
 	}
 }
 
@@ -68,7 +68,7 @@ func (h *Handler) getDiscovery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in mdl.DiscoveryDataRequestDto
-	if err := shared.DecodeJSON(w, r, &in, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventGetDiscovery, err)
 		shared.RenderError(w, r, err)
 		return
@@ -80,7 +80,7 @@ func (h *Handler) getDiscovery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
-		h.loggerFor(r).Error("write getDiscovery response", "err", writeErr)
+		h.LoggerFor(r).Error("write getDiscovery response", "err", writeErr)
 	}
 }
 
@@ -119,7 +119,7 @@ func (h *Handler) listAttributes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
-		h.loggerFor(r).Error("write listAttributes response", "err", writeErr)
+		h.LoggerFor(r).Error("write listAttributes response", "err", writeErr)
 	}
 }
 
@@ -130,7 +130,7 @@ func (h *Handler) validateAttributes(w http.ResponseWriter, r *http.Request) {
 	}
 	kind := r.PathValue("kind")
 	var attrs []mdl.RequestAttribute
-	if err := shared.DecodeJSON(w, r, &attrs, h.maxBytes, h.strict); err != nil {
+	if err := shared.DecodeJSON(w, r, &attrs, h.MaxBytes, h.Strict); err != nil {
 		emit(r.Context(), eventValidateAttributes, err)
 		shared.RenderError(w, r, err)
 		return
