@@ -3,24 +3,18 @@ package secret
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
+	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
 // DefaultBasePath is the route prefix every endpoint mounts under.
 const DefaultBasePath = "/v1/secretProvider"
 
 // InterfaceVersion is reported via /v2/info as the implemented version of the
-// "secret" connector interface.
-const InterfaceVersion = "1"
-
-// Default decode configuration. Mirrors shared.config defaults so behavior
-// stays consistent unless the caller explicitly opts in.
-const (
-	defaultMaxBytes = 1 << 20 // 1 MiB
-)
+// "secret" connector interface. Uses the SDK-wide "vN" prefix convention.
+const InterfaceVersion = shared.VersionV1
 
 // Handler adapts a Provider implementation (and any registered attribute
 // providers) to an HTTP surface mountable on a shared.Connector.
@@ -29,17 +23,14 @@ const (
 // Connector. Handler is goroutine-safe once constructed; configuration is
 // frozen after NewHandler returns.
 type Handler struct {
+	handlerbase.Config
+
 	provider Provider
 
 	secretAttrs       SecretAttributeProvider
 	vaultAttrs        VaultAttributeProvider
 	vaultProfileAttrs VaultProfileAttributeProvider
 	rotateAttrs       RotateAttributeProvider
-
-	basePath string
-	maxBytes int64
-	strict   bool
-	logger   *slog.Logger
 }
 
 // NewHandler builds a Handler for the given Provider, applying functional
@@ -49,9 +40,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		return nil, errors.New("secret: provider must not be nil")
 	}
 	h := &Handler{
+		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
-		basePath: DefaultBasePath,
-		maxBytes: defaultMaxBytes,
 	}
 	for _, opt := range opts {
 		if err := opt(h); err != nil {
@@ -72,13 +62,13 @@ func (h *Handler) Interface() shared.InterfaceInfo {
 
 // Mount attaches every Secret Provider v1 route onto r. Routes that depend on
 // an optional attribute provider are mounted unconditionally — when the
-// provider is unregistered, the handler responds 404 RESOURCE_NOT_FOUND.
+// provider is unregistered, the handler responds 200 with an empty list.
 //
 // Pattern precedence note: GET /secrets/rotate/attributes is registered as a
 // literal path so it wins over GET /secrets/{secretType}/attributes per
 // stdlib ServeMux specificity rules.
 func (h *Handler) Mount(r shared.Router) {
-	base := h.basePath
+	base := h.BasePath
 
 	// Secret Management
 	r.Handle(http.MethodPost, base+"/secrets", h.createSecret)
@@ -95,13 +85,4 @@ func (h *Handler) Mount(r shared.Router) {
 	r.Handle(http.MethodPost, base+"/vaultProfiles/attributes", h.listVaultProfileAttributes)
 	r.Handle(http.MethodGet, base+"/secrets/rotate/attributes", h.getRotateAttributes)
 	r.Handle(http.MethodGet, base+"/secrets/{secretType}/attributes", h.getSecretAttributes)
-}
-
-// loggerFor returns the request-scoped logger, falling back to the handler
-// override and finally to slog.Default().
-func (h *Handler) loggerFor(r *http.Request) *slog.Logger {
-	if h.logger != nil {
-		return h.logger
-	}
-	return shared.LoggerFromContext(r.Context())
 }

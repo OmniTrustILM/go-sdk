@@ -22,10 +22,12 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"syscall"
 
 	secret "github.com/OmniTrustILM/go-sdk/connector/provider/secret/v1"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
+	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
 const (
@@ -40,7 +42,7 @@ func main() {
 
 	store := NewStore()
 	handler, err := secret.NewHandler(store,
-		secret.WithStrictDecode(env("STRICT_DECODE") != ""),
+		secret.Base(handlerbase.WithStrictDecode(envBool("STRICT_DECODE"))),
 		secret.WithVaultProfileAttributes(&Attrs{}),
 	)
 	if err != nil {
@@ -93,11 +95,24 @@ func newLogger(level string) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 }
 
-func env(key string) string { return os.Getenv(key) }
-
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return def
+}
+
+// envBool parses the env var as a boolean via strconv.ParseBool. Accepts
+// the canonical Go set (1/t/T/TRUE/true/True and their false counterparts).
+// Unset or unparseable values return false.
+func envBool(key string) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return false
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false
+	}
+	return b
 }
