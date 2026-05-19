@@ -8,8 +8,9 @@ import (
 
 // Attribute provider interfaces are split per endpoint so a connector can
 // implement only the attribute surfaces it actually exposes. Each unregistered
-// attribute endpoint responds with 404 ATTR_NOT_REGISTERED; the convention may
-// change once the attribute registry lands (see the open question in res-1.md).
+// attribute endpoint responds 200 with an empty array — the SDK-wide
+// convention so callers that enumerate attributes do not break when an
+// optional surface is absent.
 //
 // One implementation can satisfy several of these interfaces simply by
 // embedding or by pointer-receiving multiple methods on the same struct.
