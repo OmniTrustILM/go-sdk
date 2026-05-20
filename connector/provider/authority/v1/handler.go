@@ -35,7 +35,6 @@ type Handler struct {
 	kindAttrs      KindAttributeProvider
 	raProfileAttrs RAProfileAttributeProvider
 
-	kinds []string
 }
 
 // NewHandler builds a Handler for the given Provider.
@@ -110,7 +109,7 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             shared.EnsureSlice(h.kinds),
+		Kinds:             shared.EnsureSlice(h.Kinds),
 		EndPoints:         endpoints,
 	}
 }
@@ -123,7 +122,7 @@ func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
 	// Per-kind generic attribute endpoints.
-	handlerbase.MountPerKindAttributes(r, base, h.kinds, h.listKindAttributesFor, h.validateKindAttributesFor)
+	handlerbase.MountPerKindAttributes(r, base, h.Kinds, h.listKindAttributesFor, h.validateKindAttributesFor)
 
 	// Authority management.
 	r.Handle(http.MethodGet, base+"/authorities", h.listAuthorityInstances)

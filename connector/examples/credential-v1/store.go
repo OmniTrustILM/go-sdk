@@ -9,8 +9,11 @@ import (
 
 // Store is a minimal Credential Provider implementation. Two kinds are
 // supported: "basic" (username + password) and "apiKey" (single api key
-// string). Returns a V3 data attribute set per kind; validate just enforces
-// non-empty required fields.
+// string). Returns a V3 data attribute set per kind; ValidateAttributes
+// runs a placeholder pass (each submitted attribute must carry a name) —
+// it does not yet check requiredness against the schema returned by
+// Attributes. Scope is wiring verification; tighten if a real example is
+// needed.
 type Store struct{}
 
 func NewStore() *Store { return &Store{} }
@@ -37,17 +40,15 @@ func (s *Store) ValidateAttributes(ctx context.Context, kind string, attrs []mdl
 	default:
 		return nil, credential.ErrKindNotFound.WithProperty("kind", kind)
 	}
-	// Placeholder validation: walk the submitted attributes, ensure they
-	// have names and that none are empty. Real validation would check the
-	// attribute payloads against the schema returned by Attributes.
+	// Placeholder validation: each submitted attribute must have a name.
+	// A real implementation would check requiredness, content type, and
+	// constraint matches against the schema returned by Attributes.
 	var errs []string
-	for i, a := range attrs {
+	for _, a := range attrs {
 		ar := a.RequestAttributeV3
 		if ar == nil || ar.Name == "" {
 			errs = append(errs, "missing attribute name")
-			continue
 		}
-		_ = i
 	}
 	return errs, nil
 }

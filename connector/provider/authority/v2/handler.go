@@ -113,7 +113,7 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             shared.EnsureSlice(h.kinds),
+		Kinds:             shared.EnsureSlice(h.Kinds),
 		EndPoints:         endpoints,
 	}
 }
@@ -139,7 +139,7 @@ func (h *Handler) Mount(r shared.Router) {
 
 	// Generic kind attributes, mounted per literal kind to avoid the
 	// authorities-vs-{kind} wildcard conflict described above.
-	handlerbase.MountPerKindAttributes(r, "/v1/"+FunctionGroupCode, h.kinds, h.listKindAttributesFor, h.validateKindAttributesFor)
+	handlerbase.MountPerKindAttributes(r, "/v1/"+FunctionGroupCode, h.Kinds, h.listKindAttributesFor, h.validateKindAttributesFor)
 
 	// Authority management.
 	r.Handle(http.MethodGet, base+"/authorities", h.listAuthorityInstances)

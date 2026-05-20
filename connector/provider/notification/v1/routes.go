@@ -123,7 +123,7 @@ func (h *Handler) sendNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.EmitEvent(r.Context(), eventSendNotification, nil)
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- Per-literal-kind attribute routes -----------------------------------

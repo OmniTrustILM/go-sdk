@@ -78,7 +78,7 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             shared.EnsureSlice(h.kinds),
+		Kinds:             shared.EnsureSlice(h.Kinds),
 		EndPoints:         endpoints,
 	}
 }

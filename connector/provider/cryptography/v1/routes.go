@@ -164,7 +164,7 @@ func (h *Handler) activateTokenInstance(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	shared.EmitEvent(r.Context(), eventActivateTokenInstance, nil)
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) deactivateTokenInstance(w http.ResponseWriter, r *http.Request) {
@@ -472,7 +472,7 @@ func (h *Handler) validateTokenProfileAttributes(w http.ResponseWriter, r *http.
 	if h.tokenProfileAttrs != nil {
 		fn = h.tokenProfileAttrs.ValidateTokenProfileAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateTokenProfileAttributes, "uuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateTokenProfileAttributes, "uuid", http.StatusNoContent, fn)(w, r)
 }
 
 // Token activation attributes.
@@ -488,7 +488,7 @@ func (h *Handler) validateTokenActivationAttributes(w http.ResponseWriter, r *ht
 	if h.tokenActivationAttrs != nil {
 		fn = h.tokenActivationAttrs.ValidateTokenActivationAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateTokenActivationAttrs, "uuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateTokenActivationAttrs, "uuid", http.StatusNoContent, fn)(w, r)
 }
 
 // Create secret key attributes.
@@ -504,7 +504,7 @@ func (h *Handler) validateCreateSecretKeyAttributes(w http.ResponseWriter, r *ht
 	if h.createSecretKeyAttrs != nil {
 		fn = h.createSecretKeyAttrs.ValidateCreateSecretKeyAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateCreateSecretKeyAttrs, "uuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateCreateSecretKeyAttrs, "uuid", http.StatusNoContent, fn)(w, r)
 }
 
 // Create key pair attributes.
@@ -520,7 +520,7 @@ func (h *Handler) validateCreateKeyPairAttributes(w http.ResponseWriter, r *http
 	if h.createKeyPairAttrs != nil {
 		fn = h.createKeyPairAttrs.ValidateCreateKeyPairAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateCreateKeyPairAttributes, "uuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateCreateKeyPairAttributes, "uuid", http.StatusNoContent, fn)(w, r)
 }
 
 // Random data attributes.
@@ -536,5 +536,5 @@ func (h *Handler) validateRandomDataAttributes(w http.ResponseWriter, r *http.Re
 	if h.randomDataAttrs != nil {
 		fn = h.randomDataAttrs.ValidateRandomDataAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateRandomDataAttributes, "uuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateRandomDataAttributes, "uuid", http.StatusNoContent, fn)(w, r)
 }

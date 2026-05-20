@@ -30,7 +30,6 @@ type Handler struct {
 	kindAttrs    KindAttributeProvider
 	mappingAttrs MappingAttributeProvider
 
-	kinds []string
 }
 
 // NewHandler builds a Handler for the given Provider.
@@ -78,7 +77,7 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             shared.EnsureSlice(h.kinds),
+		Kinds:             shared.EnsureSlice(h.Kinds),
 		EndPoints:         endpoints,
 	}
 }
@@ -94,7 +93,7 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
-	handlerbase.MountPerKindAttributes(r, base, h.kinds, h.listKindAttributesFor, nil)
+	handlerbase.MountPerKindAttributes(r, base, h.Kinds, h.listKindAttributesFor, nil)
 
 	// Wildcard mounts (no 5-seg conflicts).
 	r.Handle(http.MethodPost, base+"/{kind}/attributes/validate", h.validateKindAttributes)

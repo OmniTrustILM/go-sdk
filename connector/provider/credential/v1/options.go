@@ -20,11 +20,13 @@ func Base(opts ...handlerbase.Option) Option {
 	}
 }
 
-// WithKinds declares the credential kinds this connector supports. Surfaced
-// in /v1 listSupportedFunctions under the credentialProvider function group.
+// WithKinds declares the connector kinds this provider supports.
+// Surfaced in /v1 listSupportedFunctions and drives the per-literal-kind
+// attribute route mounts. Delegates to handlerbase.WithKinds for input
+// validation (rejects empty kinds and characters forbidden in a URL
+// path segment).
 func WithKinds(kinds ...string) Option {
 	return func(h *Handler) error {
-		h.kinds = append(h.kinds, kinds...)
-		return nil
+		return handlerbase.WithKinds(kinds...)(&h.Config)
 	}
 }

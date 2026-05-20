@@ -28,7 +28,7 @@ type Provider interface {
 	RemoveNotificationInstance(ctx context.Context, uuid string) error
 
 	// SendNotification delivers the notification described by req via the
-	// given instance. Returns nil on success; the spec defines no success
-	// body so the handler responds 200 with no content.
+	// given instance. Returns nil on success; the spec defines 204 No
+	// Content for the success response so the handler writes 204 on nil.
 	SendNotification(ctx context.Context, uuid string, req *mdl.NotificationProviderNotifyRequestDto) error
 }

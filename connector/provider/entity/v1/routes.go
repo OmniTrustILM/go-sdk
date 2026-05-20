@@ -266,7 +266,7 @@ func (h *Handler) validateLocationAttributes(w http.ResponseWriter, r *http.Requ
 	if h.locationAttrs != nil {
 		fn = h.locationAttrs.ValidateLocationAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateLocationAttributes, "entityUuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateLocationAttributes, "entityUuid", http.StatusOK, fn)(w, r)
 }
 
 // Push certificate attributes.
@@ -282,7 +282,7 @@ func (h *Handler) validatePushCertificateAttributes(w http.ResponseWriter, r *ht
 	if h.pushAttrs != nil {
 		fn = h.pushAttrs.ValidatePushCertificateAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidatePushCertAttributes, "entityUuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidatePushCertAttributes, "entityUuid", http.StatusOK, fn)(w, r)
 }
 
 // Generate CSR attributes.
@@ -298,5 +298,5 @@ func (h *Handler) validateGenerateCsrAttributes(w http.ResponseWriter, r *http.R
 	if h.csrAttrs != nil {
 		fn = h.csrAttrs.ValidateGenerateCsrAttributes
 	}
-	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateGenerateCsrAttrs, "entityUuid", fn)(w, r)
+	handlerbase.ValidateInstanceAttributes(&h.Config, eventValidateGenerateCsrAttrs, "entityUuid", http.StatusOK, fn)(w, r)
 }

@@ -46,11 +46,17 @@ func ListInstanceAttributes[T any](
 
 // ValidateInstanceAttributes builds the POST handler. fn returns validation
 // errors that the helper renders as 422 when non-empty. When fn is nil
-// (sub-provider absent), the handler decodes the body and returns 200 —
-// nothing to validate.
+// (sub-provider absent), the handler decodes the body and returns the
+// configured successStatus — nothing to validate.
+//
+// successStatus must be the status code the spec defines for the success
+// response — usually http.StatusOK or http.StatusNoContent. Cryptography
+// per-instance validate endpoints are 204; entity / authority per-instance
+// validates are 200.
 func ValidateInstanceAttributes[A any](
 	cfg *Config,
 	event, pathParam string,
+	successStatus int,
 	fn func(ctx context.Context, id string, attrs []A) ([]string, error),
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +72,7 @@ func ValidateInstanceAttributes[A any](
 		}
 		if fn == nil {
 			shared.EmitEvent(r.Context(), event, nil)
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(successStatus)
 			return
 		}
 		vErrs, err := fn(r.Context(), id, attrs)
@@ -79,6 +85,6 @@ func ValidateInstanceAttributes[A any](
 			shared.WriteV1ValidationErrors(w, r, vErrs)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(successStatus)
 	}
 }

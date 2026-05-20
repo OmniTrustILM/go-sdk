@@ -139,7 +139,7 @@ func (h *Handler) getConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.EmitEvent(r.Context(), eventGetConnection, nil)
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // POST /v1/authorityProvider/authorities/{uuid}/caCertificates
@@ -254,7 +254,7 @@ func (h *Handler) revokeCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.EmitEvent(r.Context(), eventRevokeCertificate, nil)
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
 
 // POST /v2/authorityProvider/authorities/{uuid}/certificates/identify

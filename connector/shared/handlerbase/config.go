@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
@@ -117,6 +118,42 @@ type Config struct {
 	// Logger overrides the per-request slog.Logger when non-nil. Most
 	// handlers prefer LoggerFor(r) which falls back to the context logger.
 	Logger *slog.Logger
+
+	// Kinds declares the connector kinds this provider supports. Surfaced in
+	// /v1 listSupportedFunctions and used by Mount to register
+	// per-literal-kind attribute routes (see MountPerKindAttributes).
+	// Values are validated by WithKinds before being stored.
+	Kinds []string
+}
+
+// ValidateKind returns nil when k is acceptable as a literal URL segment.
+// Empty strings and values containing path separators or pattern
+// metacharacters are rejected so they cannot register malformed routes
+// or shadow other handlers.
+func ValidateKind(k string) error {
+	if k == "" {
+		return errors.New("kind must not be empty")
+	}
+	if strings.ContainsAny(k, "/{}") {
+		return fmt.Errorf("kind %q contains forbidden characters (/, {, })", k)
+	}
+	return nil
+}
+
+// WithKinds appends the supplied kinds to Config.Kinds after validation.
+// Provider packages wrap this in their own WithKinds option so callers see
+// it in their provider's namespace; the validation lives here so every
+// provider rejects bad input identically.
+func WithKinds(kinds ...string) Option {
+	return func(c *Config) error {
+		for _, k := range kinds {
+			if err := ValidateKind(k); err != nil {
+				return err
+			}
+		}
+		c.Kinds = append(c.Kinds, kinds...)
+		return nil
+	}
 }
 
 // NewConfig returns a Config populated with the SDK defaults. defaultBasePath

@@ -139,7 +139,7 @@ func (h *Handler) getConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.EmitEvent(r.Context(), eventGetConnection, nil)
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) getCaCertificates(w http.ResponseWriter, r *http.Request) {
@@ -303,7 +303,7 @@ func (h *Handler) removeEndEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.EmitEvent(r.Context(), eventRemoveEndEntity, nil)
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) resetPassword(w http.ResponseWriter, r *http.Request) {
@@ -377,7 +377,7 @@ func (h *Handler) revokeCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shared.EmitEvent(r.Context(), eventRevokeCertificate, nil)
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
 
 // --- Profile listing routes ----------------------------------------------
