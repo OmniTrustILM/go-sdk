@@ -2,7 +2,6 @@ package compliance
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/compliance/v1"
@@ -43,10 +42,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("compliance v1: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "compliance v1"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }
@@ -79,13 +76,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 		{Name: "checkCompliance", Method: http.MethodPost, Context: base + "/{kind}/compliance"},
 	}
 
-	kinds := h.kinds
-	if kinds == nil {
-		kinds = []string{}
-	}
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             kinds,
+		Kinds:             shared.EnsureSlice(h.kinds),
 		EndPoints:         endpoints,
 	}
 }

@@ -2,7 +2,6 @@ package cryptography
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v1"
@@ -48,10 +47,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("cryptography: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "cryptography"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }
@@ -117,13 +114,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 		{Name: "decryptData", Method: http.MethodPost, Context: base + "/tokens/{uuid}/keys/{keyUuid}/decrypt"},
 	}
 
-	kinds := h.kinds
-	if kinds == nil {
-		kinds = []string{}
-	}
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             kinds,
+		Kinds:             shared.EnsureSlice(h.kinds),
 		EndPoints:         endpoints,
 	}
 }
@@ -144,17 +137,7 @@ func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
 	// Per-literal-kind generic attributes.
-	for _, k := range h.kinds {
-		kind := k // capture
-		listPath := base + "/" + kind + "/attributes"
-		validatePath := listPath + "/validate"
-		r.Handle(http.MethodGet, listPath, func(w http.ResponseWriter, r *http.Request) {
-			h.listKindAttributesFor(w, r, kind)
-		})
-		r.Handle(http.MethodPost, validatePath, func(w http.ResponseWriter, r *http.Request) {
-			h.validateKindAttributesFor(w, r, kind)
-		})
-	}
+	handlerbase.MountPerKindAttributes(r, base, h.kinds, h.listKindAttributesFor, h.validateKindAttributesFor)
 
 	// Token instance management.
 	r.Handle(http.MethodGet, base+"/tokens", h.listTokenInstances)

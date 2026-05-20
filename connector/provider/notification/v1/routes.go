@@ -1,7 +1,6 @@
 package notification
 
 import (
-	"context"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/notification/v1"
@@ -20,41 +19,19 @@ const (
 	eventListMappingAttributes      = "list_mapping_attributes"
 )
 
-func emit(ctx context.Context, event string, err error) {
-	mc := shared.MetricsFromContext(ctx)
-	outcome := "ok"
-	if err != nil {
-		outcome = "error"
-	}
-	mc.IncConnectorEvent(event, outcome)
-}
 
-func ensureSlice[T any](s []T) []T {
-	if s == nil {
-		return []T{}
-	}
-	return s
-}
 
-func (h *Handler) requireUUID(w http.ResponseWriter, r *http.Request) (string, bool) {
-	id := r.PathValue("uuid")
-	if id == "" {
-		shared.RenderError(w, r, ErrInvalidRequest.WithProperty("reason", "uuid is required"))
-		return "", false
-	}
-	return id, true
-}
 
 // --- Notification instance management ------------------------------------
 
 func (h *Handler) listNotificationInstances(w http.ResponseWriter, r *http.Request) {
 	out, err := h.provider.ListNotificationInstances(r.Context())
-	emit(r.Context(), eventListNotificationInstances, err)
+	shared.EmitEvent(r.Context(), eventListNotificationInstances, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listNotificationInstances response", "err", writeErr)
 	}
 }
@@ -62,12 +39,12 @@ func (h *Handler) listNotificationInstances(w http.ResponseWriter, r *http.Reque
 func (h *Handler) createNotificationInstance(w http.ResponseWriter, r *http.Request) {
 	var in mdl.NotificationProviderInstanceRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventCreateNotificationInstance, err)
+		shared.EmitEvent(r.Context(), eventCreateNotificationInstance, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	out, err := h.provider.CreateNotificationInstance(r.Context(), &in)
-	emit(r.Context(), eventCreateNotificationInstance, err)
+	shared.EmitEvent(r.Context(), eventCreateNotificationInstance, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -78,12 +55,12 @@ func (h *Handler) createNotificationInstance(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) getNotificationInstance(w http.ResponseWriter, r *http.Request) {
-	id, ok := h.requireUUID(w, r)
+	id, ok := shared.RequirePathValue(w, r, "uuid")
 	if !ok {
 		return
 	}
 	out, err := h.provider.GetNotificationInstance(r.Context(), id)
-	emit(r.Context(), eventGetNotificationInstance, err)
+	shared.EmitEvent(r.Context(), eventGetNotificationInstance, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -94,18 +71,18 @@ func (h *Handler) getNotificationInstance(w http.ResponseWriter, r *http.Request
 }
 
 func (h *Handler) updateNotificationInstance(w http.ResponseWriter, r *http.Request) {
-	id, ok := h.requireUUID(w, r)
+	id, ok := shared.RequirePathValue(w, r, "uuid")
 	if !ok {
 		return
 	}
 	var in mdl.NotificationProviderInstanceRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventUpdateNotificationInstance, err)
+		shared.EmitEvent(r.Context(), eventUpdateNotificationInstance, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	out, err := h.provider.UpdateNotificationInstance(r.Context(), id, &in)
-	emit(r.Context(), eventUpdateNotificationInstance, err)
+	shared.EmitEvent(r.Context(), eventUpdateNotificationInstance, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -116,36 +93,36 @@ func (h *Handler) updateNotificationInstance(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) removeNotificationInstance(w http.ResponseWriter, r *http.Request) {
-	id, ok := h.requireUUID(w, r)
+	id, ok := shared.RequirePathValue(w, r, "uuid")
 	if !ok {
 		return
 	}
 	if err := h.provider.RemoveNotificationInstance(r.Context(), id); err != nil {
-		emit(r.Context(), eventRemoveNotificationInstance, err)
+		shared.EmitEvent(r.Context(), eventRemoveNotificationInstance, err)
 		shared.RenderError(w, r, err)
 		return
 	}
-	emit(r.Context(), eventRemoveNotificationInstance, nil)
+	shared.EmitEvent(r.Context(), eventRemoveNotificationInstance, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) sendNotification(w http.ResponseWriter, r *http.Request) {
-	id, ok := h.requireUUID(w, r)
+	id, ok := shared.RequirePathValue(w, r, "uuid")
 	if !ok {
 		return
 	}
 	var in mdl.NotificationProviderNotifyRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventSendNotification, err)
+		shared.EmitEvent(r.Context(), eventSendNotification, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	if err := h.provider.SendNotification(r.Context(), id, &in); err != nil {
-		emit(r.Context(), eventSendNotification, err)
+		shared.EmitEvent(r.Context(), eventSendNotification, err)
 		shared.RenderError(w, r, err)
 		return
 	}
-	emit(r.Context(), eventSendNotification, nil)
+	shared.EmitEvent(r.Context(), eventSendNotification, nil)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -157,12 +134,12 @@ func (h *Handler) listKindAttributesFor(w http.ResponseWriter, r *http.Request, 
 	if h.kindAttrs != nil {
 		out, err = h.kindAttrs.Attributes(r.Context(), kind)
 	}
-	emit(r.Context(), eventListKindAttributes, err)
+	shared.EmitEvent(r.Context(), eventListKindAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listKindAttributes response", "err", writeErr)
 	}
 }
@@ -174,17 +151,17 @@ func (h *Handler) validateKindAttributes(w http.ResponseWriter, r *http.Request)
 	kind := r.PathValue("kind")
 	var attrs []mdl.RequestAttribute
 	if err := shared.DecodeJSON(w, r, &attrs, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventValidateKindAttributes, err)
+		shared.EmitEvent(r.Context(), eventValidateKindAttributes, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	if h.kindAttrs == nil {
-		emit(r.Context(), eventValidateKindAttributes, nil)
+		shared.EmitEvent(r.Context(), eventValidateKindAttributes, nil)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 	vErrs, err := h.kindAttrs.ValidateAttributes(r.Context(), kind, attrs)
-	emit(r.Context(), eventValidateKindAttributes, err)
+	shared.EmitEvent(r.Context(), eventValidateKindAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -204,12 +181,12 @@ func (h *Handler) listMappingAttributes(w http.ResponseWriter, r *http.Request) 
 	if h.mappingAttrs != nil {
 		out, err = h.mappingAttrs.MappingAttributes(r.Context(), kind)
 	}
-	emit(r.Context(), eventListMappingAttributes, err)
+	shared.EmitEvent(r.Context(), eventListMappingAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listMappingAttributes response", "err", writeErr)
 	}
 }

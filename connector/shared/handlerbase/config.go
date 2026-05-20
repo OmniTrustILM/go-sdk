@@ -38,11 +38,61 @@ package handlerbase
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
+
+// ApplyOptions runs the supplied options against h. Used by every provider's
+// NewHandler to keep the option-apply loop in one place; providerName is
+// included in any returned error so the caller does not have to wrap.
+//
+// The type parameter F is constrained with `~func(*H) error` so providers
+// can pass their named Option type (e.g. `secret.Option`) without having
+// to first convert to a `func(*H) error` literal — Go's type system would
+// otherwise reject named-vs-anonymous mismatches.
+func ApplyOptions[H any, F ~func(*H) error](h *H, opts []F, providerName string) error {
+	for _, opt := range opts {
+		if err := opt(h); err != nil {
+			return fmt.Errorf("%s: apply option: %w", providerName, err)
+		}
+	}
+	return nil
+}
+
+// MountPerKindAttributes registers GET <base>/<kind>/attributes and
+// POST <base>/<kind>/attributes/validate routes for every declared kind,
+// with the kind name captured as a literal path segment. Required when the
+// 4-segment GET conflicts with a sibling /authorities/{uuid} or similar
+// wildcard route — see authority/v2 Mount doc for the conflict reason.
+//
+// Pass nil for either handler to skip that side (e.g. notification mounts
+// only the list per-kind; validate stays wildcard because it is 5 segments
+// and does not collide).
+func MountPerKindAttributes(
+	r shared.Router,
+	basePath string,
+	kinds []string,
+	listFn, validateFn func(w http.ResponseWriter, r *http.Request, kind string),
+) {
+	for _, k := range kinds {
+		kind := k
+		listPath := basePath + "/" + kind + "/attributes"
+		validatePath := listPath + "/validate"
+		if listFn != nil {
+			r.Handle(http.MethodGet, listPath, func(w http.ResponseWriter, r *http.Request) {
+				listFn(w, r, kind)
+			})
+		}
+		if validateFn != nil {
+			r.Handle(http.MethodPost, validatePath, func(w http.ResponseWriter, r *http.Request) {
+				validateFn(w, r, kind)
+			})
+		}
+	}
+}
 
 // DefaultMaxRequestBytes caps decoded request bodies. Picked to match the
 // shared.Connector default; provider Handlers inherit it via NewConfig.

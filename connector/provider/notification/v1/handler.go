@@ -2,7 +2,6 @@ package notification
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/notification/v1"
@@ -43,10 +42,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("notification: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "notification"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }
@@ -79,13 +76,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 		{Name: "sendNotification", Method: http.MethodPost, Context: base + "/notifications/{uuid}/notify"},
 	}
 
-	kinds := h.kinds
-	if kinds == nil {
-		kinds = []string{}
-	}
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             kinds,
+		Kinds:             shared.EnsureSlice(h.kinds),
 		EndPoints:         endpoints,
 	}
 }
@@ -101,12 +94,7 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
-	// Per-literal-kind GET /{kind}/attributes.
-	for _, k := range h.kinds {
-		kind := k // capture
-		r.Handle(http.MethodGet, base+"/"+kind+"/attributes",
-			func(w http.ResponseWriter, r *http.Request) { h.listKindAttributesFor(w, r, kind) })
-	}
+	handlerbase.MountPerKindAttributes(r, base, h.kinds, h.listKindAttributesFor, nil)
 
 	// Wildcard mounts (no 5-seg conflicts).
 	r.Handle(http.MethodPost, base+"/{kind}/attributes/validate", h.validateKindAttributes)

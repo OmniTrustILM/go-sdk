@@ -2,7 +2,6 @@ package credential
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/credential/v1"
@@ -42,10 +41,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("credential: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "credential"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }
@@ -69,13 +66,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 		{Name: "listAttributeDefinitions", Method: http.MethodGet, Context: base + "/{kind}/attributes"},
 		{Name: "validateAttributes", Method: http.MethodPost, Context: base + "/{kind}/attributes/validate"},
 	}
-	kinds := h.kinds
-	if kinds == nil {
-		kinds = []string{}
-	}
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             kinds,
+		Kinds:             shared.EnsureSlice(h.kinds),
 		EndPoints:         endpoints,
 	}
 }

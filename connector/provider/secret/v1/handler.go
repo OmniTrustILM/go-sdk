@@ -2,7 +2,6 @@ package secret
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
@@ -43,10 +42,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("secret: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "secret"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }

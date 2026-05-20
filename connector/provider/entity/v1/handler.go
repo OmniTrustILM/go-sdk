@@ -2,7 +2,6 @@ package entity
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/entity/v1"
@@ -46,10 +45,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("entity: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "entity"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }
@@ -96,13 +93,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 		{Name: "validateGenerateCsrAttributes", Method: http.MethodPost, Context: base + "/entities/{entityUuid}/locations/csr/attributes/validate"},
 	}
 
-	kinds := h.kinds
-	if kinds == nil {
-		kinds = []string{}
-	}
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             kinds,
+		Kinds:             shared.EnsureSlice(h.kinds),
 		EndPoints:         endpoints,
 	}
 }
@@ -123,17 +116,7 @@ func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
 	// Per-literal-kind generic attributes.
-	for _, k := range h.kinds {
-		kind := k
-		listPath := base + "/" + kind + "/attributes"
-		validatePath := listPath + "/validate"
-		r.Handle(http.MethodGet, listPath, func(w http.ResponseWriter, r *http.Request) {
-			h.listKindAttributesFor(w, r, kind)
-		})
-		r.Handle(http.MethodPost, validatePath, func(w http.ResponseWriter, r *http.Request) {
-			h.validateKindAttributesFor(w, r, kind)
-		})
-	}
+	handlerbase.MountPerKindAttributes(r, base, h.kinds, h.listKindAttributesFor, h.validateKindAttributesFor)
 
 	// Entity management.
 	r.Handle(http.MethodGet, base+"/entities", h.listEntityInstances)
