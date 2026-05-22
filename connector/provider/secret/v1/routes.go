@@ -1,7 +1,6 @@
 package secret
 
 import (
-	"context"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/secret/v1"
@@ -23,14 +22,6 @@ const (
 	eventListSecretAttributes      = "list_secret_attributes"
 )
 
-func emit(ctx context.Context, event string, err error) {
-	mc := shared.MetricsFromContext(ctx)
-	outcome := "ok"
-	if err != nil {
-		outcome = "error"
-	}
-	mc.IncConnectorEvent(event, outcome)
-}
 
 // --- Secret Management -----------------------------------------------------
 
@@ -38,12 +29,12 @@ func emit(ctx context.Context, event string, err error) {
 func (h *Handler) createSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.CreateSecretRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventCreateSecret, err)
+		shared.EmitEvent(r.Context(), eventCreateSecret, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	out, err := h.provider.CreateSecret(r.Context(), &in)
-	emit(r.Context(), eventCreateSecret, err)
+	shared.EmitEvent(r.Context(), eventCreateSecret, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -57,12 +48,12 @@ func (h *Handler) createSecret(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) updateSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.UpdateSecretRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventUpdateSecret, err)
+		shared.EmitEvent(r.Context(), eventUpdateSecret, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	out, err := h.provider.UpdateSecret(r.Context(), &in)
-	emit(r.Context(), eventUpdateSecret, err)
+	shared.EmitEvent(r.Context(), eventUpdateSecret, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -76,16 +67,16 @@ func (h *Handler) updateSecret(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) deleteSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.SecretRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventDeleteSecret, err)
+		shared.EmitEvent(r.Context(), eventDeleteSecret, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	if err := h.provider.DeleteSecret(r.Context(), &in); err != nil {
-		emit(r.Context(), eventDeleteSecret, err)
+		shared.EmitEvent(r.Context(), eventDeleteSecret, err)
 		shared.RenderError(w, r, err)
 		return
 	}
-	emit(r.Context(), eventDeleteSecret, nil)
+	shared.EmitEvent(r.Context(), eventDeleteSecret, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -93,12 +84,12 @@ func (h *Handler) deleteSecret(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) rotateSecret(w http.ResponseWriter, r *http.Request) {
 	var in mdl.SecretRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventRotateSecret, err)
+		shared.EmitEvent(r.Context(), eventRotateSecret, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	out, err := h.provider.RotateSecret(r.Context(), &in)
-	emit(r.Context(), eventRotateSecret, err)
+	shared.EmitEvent(r.Context(), eventRotateSecret, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -112,13 +103,13 @@ func (h *Handler) rotateSecret(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getSecretContent(w http.ResponseWriter, r *http.Request) {
 	var in mdl.SecretRequestDto
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventGetSecretContent, err)
+		shared.EmitEvent(r.Context(), eventGetSecretContent, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	version := r.URL.Query().Get("version")
 	out, err := h.provider.GetSecretContent(r.Context(), &in, version)
-	emit(r.Context(), eventGetSecretContent, err)
+	shared.EmitEvent(r.Context(), eventGetSecretContent, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
@@ -134,16 +125,16 @@ func (h *Handler) getSecretContent(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) checkVaultConnection(w http.ResponseWriter, r *http.Request) {
 	var attrs []mdl.RequestAttribute
 	if err := shared.DecodeJSON(w, r, &attrs, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventVaultCheck, err)
+		shared.EmitEvent(r.Context(), eventVaultCheck, err)
 		shared.RenderError(w, r, err)
 		return
 	}
 	if err := h.provider.CheckVaultConnection(r.Context(), attrs); err != nil {
-		emit(r.Context(), eventVaultCheck, err)
+		shared.EmitEvent(r.Context(), eventVaultCheck, err)
 		shared.RenderError(w, r, err)
 		return
 	}
-	emit(r.Context(), eventVaultCheck, nil)
+	shared.EmitEvent(r.Context(), eventVaultCheck, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -162,12 +153,12 @@ func (h *Handler) listVaultAttributes(w http.ResponseWriter, r *http.Request) {
 	if h.vaultAttrs != nil {
 		out, err = h.vaultAttrs.VaultAttributes(r.Context())
 	}
-	emit(r.Context(), eventListVaultAttributes, err)
+	shared.EmitEvent(r.Context(), eventListVaultAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listVaultAttributes response", "err", writeErr)
 	}
 }
@@ -176,7 +167,7 @@ func (h *Handler) listVaultAttributes(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Request) {
 	var ctxAttrs []mdl.RequestAttribute
 	if err := shared.DecodeJSON(w, r, &ctxAttrs, h.MaxBytes, h.Strict); err != nil {
-		emit(r.Context(), eventListVaultProfileAttributes, err)
+		shared.EmitEvent(r.Context(), eventListVaultProfileAttributes, err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -185,12 +176,12 @@ func (h *Handler) listVaultProfileAttributes(w http.ResponseWriter, r *http.Requ
 	if h.vaultProfileAttrs != nil {
 		out, err = h.vaultProfileAttrs.VaultProfileAttributes(r.Context(), ctxAttrs)
 	}
-	emit(r.Context(), eventListVaultProfileAttributes, err)
+	shared.EmitEvent(r.Context(), eventListVaultProfileAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listVaultProfileAttributes response", "err", writeErr)
 	}
 }
@@ -202,12 +193,12 @@ func (h *Handler) getRotateAttributes(w http.ResponseWriter, r *http.Request) {
 	if h.rotateAttrs != nil {
 		out, err = h.rotateAttrs.RotateAttributes(r.Context())
 	}
-	emit(r.Context(), eventListRotateAttributes, err)
+	shared.EmitEvent(r.Context(), eventListRotateAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write getRotateAttributes response", "err", writeErr)
 	}
 }
@@ -218,7 +209,7 @@ func (h *Handler) getSecretAttributes(w http.ResponseWriter, r *http.Request) {
 	st := mdl.SecretType(raw)
 	if !isValidSecretType(st) {
 		err := ErrInvalidSecretType.WithProperty("value", raw)
-		emit(r.Context(), eventListSecretAttributes, err)
+		shared.EmitEvent(r.Context(), eventListSecretAttributes, err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -227,12 +218,12 @@ func (h *Handler) getSecretAttributes(w http.ResponseWriter, r *http.Request) {
 	if h.secretAttrs != nil {
 		out, err = h.secretAttrs.SecretAttributes(r.Context(), st)
 	}
-	emit(r.Context(), eventListSecretAttributes, err)
+	shared.EmitEvent(r.Context(), eventListSecretAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, ensureSlice(out)); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write getSecretAttributes response", "err", writeErr)
 	}
 }
@@ -252,9 +243,3 @@ func isValidSecretType(s mdl.SecretType) bool {
 // ensureSlice converts a nil slice to an empty one so JSON encoding emits
 // "[]" instead of "null". Spec response is array-typed; null would surprise
 // callers and break clients that strictly type-check the response.
-func ensureSlice[T any](s []T) []T {
-	if s == nil {
-		return []T{}
-	}
-	return s
-}

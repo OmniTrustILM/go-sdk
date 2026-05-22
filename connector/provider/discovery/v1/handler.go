@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/discovery/v1"
@@ -45,10 +44,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		Config:   handlerbase.NewConfig(DefaultBasePath),
 		provider: p,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("discovery: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "discovery"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }
@@ -75,13 +72,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 		{Name: "getDiscovery", Method: http.MethodPost, Context: h.BasePath + "/discover/{uuid}"},
 		{Name: "deleteDiscovery", Method: http.MethodDelete, Context: h.BasePath + "/discover/{uuid}"},
 	}
-	kinds := h.kinds
-	if kinds == nil {
-		kinds = []string{}
-	}
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             kinds,
+		Kinds:             shared.EnsureSlice(h.Kinds),
 		EndPoints:         endpoints,
 	}
 }

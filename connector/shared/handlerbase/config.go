@@ -38,11 +38,62 @@ package handlerbase
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
+
+// ApplyOptions runs the supplied options against h. Used by every provider's
+// NewHandler to keep the option-apply loop in one place; providerName is
+// included in any returned error so the caller does not have to wrap.
+//
+// The type parameter F is constrained with `~func(*H) error` so providers
+// can pass their named Option type (e.g. `secret.Option`) without having
+// to first convert to a `func(*H) error` literal — Go's type system would
+// otherwise reject named-vs-anonymous mismatches.
+func ApplyOptions[H any, F ~func(*H) error](h *H, opts []F, providerName string) error {
+	for _, opt := range opts {
+		if err := opt(h); err != nil {
+			return fmt.Errorf("%s: apply option: %w", providerName, err)
+		}
+	}
+	return nil
+}
+
+// MountPerKindAttributes registers GET <base>/<kind>/attributes and
+// POST <base>/<kind>/attributes/validate routes for every declared kind,
+// with the kind name captured as a literal path segment. Required when the
+// 4-segment GET conflicts with a sibling /authorities/{uuid} or similar
+// wildcard route — see authority/v2 Mount doc for the conflict reason.
+//
+// Pass nil for either handler to skip that side (e.g. notification mounts
+// only the list per-kind; validate stays wildcard because it is 5 segments
+// and does not collide).
+func MountPerKindAttributes(
+	r shared.Router,
+	basePath string,
+	kinds []string,
+	listFn, validateFn func(w http.ResponseWriter, r *http.Request, kind string),
+) {
+	for _, k := range kinds {
+		kind := k
+		listPath := basePath + "/" + kind + "/attributes"
+		validatePath := listPath + "/validate"
+		if listFn != nil {
+			r.Handle(http.MethodGet, listPath, func(w http.ResponseWriter, r *http.Request) {
+				listFn(w, r, kind)
+			})
+		}
+		if validateFn != nil {
+			r.Handle(http.MethodPost, validatePath, func(w http.ResponseWriter, r *http.Request) {
+				validateFn(w, r, kind)
+			})
+		}
+	}
+}
 
 // DefaultMaxRequestBytes caps decoded request bodies. Picked to match the
 // shared.Connector default; provider Handlers inherit it via NewConfig.
@@ -67,6 +118,42 @@ type Config struct {
 	// Logger overrides the per-request slog.Logger when non-nil. Most
 	// handlers prefer LoggerFor(r) which falls back to the context logger.
 	Logger *slog.Logger
+
+	// Kinds declares the connector kinds this provider supports. Surfaced in
+	// /v1 listSupportedFunctions and used by Mount to register
+	// per-literal-kind attribute routes (see MountPerKindAttributes).
+	// Values are validated by WithKinds before being stored.
+	Kinds []string
+}
+
+// ValidateKind returns nil when k is acceptable as a literal URL segment.
+// Empty strings and values containing path separators or pattern
+// metacharacters are rejected so they cannot register malformed routes
+// or shadow other handlers.
+func ValidateKind(k string) error {
+	if k == "" {
+		return errors.New("kind must not be empty")
+	}
+	if strings.ContainsAny(k, "/{}") {
+		return fmt.Errorf("kind %q contains forbidden characters (/, {, })", k)
+	}
+	return nil
+}
+
+// WithKinds appends the supplied kinds to Config.Kinds after validation.
+// Provider packages wrap this in their own WithKinds option so callers see
+// it in their provider's namespace; the validation lives here so every
+// provider rejects bad input identically.
+func WithKinds(kinds ...string) Option {
+	return func(c *Config) error {
+		for _, k := range kinds {
+			if err := ValidateKind(k); err != nil {
+				return err
+			}
+		}
+		c.Kinds = append(c.Kinds, kinds...)
+		return nil
+	}
 }
 
 // NewConfig returns a Config populated with the SDK defaults. defaultBasePath

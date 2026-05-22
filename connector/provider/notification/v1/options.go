@@ -1,4 +1,4 @@
-package discovery
+package notification
 
 import (
 	"errors"
@@ -6,20 +6,11 @@ import (
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
-// Option configures a Handler. Returned by every With* helper. Applied in
-// order; later options override earlier ones for scalar fields.
+// Option configures a Handler. Returned by every With* helper.
 type Option func(*Handler) error
 
-// Base lifts shared handlerbase options (base path, max bytes, strict decode,
-// logger override) into the discovery provider's Option type.
-//
-//	discovery.NewHandler(p,
-//	    discovery.Base(
-//	        handlerbase.WithStrictDecode(true),
-//	        handlerbase.WithMaxRequestBytes(2<<20),
-//	    ),
-//	    discovery.WithKinds("a"),
-//	)
+// Base lifts shared handlerbase options into the notification provider's
+// Option type.
 func Base(opts ...handlerbase.Option) Option {
 	return func(h *Handler) error {
 		for _, opt := range opts {
@@ -42,15 +33,24 @@ func WithKinds(kinds ...string) Option {
 	}
 }
 
-// WithAttributes registers the AttributeProvider backing the kind-scoped
-// attribute endpoints. When not supplied, list returns an empty array and
-// validate is a no-op success.
-func WithAttributes(p AttributeProvider) Option {
+// WithKindAttributes registers the generic kind-scoped attribute provider.
+func WithKindAttributes(p KindAttributeProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {
-			return errors.New("attribute provider must not be nil")
+			return errors.New("kind attribute provider must not be nil")
 		}
-		h.attrs = p
+		h.kindAttrs = p
+		return nil
+	}
+}
+
+// WithMappingAttributes registers the recipient-mapping attribute provider.
+func WithMappingAttributes(p MappingAttributeProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("mapping attribute provider must not be nil")
+		}
+		h.mappingAttrs = p
 		return nil
 	}
 }

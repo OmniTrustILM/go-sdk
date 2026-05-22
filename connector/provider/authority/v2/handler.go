@@ -2,7 +2,6 @@ package authority
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/authority/v2"
@@ -56,10 +55,8 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 		provider:   p,
 		basePathV2: DefaultBasePathV2,
 	}
-	for _, opt := range opts {
-		if err := opt(h); err != nil {
-			return nil, fmt.Errorf("authority: apply option: %w", err)
-		}
+	if err := handlerbase.ApplyOptions(h, opts, "authority"); err != nil {
+		return nil, err
 	}
 	return h, nil
 }
@@ -114,13 +111,9 @@ func (h *Handler) FunctionGroup() shared.V1FunctionGroup {
 		{Name: "validateRevokeCertificateAttributes", Method: http.MethodPost, Context: baseV2 + "/authorities/{uuid}/certificates/revoke/attributes/validate"},
 	}
 
-	kinds := h.kinds
-	if kinds == nil {
-		kinds = []string{}
-	}
 	return shared.V1FunctionGroup{
 		FunctionGroupCode: FunctionGroupCode,
-		Kinds:             kinds,
+		Kinds:             shared.EnsureSlice(h.Kinds),
 		EndPoints:         endpoints,
 	}
 }
@@ -146,17 +139,7 @@ func (h *Handler) Mount(r shared.Router) {
 
 	// Generic kind attributes, mounted per literal kind to avoid the
 	// authorities-vs-{kind} wildcard conflict described above.
-	for _, k := range h.kinds {
-		kind := k // capture for closure
-		listPath := "/v1/" + FunctionGroupCode + "/" + kind + "/attributes"
-		validatePath := listPath + "/validate"
-		r.Handle(http.MethodGet, listPath, func(w http.ResponseWriter, r *http.Request) {
-			h.listKindAttributesFor(w, r, kind)
-		})
-		r.Handle(http.MethodPost, validatePath, func(w http.ResponseWriter, r *http.Request) {
-			h.validateKindAttributesFor(w, r, kind)
-		})
-	}
+	handlerbase.MountPerKindAttributes(r, "/v1/"+FunctionGroupCode, h.Kinds, h.listKindAttributesFor, h.validateKindAttributesFor)
 
 	// Authority management.
 	r.Handle(http.MethodGet, base+"/authorities", h.listAuthorityInstances)

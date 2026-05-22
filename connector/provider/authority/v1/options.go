@@ -11,12 +11,7 @@ import (
 type Option func(*Handler) error
 
 // Base lifts shared handlerbase options (base path, max bytes, strict decode,
-// logger override) into the authority provider's Option type.
-//
-//	authority.NewHandler(p,
-//	    authority.Base(handlerbase.WithStrictDecode(true)),
-//	    authority.WithKinds("hashicorp-vault"),
-//	)
+// logger override) into the legacy authority provider's Option type.
 func Base(opts ...handlerbase.Option) Option {
 	return func(h *Handler) error {
 		for _, opt := range opts {
@@ -40,8 +35,7 @@ func WithKinds(kinds ...string) Option {
 }
 
 // WithKindAttributes registers the AttributeProvider backing the generic
-// kind-scoped attribute endpoints. When not supplied, list returns an empty
-// array and validate is a no-op success.
+// kind-scoped attribute endpoints.
 func WithKindAttributes(p KindAttributeProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {
@@ -60,30 +54,6 @@ func WithRAProfileAttributes(p RAProfileAttributeProvider) Option {
 			return errors.New("ra profile attribute provider must not be nil")
 		}
 		h.raProfileAttrs = p
-		return nil
-	}
-}
-
-// WithIssueCertificateAttributes registers the per-instance issue-certificate
-// attribute provider.
-func WithIssueCertificateAttributes(p IssueCertificateAttributeProvider) Option {
-	return func(h *Handler) error {
-		if p == nil {
-			return errors.New("issue certificate attribute provider must not be nil")
-		}
-		h.issueAttrs = p
-		return nil
-	}
-}
-
-// WithRevokeCertificateAttributes registers the per-instance revoke-certificate
-// attribute provider.
-func WithRevokeCertificateAttributes(p RevokeCertificateAttributeProvider) Option {
-	return func(h *Handler) error {
-		if p == nil {
-			return errors.New("revoke certificate attribute provider must not be nil")
-		}
-		h.revokeAttrs = p
 		return nil
 	}
 }
