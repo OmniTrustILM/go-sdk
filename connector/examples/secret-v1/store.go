@@ -16,7 +16,13 @@ import (
 // Store is an in-memory Secret Provider implementation. Keyed by secret name;
 // duplicate names are rejected on CreateSecret. Not suitable for production —
 // every restart wipes the store.
+//
+// Every Provider method authenticates against the cfg.Username + cfg.Password
+// values, expecting the credentials to arrive as request VaultAttributes
+// matched by UUID against usernameAttrUUID / passwordAttrUUID from attrs.go.
 type Store struct {
+	cfg *Config
+
 	mu      sync.RWMutex
 	secrets map[string]*entry
 }
@@ -34,8 +40,49 @@ type entry struct {
 	updated  time.Time
 }
 
-func NewStore() *Store {
-	return &Store{secrets: make(map[string]*entry)}
+func NewStore(cfg *Config) *Store {
+	return &Store{cfg: cfg, secrets: make(map[string]*entry)}
+}
+
+// checkAuth scans vaultAttrs for the username + password attributes (matched
+// by hard-coded UUIDs from attrs.go), enforces that both are present, and
+// compares the supplied values against the configured credentials.
+//
+// Errors map to spec status codes:
+//   - missing required attribute -> 422 VALIDATION_FAILED
+//   - credentials do not match    -> 401 UNAUTHORIZED
+func (s *Store) checkAuth(vaultAttrs []mdl.RequestAttribute) error {
+	var (
+		gotUser, gotPass     string
+		haveUser, havePass   bool
+	)
+	for _, a := range vaultAttrs {
+		if a.RequestAttributeV3 == nil {
+			continue
+		}
+		switch a.RequestAttributeV3.Uuid {
+		case usernameAttrUUID:
+			if v, ok := extractStringValue(a); ok {
+				gotUser = v
+				haveUser = true
+			}
+		case passwordAttrUUID:
+			if v, ok := extractStringValue(a); ok {
+				gotPass = v
+				havePass = true
+			}
+		}
+	}
+	if !haveUser {
+		return shared.Invalid("VALIDATION_FAILED", "vault attribute %q (username) is required", usernameAttrUUID)
+	}
+	if !havePass {
+		return shared.Invalid("VALIDATION_FAILED", "vault attribute %q (password) is required", passwordAttrUUID)
+	}
+	if gotUser != s.cfg.Username || gotPass != s.cfg.Password {
+		return shared.Unauthorized("UNAUTHORIZED", "invalid credentials")
+	}
+	return nil
 }
 
 // CreateSecret stores a new secret. Returns ErrSecretConflict if a secret
@@ -48,6 +95,9 @@ func (s *Store) CreateSecret(ctx context.Context, req *mdl.CreateSecretRequestDt
 	stype, ok := typeFromContent(req.Secret)
 	if !ok {
 		return nil, shared.Invalid("VALIDATION_FAILED", "secret content variant is required")
+	}
+	if err := s.checkAuth(req.VaultAttributes); err != nil {
+		return nil, err
 	}
 
 	s.mu.Lock()
@@ -80,6 +130,9 @@ func (s *Store) UpdateSecret(ctx context.Context, req *mdl.UpdateSecretRequestDt
 	if !ok {
 		return nil, shared.Invalid("VALIDATION_FAILED", "secret content variant is required")
 	}
+	if err := s.checkAuth(req.VaultAttributes); err != nil {
+		return nil, err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -108,6 +161,9 @@ func (s *Store) DeleteSecret(ctx context.Context, req *mdl.SecretRequestDto) err
 	if req == nil || req.Name == "" {
 		return shared.Invalid("VALIDATION_FAILED", "name is required")
 	}
+	if err := s.checkAuth(req.VaultAttributes); err != nil {
+		return err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -127,6 +183,9 @@ func (s *Store) DeleteSecret(ctx context.Context, req *mdl.SecretRequestDto) err
 func (s *Store) RotateSecret(ctx context.Context, req *mdl.SecretRequestDto) (*mdl.SecretResponseDto, error) {
 	if req == nil || req.Name == "" {
 		return nil, shared.Invalid("VALIDATION_FAILED", "name is required")
+	}
+	if err := s.checkAuth(req.VaultAttributes); err != nil {
+		return nil, err
 	}
 
 	s.mu.Lock()
@@ -154,6 +213,9 @@ func (s *Store) GetSecretContent(ctx context.Context, req *mdl.SecretRequestDto,
 	if req == nil || req.Name == "" {
 		return nil, shared.Invalid("VALIDATION_FAILED", "name is required")
 	}
+	if err := s.checkAuth(req.VaultAttributes); err != nil {
+		return nil, err
+	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -177,8 +239,12 @@ func (s *Store) GetSecretContent(ctx context.Context, req *mdl.SecretRequestDto,
 }
 
 // CheckVaultConnection always succeeds — there is no backend to probe.
+// CheckVaultConnection authenticates the supplied attributes. There is no
+// real backend, so authentication is the only meaningful probe — when the
+// supplied credentials match cfg.Username/cfg.Password it returns nil and
+// the handler responds 204 No Content.
 func (s *Store) CheckVaultConnection(ctx context.Context, attrs []mdl.RequestAttribute) error {
-	return nil
+	return s.checkAuth(attrs)
 }
 
 // --- helpers ---------------------------------------------------------------
