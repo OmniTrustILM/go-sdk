@@ -14,7 +14,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // BaseAttributeContentDtoV3 - Base Attribute Content
@@ -118,236 +117,111 @@ func TimeAttributeContentV3AsBaseAttributeContentDtoV3(v *TimeAttributeContentV3
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes BaseAttributeContentDtoV3 by switching on the JSON "contentType" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into BooleanAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.BooleanAttributeContentV3)
-	if err == nil {
-		jsonBooleanAttributeContentV3, _ := json.Marshal(dst.BooleanAttributeContentV3)
-		if string(jsonBooleanAttributeContentV3) == "{}" { // empty struct
-			dst.BooleanAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.BooleanAttributeContentV3); err != nil {
-				dst.BooleanAttributeContentV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.BooleanAttributeContentV3 = nil
+	var probe struct {
+		Disc string `json:"contentType"`
 	}
-
-	// try to unmarshal data into CodeBlockAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.CodeBlockAttributeContentV3)
-	if err == nil {
-		jsonCodeBlockAttributeContentV3, _ := json.Marshal(dst.CodeBlockAttributeContentV3)
-		if string(jsonCodeBlockAttributeContentV3) == "{}" { // empty struct
-			dst.CodeBlockAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.CodeBlockAttributeContentV3); err != nil {
-				dst.CodeBlockAttributeContentV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.CodeBlockAttributeContentV3 = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("BaseAttributeContentDtoV3: probe contentType: %w", err)
 	}
-
-	// try to unmarshal data into DateAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.DateAttributeContentV3)
-	if err == nil {
-		jsonDateAttributeContentV3, _ := json.Marshal(dst.DateAttributeContentV3)
-		if string(jsonDateAttributeContentV3) == "{}" { // empty struct
-			dst.DateAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.DateAttributeContentV3); err != nil {
-				dst.DateAttributeContentV3 = nil
-			} else {
-				match++
-			}
+	dst.BooleanAttributeContentV3 = nil
+	dst.CodeBlockAttributeContentV3 = nil
+	dst.DateAttributeContentV3 = nil
+	dst.DateTimeAttributeContentV3 = nil
+	dst.FileAttributeContentV3 = nil
+	dst.FloatAttributeContentV3 = nil
+	dst.IntegerAttributeContentV3 = nil
+	dst.ObjectAttributeContentV3 = nil
+	dst.StringAttributeContentV3 = nil
+	dst.TextAttributeContentV3 = nil
+	dst.TimeAttributeContentV3 = nil
+	switch probe.Disc {
+	case "boolean":
+		var v BooleanAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode BooleanAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.DateAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into DateTimeAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.DateTimeAttributeContentV3)
-	if err == nil {
-		jsonDateTimeAttributeContentV3, _ := json.Marshal(dst.DateTimeAttributeContentV3)
-		if string(jsonDateTimeAttributeContentV3) == "{}" { // empty struct
-			dst.DateTimeAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.DateTimeAttributeContentV3); err != nil {
-				dst.DateTimeAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.BooleanAttributeContentV3 = &v
+		return nil
+	case "codeblock":
+		var v CodeBlockAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode CodeBlockAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.DateTimeAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into FileAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.FileAttributeContentV3)
-	if err == nil {
-		jsonFileAttributeContentV3, _ := json.Marshal(dst.FileAttributeContentV3)
-		if string(jsonFileAttributeContentV3) == "{}" { // empty struct
-			dst.FileAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.FileAttributeContentV3); err != nil {
-				dst.FileAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.CodeBlockAttributeContentV3 = &v
+		return nil
+	case "date":
+		var v DateAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode DateAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.FileAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into FloatAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.FloatAttributeContentV3)
-	if err == nil {
-		jsonFloatAttributeContentV3, _ := json.Marshal(dst.FloatAttributeContentV3)
-		if string(jsonFloatAttributeContentV3) == "{}" { // empty struct
-			dst.FloatAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.FloatAttributeContentV3); err != nil {
-				dst.FloatAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.DateAttributeContentV3 = &v
+		return nil
+	case "datetime":
+		var v DateTimeAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode DateTimeAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.FloatAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into IntegerAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.IntegerAttributeContentV3)
-	if err == nil {
-		jsonIntegerAttributeContentV3, _ := json.Marshal(dst.IntegerAttributeContentV3)
-		if string(jsonIntegerAttributeContentV3) == "{}" { // empty struct
-			dst.IntegerAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.IntegerAttributeContentV3); err != nil {
-				dst.IntegerAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.DateTimeAttributeContentV3 = &v
+		return nil
+	case "file":
+		var v FileAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode FileAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.IntegerAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into ObjectAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.ObjectAttributeContentV3)
-	if err == nil {
-		jsonObjectAttributeContentV3, _ := json.Marshal(dst.ObjectAttributeContentV3)
-		if string(jsonObjectAttributeContentV3) == "{}" { // empty struct
-			dst.ObjectAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.ObjectAttributeContentV3); err != nil {
-				dst.ObjectAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.FileAttributeContentV3 = &v
+		return nil
+	case "float":
+		var v FloatAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode FloatAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.ObjectAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into ResourceObjectContent
-	err = newStrictDecoder(data).Decode(&dst.ResourceObjectContent)
-	if err == nil {
-		jsonResourceObjectContent, _ := json.Marshal(dst.ResourceObjectContent)
-		if string(jsonResourceObjectContent) == "{}" { // empty struct
-			dst.ResourceObjectContent = nil
-		} else {
-			if err = validator.Validate(dst.ResourceObjectContent); err != nil {
-				dst.ResourceObjectContent = nil
-			} else {
-				match++
-			}
+		dst.FloatAttributeContentV3 = &v
+		return nil
+	case "integer":
+		var v IntegerAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode IntegerAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.ResourceObjectContent = nil
-	}
-
-	// try to unmarshal data into StringAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.StringAttributeContentV3)
-	if err == nil {
-		jsonStringAttributeContentV3, _ := json.Marshal(dst.StringAttributeContentV3)
-		if string(jsonStringAttributeContentV3) == "{}" { // empty struct
-			dst.StringAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.StringAttributeContentV3); err != nil {
-				dst.StringAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.IntegerAttributeContentV3 = &v
+		return nil
+	case "object":
+		var v ObjectAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode ObjectAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.StringAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into TextAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.TextAttributeContentV3)
-	if err == nil {
-		jsonTextAttributeContentV3, _ := json.Marshal(dst.TextAttributeContentV3)
-		if string(jsonTextAttributeContentV3) == "{}" { // empty struct
-			dst.TextAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.TextAttributeContentV3); err != nil {
-				dst.TextAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.ObjectAttributeContentV3 = &v
+		return nil
+	case "string":
+		var v StringAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode StringAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.TextAttributeContentV3 = nil
-	}
-
-	// try to unmarshal data into TimeAttributeContentV3
-	err = newStrictDecoder(data).Decode(&dst.TimeAttributeContentV3)
-	if err == nil {
-		jsonTimeAttributeContentV3, _ := json.Marshal(dst.TimeAttributeContentV3)
-		if string(jsonTimeAttributeContentV3) == "{}" { // empty struct
-			dst.TimeAttributeContentV3 = nil
-		} else {
-			if err = validator.Validate(dst.TimeAttributeContentV3); err != nil {
-				dst.TimeAttributeContentV3 = nil
-			} else {
-				match++
-			}
+		dst.StringAttributeContentV3 = &v
+		return nil
+	case "text":
+		var v TextAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode TextAttributeContentV3: %w", err)
 		}
-	} else {
-		dst.TimeAttributeContentV3 = nil
-	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.BooleanAttributeContentV3 = nil
-		dst.CodeBlockAttributeContentV3 = nil
-		dst.DateAttributeContentV3 = nil
-		dst.DateTimeAttributeContentV3 = nil
-		dst.FileAttributeContentV3 = nil
-		dst.FloatAttributeContentV3 = nil
-		dst.IntegerAttributeContentV3 = nil
-		dst.ObjectAttributeContentV3 = nil
-		dst.ResourceObjectContent = nil
-		dst.StringAttributeContentV3 = nil
-		dst.TextAttributeContentV3 = nil
-		dst.TimeAttributeContentV3 = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(BaseAttributeContentDtoV3)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(BaseAttributeContentDtoV3)")
+		dst.TextAttributeContentV3 = &v
+		return nil
+	case "time":
+		var v TimeAttributeContentV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode TimeAttributeContentV3: %w", err)
+		}
+		dst.TimeAttributeContentV3 = &v
+		return nil
+	default:
+		return fmt.Errorf("BaseAttributeContentDtoV3: unknown contentType %q", probe.Disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src BaseAttributeContentDtoV3) MarshalJSON() ([]byte, error) {

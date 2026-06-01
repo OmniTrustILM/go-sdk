@@ -14,7 +14,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // ResponseAttribute - Response attribute to send attribute content for object
@@ -38,56 +37,39 @@ func ResponseAttributeV3AsResponseAttribute(v *ResponseAttributeV3) ResponseAttr
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes ResponseAttribute by switching on the JSON "version" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *ResponseAttribute) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into ResponseAttributeV2
-	err = newStrictDecoder(data).Decode(&dst.ResponseAttributeV2)
-	if err == nil {
-		jsonResponseAttributeV2, _ := json.Marshal(dst.ResponseAttributeV2)
-		if string(jsonResponseAttributeV2) == "{}" { // empty struct
-			dst.ResponseAttributeV2 = nil
-		} else {
-			if err = validator.Validate(dst.ResponseAttributeV2); err != nil {
-				dst.ResponseAttributeV2 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.ResponseAttributeV2 = nil
+	var probe struct {
+		Disc string `json:"version"`
 	}
-
-	// try to unmarshal data into ResponseAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.ResponseAttributeV3)
-	if err == nil {
-		jsonResponseAttributeV3, _ := json.Marshal(dst.ResponseAttributeV3)
-		if string(jsonResponseAttributeV3) == "{}" { // empty struct
-			dst.ResponseAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.ResponseAttributeV3); err != nil {
-				dst.ResponseAttributeV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.ResponseAttributeV3 = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("ResponseAttribute: probe version: %w", err)
 	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.ResponseAttributeV2 = nil
-		dst.ResponseAttributeV3 = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(ResponseAttribute)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(ResponseAttribute)")
+	dst.ResponseAttributeV2 = nil
+	dst.ResponseAttributeV3 = nil
+	switch probe.Disc {
+	case "v2":
+		var v ResponseAttributeV2
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("ResponseAttribute: decode ResponseAttributeV2: %w", err)
+		}
+		dst.ResponseAttributeV2 = &v
+		return nil
+	case "v3":
+		var v ResponseAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("ResponseAttribute: decode ResponseAttributeV3: %w", err)
+		}
+		dst.ResponseAttributeV3 = &v
+		return nil
+	default:
+		return fmt.Errorf("ResponseAttribute: unknown version %q", probe.Disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src ResponseAttribute) MarshalJSON() ([]byte, error) {

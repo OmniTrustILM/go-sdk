@@ -11,12 +11,19 @@ import (
 // Every field has a default so APP_* may be omitted in development; in
 // production deployers should at minimum override APP_USERNAME and
 // APP_PASSWORD to non-default values.
+// envconfig note: the explicit `envconfig:"NAME"` tag is intentionally not
+// used. With a tag set, envconfig also checks the bare un-prefixed env var
+// as a fallback (so `APP_USERNAME` unset + `USERNAME=alice` in the shell
+// would pick up the latter — surprising for callers and an actual bug we
+// hit during development). Without the tag, envconfig derives the env var
+// name from the field name; `split_words:"true"` opt-in produces SNAKE_CASE
+// for multi-word fields so we get `APP_LOG_LEVEL` instead of `APP_LOGLEVEL`.
 type Config struct {
-	Addr         string `envconfig:"ADDR"          default:":8080"`
-	LogLevel     string `envconfig:"LOG_LEVEL"     default:"INFO"`
-	StrictDecode bool   `envconfig:"STRICT_DECODE" default:"false"`
-	Username     string `envconfig:"USERNAME"      default:"admin"`
-	Password     string `envconfig:"PASSWORD"      default:"admin"`
+	Addr         string `default:":8080"`
+	LogLevel     string `split_words:"true" default:"INFO"`
+	StrictDecode bool   `split_words:"true" default:"false"`
+	Username     string `default:"admin"`
+	Password     string `default:"admin"`
 }
 
 // LoadConfig reads APP_* environment variables into a Config.

@@ -14,7 +14,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // BaseAttributeDto - Base Attribute definition
@@ -38,56 +37,39 @@ func BaseAttributeDtoV3AsBaseAttributeDto(v *BaseAttributeDtoV3) BaseAttributeDt
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes BaseAttributeDto by switching on the JSON "schemaVersion" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *BaseAttributeDto) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into BaseAttributeDtoV2
-	err = newStrictDecoder(data).Decode(&dst.BaseAttributeDtoV2)
-	if err == nil {
-		jsonBaseAttributeDtoV2, _ := json.Marshal(dst.BaseAttributeDtoV2)
-		if string(jsonBaseAttributeDtoV2) == "{}" { // empty struct
-			dst.BaseAttributeDtoV2 = nil
-		} else {
-			if err = validator.Validate(dst.BaseAttributeDtoV2); err != nil {
-				dst.BaseAttributeDtoV2 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.BaseAttributeDtoV2 = nil
+	var probe struct {
+		Disc string `json:"schemaVersion"`
 	}
-
-	// try to unmarshal data into BaseAttributeDtoV3
-	err = newStrictDecoder(data).Decode(&dst.BaseAttributeDtoV3)
-	if err == nil {
-		jsonBaseAttributeDtoV3, _ := json.Marshal(dst.BaseAttributeDtoV3)
-		if string(jsonBaseAttributeDtoV3) == "{}" { // empty struct
-			dst.BaseAttributeDtoV3 = nil
-		} else {
-			if err = validator.Validate(dst.BaseAttributeDtoV3); err != nil {
-				dst.BaseAttributeDtoV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.BaseAttributeDtoV3 = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("BaseAttributeDto: probe schemaVersion: %w", err)
 	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.BaseAttributeDtoV2 = nil
-		dst.BaseAttributeDtoV3 = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(BaseAttributeDto)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(BaseAttributeDto)")
+	dst.BaseAttributeDtoV2 = nil
+	dst.BaseAttributeDtoV3 = nil
+	switch probe.Disc {
+	case "v2":
+		var v BaseAttributeDtoV2
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeDto: decode BaseAttributeDtoV2: %w", err)
+		}
+		dst.BaseAttributeDtoV2 = &v
+		return nil
+	case "v3":
+		var v BaseAttributeDtoV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeDto: decode BaseAttributeDtoV3: %w", err)
+		}
+		dst.BaseAttributeDtoV3 = &v
+		return nil
+	default:
+		return fmt.Errorf("BaseAttributeDto: unknown schemaVersion %q", probe.Disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src BaseAttributeDto) MarshalJSON() ([]byte, error) {
