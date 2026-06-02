@@ -25,6 +25,8 @@ SPECS=(
     "secret.json:connector/model/secret/v1:v1"
 )
 
+OAPI_GEN_CLI_VER="v7.22.0"
+
 for entry in "${SPECS[@]}"; do
     IFS=":" read -r spec target pkg <<< "$entry"
     echo "==> regenerating $spec -> $target (package $pkg)"
@@ -33,7 +35,7 @@ for entry in "${SPECS[@]}"; do
         --ulimit nproc=2048:4096 \
         --ulimit nofile=1024:2048 \
         --pids-limit 1024 \
-        openapitools/openapi-generator-cli:latest-release generate \
+        openapitools/openapi-generator-cli:${OAPI_GEN_CLI_VER} generate \
         -i "/local/connector/spec/$spec" \
         --generator-name go \
         -o "/local/$target" \
