@@ -119,6 +119,8 @@ func (dst *BaseAttributeDtoV2) UnmarshalJSON(data []byte) error {
 }
 
 
+
+
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src BaseAttributeDtoV2) MarshalJSON() ([]byte, error) {
 	if src.CustomAttributeV2 != nil {

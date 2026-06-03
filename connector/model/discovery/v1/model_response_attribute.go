@@ -71,6 +71,8 @@ func (dst *ResponseAttribute) UnmarshalJSON(data []byte) error {
 }
 
 
+
+
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src ResponseAttribute) MarshalJSON() ([]byte, error) {
 	if src.ResponseAttributeV2 != nil {

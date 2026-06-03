@@ -71,6 +71,8 @@ func (dst *BaseAttributeDto) UnmarshalJSON(data []byte) error {
 }
 
 
+
+
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src BaseAttributeDto) MarshalJSON() ([]byte, error) {
 	if src.BaseAttributeDtoV2 != nil {

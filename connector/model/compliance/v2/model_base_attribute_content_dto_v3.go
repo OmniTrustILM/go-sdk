@@ -136,6 +136,7 @@ func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
 	dst.FloatAttributeContentV3 = nil
 	dst.IntegerAttributeContentV3 = nil
 	dst.ObjectAttributeContentV3 = nil
+	dst.ResourceObjectContent = nil
 	dst.StringAttributeContentV3 = nil
 	dst.TextAttributeContentV3 = nil
 	dst.TimeAttributeContentV3 = nil
@@ -196,6 +197,13 @@ func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
 		}
 		dst.ObjectAttributeContentV3 = &v
 		return nil
+	case "resource":
+		var v ResourceObjectContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeContentDtoV3: decode ResourceObjectContent: %w", err)
+		}
+		dst.ResourceObjectContent = &v
+		return nil
 	case "string":
 		var v StringAttributeContentV3
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -221,6 +229,8 @@ func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("BaseAttributeContentDtoV3: unknown contentType %q", probe.Disc)
 	}
 }
+
+
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

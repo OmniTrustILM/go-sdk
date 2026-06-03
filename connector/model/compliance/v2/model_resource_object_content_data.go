@@ -14,7 +14,6 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // ResourceObjectContentData - struct for ResourceObjectContentData
@@ -46,74 +45,47 @@ func ResourceSimpleContentDataAsResourceObjectContentData(v *ResourceSimpleConte
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes ResourceObjectContentData by switching on the JSON "resource" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *ResourceObjectContentData) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into ResourceCertificateContentData
-	err = newStrictDecoder(data).Decode(&dst.ResourceCertificateContentData)
-	if err == nil {
-		jsonResourceCertificateContentData, _ := json.Marshal(dst.ResourceCertificateContentData)
-		if string(jsonResourceCertificateContentData) == "{}" { // empty struct
-			dst.ResourceCertificateContentData = nil
-		} else {
-			if err = validator.Validate(dst.ResourceCertificateContentData); err != nil {
-				dst.ResourceCertificateContentData = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.ResourceCertificateContentData = nil
+	var probe struct {
+		Disc string `json:"resource"`
 	}
-
-	// try to unmarshal data into ResourceSecretContentData
-	err = newStrictDecoder(data).Decode(&dst.ResourceSecretContentData)
-	if err == nil {
-		jsonResourceSecretContentData, _ := json.Marshal(dst.ResourceSecretContentData)
-		if string(jsonResourceSecretContentData) == "{}" { // empty struct
-			dst.ResourceSecretContentData = nil
-		} else {
-			if err = validator.Validate(dst.ResourceSecretContentData); err != nil {
-				dst.ResourceSecretContentData = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.ResourceSecretContentData = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("ResourceObjectContentData: probe resource: %w", err)
 	}
-
-	// try to unmarshal data into ResourceSimpleContentData
-	err = newStrictDecoder(data).Decode(&dst.ResourceSimpleContentData)
-	if err == nil {
-		jsonResourceSimpleContentData, _ := json.Marshal(dst.ResourceSimpleContentData)
-		if string(jsonResourceSimpleContentData) == "{}" { // empty struct
-			dst.ResourceSimpleContentData = nil
-		} else {
-			if err = validator.Validate(dst.ResourceSimpleContentData); err != nil {
-				dst.ResourceSimpleContentData = nil
-			} else {
-				match++
-			}
+	dst.ResourceCertificateContentData = nil
+	dst.ResourceSecretContentData = nil
+	dst.ResourceSimpleContentData = nil
+	switch probe.Disc {
+	case "certificates":
+		var v ResourceCertificateContentData
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("ResourceObjectContentData: decode ResourceCertificateContentData: %w", err)
 		}
-	} else {
-		dst.ResourceSimpleContentData = nil
-	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.ResourceCertificateContentData = nil
-		dst.ResourceSecretContentData = nil
-		dst.ResourceSimpleContentData = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(ResourceObjectContentData)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(ResourceObjectContentData)")
+		dst.ResourceCertificateContentData = &v
+		return nil
+	case "secrets":
+		var v ResourceSecretContentData
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("ResourceObjectContentData: decode ResourceSecretContentData: %w", err)
+		}
+		dst.ResourceSecretContentData = &v
+		return nil
+	case "authorities", "credentials", "entities", "locations":
+		var v ResourceSimpleContentData
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("ResourceObjectContentData: decode ResourceSimpleContentData: %w", err)
+		}
+		dst.ResourceSimpleContentData = &v
+		return nil
+	default:
+		return fmt.Errorf("ResourceObjectContentData: unknown resource %q", probe.Disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src ResourceObjectContentData) MarshalJSON() ([]byte, error) {
