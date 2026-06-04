@@ -28,6 +28,7 @@ const (
 const (
 	VersionV1 = "v1"
 	VersionV2 = "v2"
+	VersionV3 = "v3"
 )
 
 // Info holds caller-supplied connector identity surfaced by info endpoints.
