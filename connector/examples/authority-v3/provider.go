@@ -33,9 +33,16 @@ var revocationReasonCodes = map[mdl.CertificateRevocationReason]int{
 // asyncJob tracks one simulated asynchronous issue/renew operation. The job
 // "completes" when wall-clock time passes readyAt — there is no background
 // worker; completion is evaluated lazily on each status poll.
+//
+// regID carries the registration this issue runs against (empty when none).
+// The registration is validated at submit but consumed only at completion
+// (TakeRegistration in IssueStatus), so canceling the job leaves the
+// registration reusable and the registered subject reliably overrides the
+// CSR subject in the deferred signing.
 type asyncJob struct {
 	req      *mdl.CertificateSignRequestDtoV3 // nil for renew jobs
 	renewReq *mdl.CertificateRenewRequestDtoV3
+	regID    string
 	readyAt  time.Time
 	done     bool
 	canceled bool
@@ -145,21 +152,23 @@ func (b *Backend) Issue(ctx context.Context, req *mdl.CertificateSignRequestDtoV
 	}
 
 	// Issuance against a prior registration: meta carries the registration
-	// id; the registered subject overrides the CSR subject.
-	var subjectOverride *pkix.Name
-	if regID, ok := metaString(req.Meta, metaRegistrationUUID); ok {
-		reg := b.ca.TakeRegistration(regID)
-		if reg == nil {
+	// id; the registered subject overrides the CSR subject. Validate the
+	// registration exists up front (fast 404 at submit), but consume it
+	// only at signing time — the sync path signs right below; the async
+	// path defers both consumption and override to IssueStatus so a
+	// canceled job does not burn the registration.
+	regID, hasReg := metaString(req.Meta, metaRegistrationUUID)
+	if hasReg {
+		if reg := b.ca.GetRegistration(regID); reg == nil || reg.consumed {
 			return nil, false, authority.ErrOperationNotFound.
 				WithProperty("registration_id", regID)
 		}
-		subjectOverride = &pkix.Name{CommonName: reg.subjectDn}
 	}
 
 	if b.cfg.AsyncIssue {
 		jobID := uuid.NewString()
 		b.mu.Lock()
-		b.jobs[jobID] = &asyncJob{req: req, readyAt: time.Now().Add(b.cfg.AsyncDelay)}
+		b.jobs[jobID] = &asyncJob{req: req, regID: regID, readyAt: time.Now().Add(b.cfg.AsyncDelay)}
 		b.mu.Unlock()
 		resp := mdl.NewCertificateDataResponseDto()
 		resp.Meta = []mdl.MetadataAttribute{
@@ -168,11 +177,32 @@ func (b *Backend) Issue(ctx context.Context, req *mdl.CertificateSignRequestDtoV
 		return resp, true, nil
 	}
 
+	subjectOverride, err := b.consumeRegistration(regID)
+	if err != nil {
+		return nil, false, err
+	}
 	der, serial, err := b.ca.Sign(csr, validity, subjectOverride)
 	if err != nil {
 		return nil, false, shared.Invalid("VALIDATION_FAILED", "%s", err.Error())
 	}
 	return certResponse(der, serial), false, nil
+}
+
+// consumeRegistration resolves regID into a subject override, marking the
+// registration consumed. Empty regID means no registration: (nil, nil).
+// A registration that disappeared (or was consumed by a competing issue
+// between validation and signing) returns ErrOperationNotFound — one-shot
+// semantics: the first issue to actually sign wins.
+func (b *Backend) consumeRegistration(regID string) (*pkix.Name, error) {
+	if regID == "" {
+		return nil, nil
+	}
+	reg := b.ca.TakeRegistration(regID)
+	if reg == nil {
+		return nil, authority.ErrOperationNotFound.
+			WithProperty("registration_id", regID)
+	}
+	return &pkix.Name{CommonName: reg.subjectDn}, nil
 }
 
 // IssueStatus resolves an async job by the job_id meta handle. Pending until
@@ -221,7 +251,14 @@ func (b *Backend) IssueStatus(ctx context.Context, req *mdl.CertificateOperation
 		if err != nil {
 			return nil, false, err
 		}
-		der, serial, signErr := b.ca.Sign(csr, validity, nil)
+		// Consume the registration (if any) now — at actual signing time,
+		// not at acceptance — so the registered subject overrides the CSR
+		// subject and a canceled job never burns the registration.
+		subjectOverride, err := b.consumeRegistration(job.regID)
+		if err != nil {
+			return nil, false, err
+		}
+		der, serial, signErr := b.ca.Sign(csr, validity, subjectOverride)
 		if signErr != nil {
 			return nil, false, shared.Invalid("VALIDATION_FAILED", "%s", signErr.Error())
 		}
