@@ -14,7 +14,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // BaseAttributeDtoV3 - Base Attribute definition
@@ -62,110 +61,65 @@ func MetadataAttributeV3AsBaseAttributeDtoV3(v *MetadataAttributeV3) BaseAttribu
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes BaseAttributeDtoV3 by switching on the JSON "type" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *BaseAttributeDtoV3) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into CustomAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.CustomAttributeV3)
-	if err == nil {
-		jsonCustomAttributeV3, _ := json.Marshal(dst.CustomAttributeV3)
-		if string(jsonCustomAttributeV3) == "{}" { // empty struct
-			dst.CustomAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.CustomAttributeV3); err != nil {
-				dst.CustomAttributeV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.CustomAttributeV3 = nil
+	var probe struct {
+		Disc string `json:"type"`
 	}
-
-	// try to unmarshal data into DataAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.DataAttributeV3)
-	if err == nil {
-		jsonDataAttributeV3, _ := json.Marshal(dst.DataAttributeV3)
-		if string(jsonDataAttributeV3) == "{}" { // empty struct
-			dst.DataAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.DataAttributeV3); err != nil {
-				dst.DataAttributeV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.DataAttributeV3 = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("BaseAttributeDtoV3: probe type: %w", err)
 	}
-
-	// try to unmarshal data into GroupAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.GroupAttributeV3)
-	if err == nil {
-		jsonGroupAttributeV3, _ := json.Marshal(dst.GroupAttributeV3)
-		if string(jsonGroupAttributeV3) == "{}" { // empty struct
-			dst.GroupAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.GroupAttributeV3); err != nil {
-				dst.GroupAttributeV3 = nil
-			} else {
-				match++
-			}
+	dst.CustomAttributeV3 = nil
+	dst.DataAttributeV3 = nil
+	dst.GroupAttributeV3 = nil
+	dst.InfoAttributeV3 = nil
+	dst.MetadataAttributeV3 = nil
+	switch probe.Disc {
+	case "custom":
+		var v CustomAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeDtoV3: decode CustomAttributeV3: %w", err)
 		}
-	} else {
-		dst.GroupAttributeV3 = nil
-	}
-
-	// try to unmarshal data into InfoAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.InfoAttributeV3)
-	if err == nil {
-		jsonInfoAttributeV3, _ := json.Marshal(dst.InfoAttributeV3)
-		if string(jsonInfoAttributeV3) == "{}" { // empty struct
-			dst.InfoAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.InfoAttributeV3); err != nil {
-				dst.InfoAttributeV3 = nil
-			} else {
-				match++
-			}
+		dst.CustomAttributeV3 = &v
+		return nil
+	case "data":
+		var v DataAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeDtoV3: decode DataAttributeV3: %w", err)
 		}
-	} else {
-		dst.InfoAttributeV3 = nil
-	}
-
-	// try to unmarshal data into MetadataAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.MetadataAttributeV3)
-	if err == nil {
-		jsonMetadataAttributeV3, _ := json.Marshal(dst.MetadataAttributeV3)
-		if string(jsonMetadataAttributeV3) == "{}" { // empty struct
-			dst.MetadataAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.MetadataAttributeV3); err != nil {
-				dst.MetadataAttributeV3 = nil
-			} else {
-				match++
-			}
+		dst.DataAttributeV3 = &v
+		return nil
+	case "group":
+		var v GroupAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeDtoV3: decode GroupAttributeV3: %w", err)
 		}
-	} else {
-		dst.MetadataAttributeV3 = nil
-	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.CustomAttributeV3 = nil
-		dst.DataAttributeV3 = nil
-		dst.GroupAttributeV3 = nil
-		dst.InfoAttributeV3 = nil
-		dst.MetadataAttributeV3 = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(BaseAttributeDtoV3)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(BaseAttributeDtoV3)")
+		dst.GroupAttributeV3 = &v
+		return nil
+	case "info":
+		var v InfoAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeDtoV3: decode InfoAttributeV3: %w", err)
+		}
+		dst.InfoAttributeV3 = &v
+		return nil
+	case "meta":
+		var v MetadataAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeDtoV3: decode MetadataAttributeV3: %w", err)
+		}
+		dst.MetadataAttributeV3 = &v
+		return nil
+	default:
+		return fmt.Errorf("BaseAttributeDtoV3: unknown type %q", probe.Disc)
 	}
 }
+
+
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src BaseAttributeDtoV3) MarshalJSON() ([]byte, error) {

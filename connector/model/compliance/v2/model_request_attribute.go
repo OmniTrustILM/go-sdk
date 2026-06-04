@@ -14,7 +14,6 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // RequestAttribute - Request attribute to send attribute content for object
@@ -38,56 +37,41 @@ func RequestAttributeV3AsRequestAttribute(v *RequestAttributeV3) RequestAttribut
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes RequestAttribute by switching on the JSON "version" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *RequestAttribute) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into RequestAttributeV2
-	err = newStrictDecoder(data).Decode(&dst.RequestAttributeV2)
-	if err == nil {
-		jsonRequestAttributeV2, _ := json.Marshal(dst.RequestAttributeV2)
-		if string(jsonRequestAttributeV2) == "{}" { // empty struct
-			dst.RequestAttributeV2 = nil
-		} else {
-			if err = validator.Validate(dst.RequestAttributeV2); err != nil {
-				dst.RequestAttributeV2 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.RequestAttributeV2 = nil
+	var probe struct {
+		Disc string `json:"version"`
 	}
-
-	// try to unmarshal data into RequestAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.RequestAttributeV3)
-	if err == nil {
-		jsonRequestAttributeV3, _ := json.Marshal(dst.RequestAttributeV3)
-		if string(jsonRequestAttributeV3) == "{}" { // empty struct
-			dst.RequestAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.RequestAttributeV3); err != nil {
-				dst.RequestAttributeV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.RequestAttributeV3 = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("RequestAttribute: probe version: %w", err)
 	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.RequestAttributeV2 = nil
-		dst.RequestAttributeV3 = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(RequestAttribute)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(RequestAttribute)")
+	dst.RequestAttributeV2 = nil
+	dst.RequestAttributeV3 = nil
+	switch probe.Disc {
+	case "v2":
+		var v RequestAttributeV2
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("RequestAttribute: decode RequestAttributeV2: %w", err)
+		}
+		dst.RequestAttributeV2 = &v
+		return nil
+	case "v3":
+		var v RequestAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("RequestAttribute: decode RequestAttributeV3: %w", err)
+		}
+		dst.RequestAttributeV3 = &v
+		return nil
+	default:
+		return fmt.Errorf("RequestAttribute: unknown version %q", probe.Disc)
 	}
 }
+
+
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src RequestAttribute) MarshalJSON() ([]byte, error) {

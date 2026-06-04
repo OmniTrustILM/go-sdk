@@ -14,7 +14,6 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // SecretContent - Secret content dependent on secret type
@@ -86,164 +85,87 @@ func SecretKeySecretContentAsSecretContent(v *SecretKeySecretContent) SecretCont
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes SecretContent by switching on the JSON "type" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *SecretContent) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into ApiKeySecretContent
-	err = newStrictDecoder(data).Decode(&dst.ApiKeySecretContent)
-	if err == nil {
-		jsonApiKeySecretContent, _ := json.Marshal(dst.ApiKeySecretContent)
-		if string(jsonApiKeySecretContent) == "{}" { // empty struct
-			dst.ApiKeySecretContent = nil
-		} else {
-			if err = validator.Validate(dst.ApiKeySecretContent); err != nil {
-				dst.ApiKeySecretContent = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.ApiKeySecretContent = nil
+	var probe struct {
+		Disc string `json:"type"`
 	}
-
-	// try to unmarshal data into BasicAuthSecretContent
-	err = newStrictDecoder(data).Decode(&dst.BasicAuthSecretContent)
-	if err == nil {
-		jsonBasicAuthSecretContent, _ := json.Marshal(dst.BasicAuthSecretContent)
-		if string(jsonBasicAuthSecretContent) == "{}" { // empty struct
-			dst.BasicAuthSecretContent = nil
-		} else {
-			if err = validator.Validate(dst.BasicAuthSecretContent); err != nil {
-				dst.BasicAuthSecretContent = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.BasicAuthSecretContent = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("SecretContent: probe type: %w", err)
 	}
-
-	// try to unmarshal data into GenericSecretContent
-	err = newStrictDecoder(data).Decode(&dst.GenericSecretContent)
-	if err == nil {
-		jsonGenericSecretContent, _ := json.Marshal(dst.GenericSecretContent)
-		if string(jsonGenericSecretContent) == "{}" { // empty struct
-			dst.GenericSecretContent = nil
-		} else {
-			if err = validator.Validate(dst.GenericSecretContent); err != nil {
-				dst.GenericSecretContent = nil
-			} else {
-				match++
-			}
+	dst.ApiKeySecretContent = nil
+	dst.BasicAuthSecretContent = nil
+	dst.GenericSecretContent = nil
+	dst.JwtTokenSecretContent = nil
+	dst.KeyStoreSecretContent = nil
+	dst.KeyValueSecretContent = nil
+	dst.PrivateKeySecretContent = nil
+	dst.SecretKeySecretContent = nil
+	switch probe.Disc {
+	case "apiKey":
+		var v ApiKeySecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode ApiKeySecretContent: %w", err)
 		}
-	} else {
-		dst.GenericSecretContent = nil
-	}
-
-	// try to unmarshal data into JwtTokenSecretContent
-	err = newStrictDecoder(data).Decode(&dst.JwtTokenSecretContent)
-	if err == nil {
-		jsonJwtTokenSecretContent, _ := json.Marshal(dst.JwtTokenSecretContent)
-		if string(jsonJwtTokenSecretContent) == "{}" { // empty struct
-			dst.JwtTokenSecretContent = nil
-		} else {
-			if err = validator.Validate(dst.JwtTokenSecretContent); err != nil {
-				dst.JwtTokenSecretContent = nil
-			} else {
-				match++
-			}
+		dst.ApiKeySecretContent = &v
+		return nil
+	case "basicAuth":
+		var v BasicAuthSecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode BasicAuthSecretContent: %w", err)
 		}
-	} else {
-		dst.JwtTokenSecretContent = nil
-	}
-
-	// try to unmarshal data into KeyStoreSecretContent
-	err = newStrictDecoder(data).Decode(&dst.KeyStoreSecretContent)
-	if err == nil {
-		jsonKeyStoreSecretContent, _ := json.Marshal(dst.KeyStoreSecretContent)
-		if string(jsonKeyStoreSecretContent) == "{}" { // empty struct
-			dst.KeyStoreSecretContent = nil
-		} else {
-			if err = validator.Validate(dst.KeyStoreSecretContent); err != nil {
-				dst.KeyStoreSecretContent = nil
-			} else {
-				match++
-			}
+		dst.BasicAuthSecretContent = &v
+		return nil
+	case "generic":
+		var v GenericSecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode GenericSecretContent: %w", err)
 		}
-	} else {
-		dst.KeyStoreSecretContent = nil
-	}
-
-	// try to unmarshal data into KeyValueSecretContent
-	err = newStrictDecoder(data).Decode(&dst.KeyValueSecretContent)
-	if err == nil {
-		jsonKeyValueSecretContent, _ := json.Marshal(dst.KeyValueSecretContent)
-		if string(jsonKeyValueSecretContent) == "{}" { // empty struct
-			dst.KeyValueSecretContent = nil
-		} else {
-			if err = validator.Validate(dst.KeyValueSecretContent); err != nil {
-				dst.KeyValueSecretContent = nil
-			} else {
-				match++
-			}
+		dst.GenericSecretContent = &v
+		return nil
+	case "jwtToken":
+		var v JwtTokenSecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode JwtTokenSecretContent: %w", err)
 		}
-	} else {
-		dst.KeyValueSecretContent = nil
-	}
-
-	// try to unmarshal data into PrivateKeySecretContent
-	err = newStrictDecoder(data).Decode(&dst.PrivateKeySecretContent)
-	if err == nil {
-		jsonPrivateKeySecretContent, _ := json.Marshal(dst.PrivateKeySecretContent)
-		if string(jsonPrivateKeySecretContent) == "{}" { // empty struct
-			dst.PrivateKeySecretContent = nil
-		} else {
-			if err = validator.Validate(dst.PrivateKeySecretContent); err != nil {
-				dst.PrivateKeySecretContent = nil
-			} else {
-				match++
-			}
+		dst.JwtTokenSecretContent = &v
+		return nil
+	case "keyStore":
+		var v KeyStoreSecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode KeyStoreSecretContent: %w", err)
 		}
-	} else {
-		dst.PrivateKeySecretContent = nil
-	}
-
-	// try to unmarshal data into SecretKeySecretContent
-	err = newStrictDecoder(data).Decode(&dst.SecretKeySecretContent)
-	if err == nil {
-		jsonSecretKeySecretContent, _ := json.Marshal(dst.SecretKeySecretContent)
-		if string(jsonSecretKeySecretContent) == "{}" { // empty struct
-			dst.SecretKeySecretContent = nil
-		} else {
-			if err = validator.Validate(dst.SecretKeySecretContent); err != nil {
-				dst.SecretKeySecretContent = nil
-			} else {
-				match++
-			}
+		dst.KeyStoreSecretContent = &v
+		return nil
+	case "keyValue":
+		var v KeyValueSecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode KeyValueSecretContent: %w", err)
 		}
-	} else {
-		dst.SecretKeySecretContent = nil
-	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.ApiKeySecretContent = nil
-		dst.BasicAuthSecretContent = nil
-		dst.GenericSecretContent = nil
-		dst.JwtTokenSecretContent = nil
-		dst.KeyStoreSecretContent = nil
-		dst.KeyValueSecretContent = nil
-		dst.PrivateKeySecretContent = nil
-		dst.SecretKeySecretContent = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(SecretContent)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(SecretContent)")
+		dst.KeyValueSecretContent = &v
+		return nil
+	case "privateKey":
+		var v PrivateKeySecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode PrivateKeySecretContent: %w", err)
+		}
+		dst.PrivateKeySecretContent = &v
+		return nil
+	case "secretKey":
+		var v SecretKeySecretContent
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("SecretContent: decode SecretKeySecretContent: %w", err)
+		}
+		dst.SecretKeySecretContent = &v
+		return nil
+	default:
+		return fmt.Errorf("SecretContent: unknown type %q", probe.Disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src SecretContent) MarshalJSON() ([]byte, error) {

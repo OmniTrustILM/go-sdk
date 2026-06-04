@@ -14,7 +14,6 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // BaseAttributeConstraint - Base Attribute Constraint definition
@@ -46,74 +45,47 @@ func RegexpAttributeConstraintAsBaseAttributeConstraint(v *RegexpAttributeConstr
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes BaseAttributeConstraint by switching on the JSON "type" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into DateTimeAttributeConstraint
-	err = newStrictDecoder(data).Decode(&dst.DateTimeAttributeConstraint)
-	if err == nil {
-		jsonDateTimeAttributeConstraint, _ := json.Marshal(dst.DateTimeAttributeConstraint)
-		if string(jsonDateTimeAttributeConstraint) == "{}" { // empty struct
-			dst.DateTimeAttributeConstraint = nil
-		} else {
-			if err = validator.Validate(dst.DateTimeAttributeConstraint); err != nil {
-				dst.DateTimeAttributeConstraint = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.DateTimeAttributeConstraint = nil
+	var probe struct {
+		Disc string `json:"type"`
 	}
-
-	// try to unmarshal data into RangeAttributeConstraint
-	err = newStrictDecoder(data).Decode(&dst.RangeAttributeConstraint)
-	if err == nil {
-		jsonRangeAttributeConstraint, _ := json.Marshal(dst.RangeAttributeConstraint)
-		if string(jsonRangeAttributeConstraint) == "{}" { // empty struct
-			dst.RangeAttributeConstraint = nil
-		} else {
-			if err = validator.Validate(dst.RangeAttributeConstraint); err != nil {
-				dst.RangeAttributeConstraint = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.RangeAttributeConstraint = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("BaseAttributeConstraint: probe type: %w", err)
 	}
-
-	// try to unmarshal data into RegexpAttributeConstraint
-	err = newStrictDecoder(data).Decode(&dst.RegexpAttributeConstraint)
-	if err == nil {
-		jsonRegexpAttributeConstraint, _ := json.Marshal(dst.RegexpAttributeConstraint)
-		if string(jsonRegexpAttributeConstraint) == "{}" { // empty struct
-			dst.RegexpAttributeConstraint = nil
-		} else {
-			if err = validator.Validate(dst.RegexpAttributeConstraint); err != nil {
-				dst.RegexpAttributeConstraint = nil
-			} else {
-				match++
-			}
+	dst.DateTimeAttributeConstraint = nil
+	dst.RangeAttributeConstraint = nil
+	dst.RegexpAttributeConstraint = nil
+	switch probe.Disc {
+	case "dateTime":
+		var v DateTimeAttributeConstraint
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeConstraint: decode DateTimeAttributeConstraint: %w", err)
 		}
-	} else {
-		dst.RegexpAttributeConstraint = nil
-	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.DateTimeAttributeConstraint = nil
-		dst.RangeAttributeConstraint = nil
-		dst.RegexpAttributeConstraint = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(BaseAttributeConstraint)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(BaseAttributeConstraint)")
+		dst.DateTimeAttributeConstraint = &v
+		return nil
+	case "range":
+		var v RangeAttributeConstraint
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeConstraint: decode RangeAttributeConstraint: %w", err)
+		}
+		dst.RangeAttributeConstraint = &v
+		return nil
+	case "regExp":
+		var v RegexpAttributeConstraint
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeConstraint: decode RegexpAttributeConstraint: %w", err)
+		}
+		dst.RegexpAttributeConstraint = &v
+		return nil
+	default:
+		return fmt.Errorf("BaseAttributeConstraint: unknown type %q", probe.Disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src BaseAttributeConstraint) MarshalJSON() ([]byte, error) {

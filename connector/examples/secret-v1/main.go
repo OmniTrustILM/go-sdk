@@ -6,14 +6,19 @@
 //
 //	go run ./connector/examples/secret-v1
 //
-// Configure with environment variables:
+// Configure with APP_* environment variables (read via envconfig):
 //
-//	ADDR=":8080"      listen address
-//	LOG_LEVEL=info    debug | info | warn | error
-//	STRICT_DECODE=1   reject unknown JSON fields
+//	APP_ADDR          listen address           default ":8080"
+//	APP_LOG_LEVEL     log level                default INFO   (DEBUG|INFO|WARN|ERROR)
+//	APP_STRICT_DECODE reject unknown JSON      default false
+//	APP_USERNAME      credentials username     default "admin"
+//	APP_PASSWORD      credentials password     default "admin"
 //
 // The connector exposes /v2/health, /v2/health/{readiness,liveness},
 // /v2/info, /v1/metrics, and the secret v1 routes under /v1/secretProvider.
+// Every Provider request must carry the username and password attributes
+// (matched by UUID — see attrs.go); mismatches return 401 UNAUTHORIZED and
+// missing attributes return 422 VALIDATION_FAILED.
 package main
 
 import (
@@ -22,7 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strconv"
+	"strings"
 	"syscall"
 
 	secret "github.com/OmniTrustILM/go-sdk/connector/provider/secret/v1"
@@ -38,12 +43,21 @@ const (
 )
 
 func main() {
-	logger := newLogger(envOr("LOG_LEVEL", "info"))
+	cfg, err := LoadConfig()
+	if err != nil {
+		// Logger not built yet; fall back to default.
+		slog.Default().Error("load config", "err", err)
+		os.Exit(1)
+	}
+	logger := newLogger(cfg.LogLevel)
 
-	store := NewStore()
+	store := NewStore(cfg)
+	attrs := &Attrs{}
+
 	handler, err := secret.NewHandler(store,
-		secret.Base(handlerbase.WithStrictDecode(envBool("STRICT_DECODE"))),
-		secret.WithVaultProfileAttributes(&Attrs{}),
+		secret.Base(handlerbase.WithStrictDecode(cfg.StrictDecode)),
+		secret.WithVaultAttributes(attrs),
+		secret.WithVaultProfileAttributes(attrs),
 	)
 	if err != nil {
 		logger.Error("build secret handler", "err", err)
@@ -52,7 +66,7 @@ func main() {
 
 	c, err := shared.New(
 		shared.WithLogger(logger),
-		shared.WithAddr(envOr("ADDR", ":8080")),
+		shared.WithAddr(cfg.Addr),
 		shared.WithInfo(shared.Info{
 			ID:          connectorID,
 			Name:        connectorName,
@@ -80,39 +94,19 @@ func main() {
 	}
 }
 
+// newLogger builds a JSON slog logger at the supplied level. Case-insensitive;
+// unknown values fall back to INFO.
 func newLogger(level string) *slog.Logger {
 	var lvl slog.Level
-	switch level {
-	case "debug":
+	switch strings.ToUpper(level) {
+	case "DEBUG":
 		lvl = slog.LevelDebug
-	case "warn":
+	case "WARN":
 		lvl = slog.LevelWarn
-	case "error":
+	case "ERROR":
 		lvl = slog.LevelError
 	default:
 		lvl = slog.LevelInfo
 	}
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
-}
-
-func envOr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
-// envBool parses the env var as a boolean via strconv.ParseBool. Accepts
-// the canonical Go set (1/t/T/TRUE/true/True and their false counterparts).
-// Unset or unparseable values return false.
-func envBool(key string) bool {
-	v := os.Getenv(key)
-	if v == "" {
-		return false
-	}
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		return false
-	}
-	return b
 }
