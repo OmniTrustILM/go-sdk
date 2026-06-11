@@ -26,14 +26,15 @@ type ErrorRenderer func(w http.ResponseWriter, r *http.Request, err error)
 // connector spec. Hoisted into the shared package so all providers serialize
 // errors with one type rather than each generated copy.
 type ProblemDetail struct {
-	Type       string         `json:"type"`
-	Title      *string        `json:"title,omitempty"`
-	Status     int            `json:"status"`
-	Detail     *string        `json:"detail,omitempty"`
-	Instance   *string        `json:"instance,omitempty"`
-	Properties map[string]any `json:"properties,omitempty"`
-	ErrorCode  string         `json:"errorCode"`
-	Timestamp  time.Time      `json:"timestamp"`
+	Type          string         `json:"type"`
+	Title         *string        `json:"title,omitempty"`
+	Status        int            `json:"status"`
+	Detail        *string        `json:"detail,omitempty"`
+	Instance      *string        `json:"instance,omitempty"`
+	Properties    map[string]any `json:"properties,omitempty"`
+	ErrorCode     string         `json:"errorCode"`
+	Timestamp     time.Time      `json:"timestamp"`
+	CorrelationID *string        `json:"correlationId,omitempty"`
 }
 
 // Error is the connector domain error. Carries everything needed to render a
@@ -193,6 +194,9 @@ func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 		instance = r.URL.Path
 	}
 	pd.Instance = &instance
+	if cid := CorrelationIDFromContext(r.Context()); cid != "" {
+		pd.CorrelationID = &cid
+	}
 
 	w.Header().Set("Content-Type", ProblemContentType)
 	w.WriteHeader(derr.Status)

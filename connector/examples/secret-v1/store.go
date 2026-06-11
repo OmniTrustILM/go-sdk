@@ -9,8 +9,8 @@ import (
 	"time"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/secret/v1"
-	"github.com/OmniTrustILM/go-sdk/connector/shared"
 	secret "github.com/OmniTrustILM/go-sdk/connector/provider/secret/v1"
+	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
 
 // Store is an in-memory Secret Provider implementation. Keyed by secret name;
@@ -53,8 +53,8 @@ func NewStore(cfg *Config) *Store {
 //   - credentials do not match    -> 401 UNAUTHORIZED
 func (s *Store) checkAuth(vaultAttrs []mdl.RequestAttribute) error {
 	var (
-		gotUser, gotPass     string
-		haveUser, havePass   bool
+		gotUser, gotPass   string
+		haveUser, havePass bool
 	)
 	for _, a := range vaultAttrs {
 		if a.RequestAttributeV3 == nil {

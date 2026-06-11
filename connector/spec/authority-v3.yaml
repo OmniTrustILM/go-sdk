@@ -1027,14 +1027,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthInfo"
+                $ref: "#/components/schemas/AggregateHealthInfo"
         "503":
           description: Service Unavailable. Health check indicates service or its
             component is unavailable
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthInfo"
+                $ref: "#/components/schemas/AggregateHealthInfo"
         "500":
           description: Internal Server Error
           content:
@@ -3632,6 +3632,36 @@ components:
           description: Health status of connector components
       required:
       - status
+    AggregateHealthInfo:
+      type: object
+      description: Aggregate health response returned by GET /v2/health. Per
+        the health-interface specification the liveness and readiness
+        components are mandatory in every aggregate health response; the
+        connector runtime always supplies them.
+      properties:
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+          description: Current connector operational status (worst of the
+            connector's own health and the liveness/readiness probes)
+        components:
+          type: object
+          description: Health status of connector components, always
+            including the mandatory liveness and readiness entries
+          properties:
+            liveness:
+              $ref: "#/components/schemas/HealthInfoComponent"
+              description: Mandatory liveness probe result
+            readiness:
+              $ref: "#/components/schemas/HealthInfoComponent"
+              description: Mandatory readiness probe result
+          required:
+          - liveness
+          - readiness
+          additionalProperties:
+            $ref: "#/components/schemas/HealthInfoComponent"
+      required:
+      - status
+      - components
     HealthInfoComponent:
       type: object
       properties:

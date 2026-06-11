@@ -52,7 +52,9 @@ type config struct {
 
 func defaultConfig() *config {
 	return &config{
-		logger:            slog.Default(),
+		// logger stays nil here; when WithLogger is not supplied, New builds
+		// a connector.log v1 logger (NewLogHandler) with the service identity
+		// taken from WithInfo — that wiring needs the fully applied config.
 		addr:              ":8080",
 		readTimeout:       30 * time.Second,
 		writeTimeout:      30 * time.Second,
@@ -172,7 +174,10 @@ func WithAuth(mw Middleware) Option {
 	return func(c *config) error { c.auth = mw; return nil }
 }
 
-// WithRequestIDHeader overrides the request id header. Default "X-Request-Id".
+// WithRequestIDHeader sets the back-compat alias header consulted when the
+// canonical Correlation-Id request header is absent. Default "X-Request-Id".
+// The response always carries the id on Correlation-Id regardless of which
+// header supplied it.
 func WithRequestIDHeader(h string) Option {
 	return func(c *config) error {
 		if h == "" {
