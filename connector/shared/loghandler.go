@@ -294,7 +294,20 @@ func putAttr(dst map[string]any, a slog.Attr) {
 //     expect; json.Marshal would render most error types as {})
 //   - any other value that fails a probe Marshal is replaced by an inline
 //     "!ERROR:" string, mirroring stdlib slog.JSONHandler's behavior
+//
+// Scalar kinds that encoding/json can never reject (strings, bools,
+// integers — the overwhelming majority of log attributes) skip the probe
+// entirely, so the hot path marshals each value once. Floats stay on the
+// probe path because NaN and ±Inf fail Marshal; everything non-scalar
+// (maps, structs, slices, ...) is probed.
 func safeJSONValue(v any) any {
+	switch v.(type) {
+	case nil, string, bool,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		time.Duration:
+		return v
+	}
 	if err, ok := v.(error); ok {
 		return err.Error()
 	}
