@@ -11,8 +11,8 @@ import (
 // coded rules and groups. Scope is wiring verification, not real compliance
 // logic. Rules are picked per kind; an unknown kind returns ErrKindNotFound.
 type Store struct {
-	rules     map[string][]mdl.ComplianceRuleResponseDto    // kind -> rules
-	groups    map[string][]mdl.ComplianceGroupResponseDto   // kind -> groups
+	rules     map[string][]mdl.ComplianceRuleResponseDto            // kind -> rules
+	groups    map[string][]mdl.ComplianceGroupResponseDto           // kind -> groups
 	groupRule map[string]map[string][]mdl.ComplianceRuleResponseDto // kind -> groupUUID -> rules
 }
 

@@ -14,10 +14,20 @@ type ctxKey int
 
 const (
 	ctxKeyLogger ctxKey = iota
-	ctxKeyRequestID
+	ctxKeyCorrelationID
 	ctxKeyMetrics
 	ctxKeyErrorRenderer
+	ctxKeyTrace
 )
+
+// CorrelationHeader is the canonical correlation header per the ILM
+// logging-and-tracing spec: read inbound, generated when absent, and always
+// echoed back to the client on the response.
+const CorrelationHeader = "Correlation-Id"
+
+// maxCorrelationIDLength caps the correlation id per the spec (128 chars).
+// Longer inbound values are rejected and replaced with a generated id.
+const maxCorrelationIDLength = 128
 
 // statusReader is implemented by statusRecorder. Lets inner middleware
 // (e.g. metrics) read the response status set by handlers (or by recover
@@ -36,45 +46,97 @@ func LoggerFromContext(ctx context.Context) *slog.Logger {
 	return slog.Default()
 }
 
-// RequestIDFromContext returns the request id assigned by withRequestID.
+// CorrelationIDFromContext returns the correlation id assigned by the
+// correlation middleware (inbound Correlation-Id header, or generated).
 // Empty string when called outside a connector request.
-func RequestIDFromContext(ctx context.Context) string {
-	if s, ok := ctx.Value(ctxKeyRequestID).(string); ok {
+func CorrelationIDFromContext(ctx context.Context) string {
+	if s, ok := ctx.Value(ctxKeyCorrelationID).(string); ok {
 		return s
 	}
 	return ""
 }
 
-func withRequestID(header string) Middleware {
+// RequestIDFromContext returns the request correlation id.
+//
+// Deprecated: the request id was replaced by the spec's correlation id; use
+// CorrelationIDFromContext. This alias returns the same value.
+func RequestIDFromContext(ctx context.Context) string {
+	return CorrelationIDFromContext(ctx)
+}
+
+// withCorrelationID implements the spec's correlation-id handling: read the
+// Correlation-Id header (falling back to aliasHeader for back-compat when
+// set), validate it (≤128 chars, printable characters only), generate a
+// fresh id when absent or invalid, store it in context, and echo it back to
+// the client on the canonical Correlation-Id response header.
+func withCorrelationID(aliasHeader string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id := r.Header.Get(header)
-			if id == "" {
-				id = newRequestID()
+			id := sanitizeCorrelationID(r.Header.Get(CorrelationHeader))
+			if id == "" && aliasHeader != "" {
+				id = sanitizeCorrelationID(r.Header.Get(aliasHeader))
 			}
-			w.Header().Set(header, id)
-			ctx := context.WithValue(r.Context(), ctxKeyRequestID, id)
+			if id == "" {
+				id = newCorrelationID()
+			}
+			w.Header().Set(CorrelationHeader, id)
+			ctx := context.WithValue(r.Context(), ctxKeyCorrelationID, id)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
+// sanitizeCorrelationID validates an inbound correlation id. Returns "" when
+// the value is empty, exceeds 128 characters, or contains characters outside
+// printable ASCII — the caller then generates a fresh id rather than
+// propagating a malformed or header-injection-prone value into logs.
+func sanitizeCorrelationID(v string) string {
+	if v == "" || len(v) > maxCorrelationIDLength {
+		return ""
+	}
+	for i := 0; i < len(v); i++ {
+		if v[i] < 0x21 || v[i] > 0x7e {
+			return ""
+		}
+	}
+	return v
+}
+
+// withSlogLogger builds the request-scoped logger and emits the built-in
+// "request completed" line. It binds trace_id / span_id / trace_flags (from
+// the span context established by the tracing middleware) and correlation_id
+// onto the logger, so every record logged through LoggerFromContext carries
+// the spec's conditional fields even when callers use the context-free slog
+// methods. The connector.log handler promotes those bound keys to top-level
+// envelope fields.
 func withSlogLogger(base *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			log := base.With(
-				"req_id", RequestIDFromContext(r.Context()),
+
+			args := make([]any, 0, 14)
+			if tid, sid, flags, ok := traceFieldsFromContext(r.Context()); ok {
+				args = append(args,
+					logKeyTraceID, tid,
+					logKeySpanID, sid,
+					logKeyTraceFlags, flags,
+				)
+			}
+			if cid := CorrelationIDFromContext(r.Context()); cid != "" {
+				args = append(args, logKeyCorrelationID, cid)
+			}
+			args = append(args,
 				"method", r.Method,
 				"path", r.URL.Path,
 				"remote", r.RemoteAddr,
 			)
+			log := base.With(args...)
 			ctx := context.WithValue(r.Context(), ctxKeyLogger, log)
 
 			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rec, r.WithContext(ctx))
 
-			log.Info("request completed",
+			log.InfoContext(ctx, "request completed",
 				"status", rec.status,
 				"bytes", rec.bytes,
 				"duration_ms", time.Since(start).Milliseconds(),
@@ -168,10 +230,10 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func newRequestID() string {
+func newCorrelationID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		return "req-fallback"
+		return "corr-fallback"
 	}
 	return hex.EncodeToString(b[:])
 }

@@ -118,4 +118,3 @@ func toDTO(e *entry) *mdl.DiscoveryProviderDto {
 		Meta:                        e.meta,
 	}
 }
-

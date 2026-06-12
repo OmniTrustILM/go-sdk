@@ -115,7 +115,7 @@ func newLogger(level string) *slog.Logger {
 	default:
 		lvl = slog.LevelInfo
 	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+	return slog.New(shared.NewLogHandler(os.Stdout, &shared.LogHandlerOptions{Level: lvl, ServiceName: connectorID, ServiceVersion: connectorVersion}))
 }
 
 func envOr(key, def string) string {
