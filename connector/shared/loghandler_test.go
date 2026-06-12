@@ -152,6 +152,56 @@ func TestLogHandlerPromotesBoundTraceAttrs(t *testing.T) {
 	}
 }
 
+// TestLogHandlerContextWinsOverBoundAttrs pins the precedence fix from the
+// PR#22 review: the record context carries the freshest span (a handler may
+// log under a child span started by otelhttp), while logger-bound trace
+// attrs are static for the whole request. The context's ids must win; bound
+// attrs only serve context-free log calls.
+func TestLogHandlerContextWinsOverBoundAttrs(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(NewLogHandler(&buf, &LogHandlerOptions{ServiceName: "t"}))
+
+	// Simulates the request-scoped logger: middleware-bound static ids.
+	bound := logger.With(
+		"trace_id", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"span_id", "aaaaaaaaaaaaaaaa",
+		"trace_flags", "00",
+		"correlation_id", "bound-corr",
+	)
+
+	// Handler logs under a child span's context (fresher than the bound ids).
+	childTID, _ := trace.TraceIDFromHex("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	childSID, _ := trace.SpanIDFromHex("bbbbbbbbbbbbbbbb")
+	child := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: childTID, SpanID: childSID, TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), child)
+
+	bound.InfoContext(ctx, "from child span")
+	m := decodeLine(t, &buf)
+	if m["trace_id"] != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" {
+		t.Errorf("trace_id = %v, want the child span context to win over bound attrs", m["trace_id"])
+	}
+	if m["span_id"] != "bbbbbbbbbbbbbbbb" {
+		t.Errorf("span_id = %v, want the child span's id", m["span_id"])
+	}
+	if m["trace_flags"] != "01" {
+		t.Errorf("trace_flags = %v, want the child span's flags", m["trace_flags"])
+	}
+	// correlation_id has no context value here, so the bound attr fills it.
+	if m["correlation_id"] != "bound-corr" {
+		t.Errorf("correlation_id = %v, want bound fallback", m["correlation_id"])
+	}
+
+	// Context-free call on the same logger: bound attrs still serve.
+	buf.Reset()
+	bound.Info("context-free")
+	m = decodeLine(t, &buf)
+	if m["trace_id"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || m["span_id"] != "aaaaaaaaaaaaaaaa" {
+		t.Errorf("context-free call lost bound ids: trace_id=%v span_id=%v", m["trace_id"], m["span_id"])
+	}
+}
+
 func TestLogHandlerGroups(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(NewLogHandler(&buf, &LogHandlerOptions{ServiceName: "t"}))

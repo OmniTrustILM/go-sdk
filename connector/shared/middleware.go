@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"runtime/debug"
 	"time"
-
-	"go.opentelemetry.io/otel/trace"
 )
 
 type ctxKey int
@@ -19,6 +17,7 @@ const (
 	ctxKeyCorrelationID
 	ctxKeyMetrics
 	ctxKeyErrorRenderer
+	ctxKeyTrace
 )
 
 // CorrelationHeader is the canonical correlation header per the ILM
@@ -116,11 +115,11 @@ func withSlogLogger(base *slog.Logger) Middleware {
 			start := time.Now()
 
 			args := make([]any, 0, 14)
-			if sc := trace.SpanContextFromContext(r.Context()); sc.IsValid() {
+			if tid, sid, flags, ok := traceFieldsFromContext(r.Context()); ok {
 				args = append(args,
-					logKeyTraceID, sc.TraceID().String(),
-					logKeySpanID, sc.SpanID().String(),
-					logKeyTraceFlags, flagsHex(sc.TraceFlags()),
+					logKeyTraceID, tid,
+					logKeySpanID, sid,
+					logKeyTraceFlags, flags,
 				)
 			}
 			if cid := CorrelationIDFromContext(r.Context()); cid != "" {

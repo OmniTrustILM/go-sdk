@@ -159,31 +159,45 @@ func (h *logHandler) Handle(ctx context.Context, rec slog.Record) error {
 	}
 	env.Timestamp = ts.Format(time.RFC3339Nano)
 
-	// Trace fields from the record's context (set by the tracing middleware
-	// or by any OpenTelemetry instrumentation).
-	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
-		env.TraceID = sc.TraceID().String()
-		env.SpanID = sc.SpanID().String()
-		env.TraceFlags = flagsHex(sc.TraceFlags())
+	// Trace fields from the record's context: a real OpenTelemetry span
+	// context wins (its ids exist in the tracing backend), falling back to
+	// the middleware-synthesized identifiers. See traceFieldsFromContext.
+	if tid, sid, flags, ok := traceFieldsFromContext(ctx); ok {
+		env.TraceID = tid
+		env.SpanID = sid
+		env.TraceFlags = flags
 	}
 	if cid := CorrelationIDFromContext(ctx); cid != "" {
 		env.CorrelationID = cid
 	}
 
 	attrs := make(map[string]any)
+	// promote lifts envelope-level keys out of the attribute stream — but
+	// only into fields the context did not already fill. The context always
+	// carries the freshest identifiers (a handler may log with a child
+	// span's context), while logger-bound attrs are static for the whole
+	// request; the bound values therefore only serve context-free log calls.
 	promote := func(groups []string, a slog.Attr) bool {
 		if len(groups) > 0 {
 			return false // grouped attrs never promote to envelope fields
 		}
 		switch a.Key {
 		case logKeyTraceID:
-			env.TraceID = a.Value.String()
+			if env.TraceID == "" {
+				env.TraceID = a.Value.String()
+			}
 		case logKeySpanID:
-			env.SpanID = a.Value.String()
+			if env.SpanID == "" {
+				env.SpanID = a.Value.String()
+			}
 		case logKeyTraceFlags:
-			env.TraceFlags = a.Value.String()
+			if env.TraceFlags == "" {
+				env.TraceFlags = a.Value.String()
+			}
 		case logKeyCorrelationID:
-			env.CorrelationID = a.Value.String()
+			if env.CorrelationID == "" {
+				env.CorrelationID = a.Value.String()
+			}
 		default:
 			return false
 		}

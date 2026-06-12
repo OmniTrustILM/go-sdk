@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -155,6 +157,68 @@ func TestConformanceUntracedRequestStillSatisfiesInvariant(t *testing.T) {
 			t.Errorf("line %d: span_id %q not 16-hex", i, sid)
 		}
 	}
+}
+
+// TestConformanceRealTracerComposition simulates a connector that installs
+// real OTel instrumentation via WithMiddleware (the otelhttp pattern): the
+// user middleware extracts inbound headers itself and stores a real span
+// context. Per the PR#22 review redesign, (1) the SDK must NOT have polluted
+// the otel context slot with its synthesized span context, and (2) handler
+// log records carrying the real span's context must log the REAL ids, so
+// log-to-trace lookup finds exported spans.
+func TestConformanceRealTracerComposition(t *testing.T) {
+	const realTrace = "cccccccccccccccccccccccccccccccc"
+	const realSpan = "cccccccccccccccc"
+
+	var slotPolluted bool
+	userTracer := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// A real tracer would Extract headers itself; the SDK must not
+			// have pre-filled the otel slot.
+			slotPolluted = trace.SpanContextFromContext(r.Context()).IsValid()
+			tid, _ := trace.TraceIDFromHex(realTrace)
+			sid, _ := trace.SpanIDFromHex(realSpan)
+			sc := trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID: tid, SpanID: sid, TraceFlags: trace.FlagsSampled,
+			})
+			next.ServeHTTP(w, r.WithContext(trace.ContextWithSpanContext(r.Context(), sc)))
+		})
+	}
+
+	var buf bytes.Buffer
+	c := newTestConnector(t, &buf,
+		WithMiddleware(userTracer),
+		WithExtraEndpoints(ExtraEndpoint{
+			FunctionGroupCode: "test", Method: http.MethodGet, Context: "/traced", Name: "traced",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				LoggerFromContext(r.Context()).InfoContext(r.Context(), "handler record")
+				w.WriteHeader(http.StatusNoContent)
+			},
+		}),
+	)
+	srv := httptest.NewServer(c.Handler())
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/traced")
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	resp.Body.Close()
+
+	if slotPolluted {
+		t.Error("SDK pre-filled the otel span-context slot; real tracers must see it empty")
+	}
+	for _, l := range logLines(t, &buf) {
+		if l["message"] != "handler record" {
+			continue
+		}
+		if l["trace_id"] != realTrace || l["span_id"] != realSpan {
+			t.Errorf("handler record ids = (%v, %v), want the real span's (%s, %s)",
+				l["trace_id"], l["span_id"], realTrace, realSpan)
+		}
+		return
+	}
+	t.Fatal("handler record line not found")
 }
 
 // TestConformanceDefaultLoggerIsConnectorLog verifies the Connector built
