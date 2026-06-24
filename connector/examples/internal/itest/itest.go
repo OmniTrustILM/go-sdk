@@ -36,6 +36,7 @@ package itest
 import (
 	"bytes"
 	"context"
+	"go/build"
 	"net/http"
 	"os"
 	"os/exec"
@@ -195,7 +196,7 @@ func buildExampleImageContext(t *testing.T, examplePath string) string {
 	}
 
 	binPath := filepath.Join(dir, "connector")
-	cmd := exec.Command("go", "build", "-trimpath", "-o", binPath, "./"+examplePath)
+	cmd := exec.Command(goToolPath(t), "build", "-trimpath", "-o", binPath, "./"+examplePath)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
@@ -218,6 +219,29 @@ func buildExampleImageContext(t *testing.T, examplePath string) string {
 
 	builtPaths[examplePath] = dir
 	return dir
+}
+
+// goToolPath returns the absolute path of the Go toolchain that built the
+// test binary: $GOROOT/bin/go. It deliberately does NOT search $PATH — a
+// writable directory on PATH could shadow the real `go` with a planted
+// binary that then runs during the build (sonar go:S4036). build.Default.GOROOT
+// is the toolchain root resolved at init from GOROOT/the running toolchain,
+// a fixed, unwriteable location.
+func goToolPath(t *testing.T) string {
+	t.Helper()
+	goroot := build.Default.GOROOT
+	if goroot == "" {
+		t.Fatal("itest: GOROOT is empty; cannot locate the go toolchain without searching PATH")
+	}
+	name := "go"
+	if runtime.GOOS == "windows" {
+		name = "go.exe"
+	}
+	p := filepath.Join(goroot, "bin", name)
+	if _, err := os.Stat(p); err != nil {
+		t.Fatalf("itest: go toolchain not found at %s: %v", p, err)
+	}
+	return p
 }
 
 // repoRoot walks up from this source file to the directory containing go.mod.
