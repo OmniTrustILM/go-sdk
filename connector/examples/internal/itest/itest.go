@@ -26,11 +26,13 @@
 //
 // # How an example becomes a container
 //
-// The example is compiled on the host with CGO disabled for the Docker
-// daemon's platform (the example services are pure Go), then testcontainers
-// builds a minimal scratch image around the prebuilt static binary. This
-// avoids depending on a matching golang base-image tag and reuses the host
-// build cache, so the per-example image build is a tar + COPY of one binary.
+// The example is compiled on the host with CGO disabled, for linux (the
+// scratch image is always linux) on the host architecture (the example
+// services are pure Go), then testcontainers builds a minimal scratch image
+// around the prebuilt static binary. This avoids depending on a matching
+// golang base-image tag and reuses the host build cache, so the per-example
+// image build is a tar + COPY of one binary. It assumes a local
+// Docker/Podman daemon, whose architecture therefore matches the host's.
 package itest
 
 import (
@@ -56,7 +58,9 @@ import (
 // does not override it, so this stays fixed.
 const containerPort = "8080"
 
-// defaultStartupTimeout bounds build + start + readiness for one example.
+// defaultStartupTimeout bounds the host `go build` and the container
+// start/readiness wait for one example. (The intermediate docker image
+// build is bounded by testcontainers' own build handling, not this value.)
 const defaultStartupTimeout = 90 * time.Second
 
 // Example describes one connector example to run as a container.
@@ -113,7 +117,7 @@ func Start(t *testing.T, ex Example) *Harness {
 	}
 
 	ctx := context.Background()
-	buildCtx := buildExampleImageContext(t, ex.Path)
+	buildCtx := buildExampleImageContext(t, ex.Path, timeout)
 
 	consumer := &logConsumer{}
 	ctr, err := testcontainers.Run(ctx, "",
@@ -159,19 +163,27 @@ func (h *Harness) Logs() string { return h.logs.String() }
 
 // --- host build + image context --------------------------------------------
 
-// buildBinaryOnce guards per-(path) host builds so concurrent example tests
-// sharing a build don't race; keyed by absolute example path.
+// Build caches and locks. buildMu is held only for the brief map
+// lookups/inserts below — never across a `go build` — so distinct examples
+// compile concurrently while builds for the same example dedupe via a
+// per-path lock.
 var (
-	buildMu    sync.Mutex
-	builtPaths = map[string]string{} // example path -> build-context dir
+	buildMu    sync.Mutex                 // guards builtPaths and buildLocks
+	builtPaths = map[string]string{}      // example path (as given) -> build-context dir
+	buildLocks = map[string]*sync.Mutex{} // example path (as given) -> per-path build lock
 )
 
-// buildExampleImageContext compiles the example for the Docker daemon's
-// platform into a fresh temp dir and drops a minimal Dockerfile next to the
-// binary. The temp dir is the Docker build context: testcontainers tars it
-// (just the binary + Dockerfile) and builds a scratch image. Returns the
-// context directory path.
-func buildExampleImageContext(t *testing.T, examplePath string) string {
+// buildExampleImageContext compiles the example into a fresh temp dir and
+// drops a minimal Dockerfile next to the binary. The temp dir is the Docker
+// build context: testcontainers tars it (just the binary + Dockerfile) and
+// builds a scratch image. Returns the context directory path.
+//
+// The binary is built for linux — the FROM scratch image is always linux,
+// regardless of the host OS — using the host architecture. That matches the
+// harness's documented assumption of a local Docker/Podman daemon (so the
+// daemon's arch equals the host's, including Apple Silicon). timeout bounds
+// the build.
+func buildExampleImageContext(t *testing.T, examplePath string, timeout time.Duration) string {
 	t.Helper()
 	root := repoRoot(t)
 	pkgDir := filepath.Join(root, filepath.FromSlash(examplePath))
@@ -179,12 +191,31 @@ func buildExampleImageContext(t *testing.T, examplePath string) string {
 		t.Fatalf("itest: example path %q not found at %s: %v", examplePath, pkgDir, err)
 	}
 
-	// One build context per example path, reused across tests in a run.
+	// Acquire (or create) the per-path build lock without holding buildMu
+	// across the build itself, and fast-path an already-built context.
 	buildMu.Lock()
-	defer buildMu.Unlock()
 	if dir, ok := builtPaths[examplePath]; ok {
+		buildMu.Unlock()
 		return dir
 	}
+	pathLock, ok := buildLocks[examplePath]
+	if !ok {
+		pathLock = &sync.Mutex{}
+		buildLocks[examplePath] = pathLock
+	}
+	buildMu.Unlock()
+
+	pathLock.Lock()
+	defer pathLock.Unlock()
+
+	// Re-check under the per-path lock: a concurrent builder of the same
+	// example may have finished while we waited.
+	buildMu.Lock()
+	if dir, ok := builtPaths[examplePath]; ok {
+		buildMu.Unlock()
+		return dir
+	}
+	buildMu.Unlock()
 
 	// Process-lifetime temp dir (not t.TempDir): the context is cached and
 	// reused across tests that share this example, so it must outlive the
@@ -195,12 +226,15 @@ func buildExampleImageContext(t *testing.T, examplePath string) string {
 		t.Fatalf("itest: temp dir: %v", err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	binPath := filepath.Join(dir, "connector")
-	cmd := exec.Command(goToolPath(t), "build", "-trimpath", "-o", binPath, "./"+examplePath)
+	cmd := exec.CommandContext(ctx, goToolPath(t), "build", "-trimpath", "-o", binPath, "./"+examplePath)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
-		"GOOS="+runtime.GOOS,
+		"GOOS=linux", // the FROM scratch image is always linux, whatever the host
 		"GOARCH="+runtime.GOARCH,
 	)
 	var stderr bytes.Buffer
@@ -217,7 +251,9 @@ func buildExampleImageContext(t *testing.T, examplePath string) string {
 		t.Fatalf("itest: write Dockerfile: %v", err)
 	}
 
+	buildMu.Lock()
 	builtPaths[examplePath] = dir
+	buildMu.Unlock()
 	return dir
 }
 

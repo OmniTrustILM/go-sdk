@@ -79,9 +79,11 @@ go test -short ./...
 
 ## How an example becomes a container
 
-The example is compiled on the host (`CGO_ENABLED=0`, daemon platform — the
-examples are pure Go) and testcontainers builds a minimal `scratch` image
-around the prebuilt static binary. This avoids depending on a matching
-`golang` base-image tag, reuses the host build cache, and keeps the per-image
-build to a tar + `COPY` of one binary. Assumes a local Docker/Podman daemon
-(same architecture as the host).
+The example is compiled on the host (`CGO_ENABLED=0`, `GOOS=linux` — the
+`scratch` image is always linux — on the host architecture; the examples are
+pure Go) and testcontainers builds a minimal `scratch` image around the
+prebuilt static binary. This avoids depending on a matching `golang`
+base-image tag, reuses the host build cache, and keeps the per-image build to
+a tar + `COPY` of one binary. Assumes a local Docker/Podman daemon, whose
+architecture therefore matches the host's (including Apple Silicon →
+linux/arm64 containers).

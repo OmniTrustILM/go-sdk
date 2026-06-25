@@ -3,6 +3,7 @@ package itest
 import (
 	"encoding/json"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -42,7 +43,7 @@ func (h *Harness) AssertHealthy(t *testing.T, path string) map[string]any {
 				t.Errorf("aggregate /v2/health missing mandatory component %q\nbody: %s", name, resp.Body)
 			}
 		}
-	case len(path) >= 9 && path[:9] == "/v2/healt":
+	case strings.HasPrefix(path, "/v2/health"):
 		// probe endpoints (/v2/health/liveness|readiness): status only.
 		if body["status"] == nil {
 			t.Errorf("health body has no status\nbody: %s", resp.Body)
@@ -55,7 +56,7 @@ func (h *Harness) AssertHealthy(t *testing.T, path string) map[string]any {
 	return body
 }
 
-// connectorLogLine matches the connector.log v1 envelope's defining marker.
+// connectorLogSchema matches the connector.log v1 envelope's defining marker.
 var connectorLogSchema = regexp.MustCompile(`"schema":\{"name":"connector\.log","version":1\}`)
 
 // LogLine is one parsed connector.log v1 entry from the container's output.
