@@ -222,7 +222,9 @@ func TestSecretV1Lifecycle(t *testing.T) {
 		Name: name, Type: mdl.SECRETTYPE_API_KEY, VaultAttributes: validAuth(),
 	}})
 	itest.AssertStatus(t, resp, http.StatusNotFound)
-}
+	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
+		t.Errorf("read-after-delete errorCode = %q, want RESOURCE_NOT_FOUND", code)
+	}
 
 // --- #24: error paths ------------------------------------------------------
 
