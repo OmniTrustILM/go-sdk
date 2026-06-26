@@ -120,8 +120,12 @@ func (s *Store) CreateSecret(ctx context.Context, req *mdl.CreateSecretRequestDt
 	return toResponse(e), nil
 }
 
-// UpdateSecret replaces stored content and metadata. Returns ErrSecretNotFound
-// if no secret with this name exists. Bumps version.
+// UpdateSecret replaces stored content, type, and metadata. Returns
+// ErrSecretNotFound if no secret with this name exists. Bumps version.
+//
+// The secret's type may change across an update (e.g. a credential rotated
+// from basicAuth to a jwtToken) — the new type is taken from the populated
+// SecretContent oneOf variant and recorded on the entry.
 func (s *Store) UpdateSecret(ctx context.Context, req *mdl.UpdateSecretRequestDto) (*mdl.SecretResponseDto, error) {
 	if req == nil || req.Name == "" {
 		return nil, shared.Invalid("VALIDATION_FAILED", "name is required")
@@ -141,13 +145,8 @@ func (s *Store) UpdateSecret(ctx context.Context, req *mdl.UpdateSecretRequestDt
 	if !exists {
 		return nil, secret.ErrSecretNotFound.WithProperty("name", req.Name)
 	}
-	if e.stype != stype {
-		return nil, shared.Invalid("VALIDATION_FAILED", "secret type cannot change on update").
-			WithProperty("name", req.Name).
-			WithProperty("from", string(e.stype)).
-			WithProperty("to", string(stype))
-	}
 
+	e.stype = stype
 	e.content = req.Secret
 	e.metadata = req.Metadata
 	e.version++
