@@ -225,6 +225,7 @@ func TestSecretV1Lifecycle(t *testing.T) {
 	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
 		t.Errorf("read-after-delete errorCode = %q, want RESOURCE_NOT_FOUND", code)
 	}
+}
 
 // --- #24: error paths ------------------------------------------------------
 
@@ -261,6 +262,9 @@ func TestSecretV1Errors(t *testing.T) {
 		Name: "no-such-secret", Type: mdl.SECRETTYPE_API_KEY, VaultAttributes: validAuth(),
 	}})
 	itest.AssertStatus(t, resp, http.StatusNotFound)
+	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
+		t.Errorf("rotate-unknown errorCode = %q, want RESOURCE_NOT_FOUND", code)
+	}
 }
 
 // --- #24: attribute schema endpoints ---------------------------------------
