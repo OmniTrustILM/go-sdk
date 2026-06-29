@@ -55,7 +55,9 @@ const (
 
 func startAuthority(t *testing.T, extraEnv map[string]string) *itest.Harness {
 	t.Helper()
-	env := map[string]string{"APP_API_KEY": apiKey}
+	// Set both credential knobs explicitly so the suite is self-contained
+	// and robust against changes to the example's defaults.
+	env := map[string]string{"APP_CA_NAME": caName, "APP_API_KEY": apiKey}
 	maps.Copy(env, extraEnv)
 	return itest.Start(t, itest.Example{Path: "connector/examples/authority-v3", Env: env})
 }
@@ -170,6 +172,12 @@ func issueCert(t *testing.T, h *itest.Harness, cn string) mdl.CertificateDataRes
 	itest.AssertStatus(t, resp, http.StatusOK)
 	var out mdl.CertificateDataResponseDto
 	resp.JSON(t, &out)
+	// Fatal guard here covers every caller: a non-200 leaves CertificateData
+	// nil, and the callers dereference it — a panic would abort the whole
+	// package instead of failing one test with a useful message.
+	if out.CertificateData == nil {
+		t.Fatalf("issueCert(%q): no certificateData\nbody: %s", cn, resp.Body)
+	}
 	return out
 }
 
@@ -188,6 +196,7 @@ func TestAuthorityV3HealthAndInfo(t *testing.T) {
 	for _, raw := range ifaces {
 		if m, _ := raw.(map[string]any); m["code"] == "authority" && m["version"] == "v3" {
 			ok = true
+			break
 		}
 	}
 	if !ok {
@@ -320,6 +329,7 @@ func TestAuthorityV3RevokeAndCRL(t *testing.T) {
 	for _, e := range crl.RevokedCertificateEntries {
 		if e.SerialNumber.Cmp(leaf.SerialNumber) == 0 {
 			found = true
+			break
 		}
 	}
 	if !found {
@@ -407,7 +417,10 @@ func TestAuthorityV3GetCaCertificates(t *testing.T) {
 func TestAuthorityV3Async(t *testing.T) {
 	h := startAuthority(t, map[string]string{
 		"APP_ASYNC_ISSUE": "true",
-		"APP_ASYNC_DELAY": "1s",
+		// Generous delay so the job is reliably still pending on the first
+		// status poll even on a slow/loaded CI host (the poll loop below
+		// tolerates either outcome regardless).
+		"APP_ASYNC_DELAY": "5s",
 	})
 
 	accept := func() mdl.CertificateDataResponseDto {
@@ -435,24 +448,39 @@ func TestAuthorityV3Async(t *testing.T) {
 		}}
 	}
 
-	// 202 -> poll 202 (pending) -> 200 (done).
+	// 202 -> poll (pending 202) -> done (200). Rather than asserting an
+	// exact status on the first poll (timing-fragile), the loop records that
+	// it observed at least one pending response before completion — proving
+	// the 202->200 transition without depending on how fast the job lazily
+	// completes relative to the round-trips.
 	job := accept()
-	itest.AssertStatus(t, h.Do(t, statusReq(job.Meta)), http.StatusAccepted) // immediately pending
-	var doneCert *string
+	var (
+		completed  bool
+		sawPending bool
+		doneCert   *string
+	)
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		resp := h.Do(t, statusReq(job.Meta))
 		if resp.Status == http.StatusOK {
 			var out mdl.CertificateDataResponseDto
 			resp.JSON(t, &out)
+			completed = true
 			doneCert = out.CertificateData
 			break
 		}
 		itest.AssertStatus(t, resp, http.StatusAccepted)
+		sawPending = true
 		time.Sleep(300 * time.Millisecond)
 	}
+	if !sawPending {
+		t.Error("async job never reported pending (202) before completing")
+	}
+	if !completed {
+		t.Fatal("async job never completed to 200 within the deadline")
+	}
 	if doneCert == nil {
-		t.Fatal("async job never completed to 200")
+		t.Fatal("async job completed (200) but returned no certificateData")
 	}
 	parseCertB64(t, *doneCert) // completed job yields a real certificate
 
