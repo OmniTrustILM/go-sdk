@@ -16,6 +16,25 @@ func AssertStatus(t *testing.T, resp Response, want int) {
 	}
 }
 
+// AssertProblem asserts an RFC 9457 problem response: both the HTTP status
+// and the ProblemDetail errorCode extension (the v2-family error envelope
+// emitted by shared.WriteProblem). Asserting the code alongside the status
+// catches spec/model/handler drift that a status-only check would miss.
+func AssertProblem(t *testing.T, resp Response, wantStatus int, wantCode string) {
+	t.Helper()
+	AssertStatus(t, resp, wantStatus)
+	var pd struct {
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.Unmarshal(resp.Body, &pd); err != nil {
+		t.Errorf("error response body is not JSON: %v\nbody: %s", err, resp.Body)
+		return
+	}
+	if pd.ErrorCode != wantCode {
+		t.Errorf("errorCode = %q, want %q\nbody: %s", pd.ErrorCode, wantCode, resp.Body)
+	}
+}
+
 // AssertHealthy fetches path and verifies the response is a conformant
 // health body for the spec version implied by the path:
 //
