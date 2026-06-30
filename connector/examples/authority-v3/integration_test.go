@@ -1,6 +1,6 @@
 package main_test
 
-// Integration tests for the authority-v3 example (issue #25), a real
+// Integration tests for the authority-v3 example, a real
 // in-memory X.509 CA, driven over the public HTTP interface via the shared
 // testcontainers harness. Requests/responses use the generated
 // connector/model/authority/v3 types; assertions include real crypto checks
@@ -181,7 +181,7 @@ func issueCert(t *testing.T, h *itest.Harness, cn string) mdl.CertificateDataRes
 	return out
 }
 
-// --- #25: health + info ----------------------------------------------------
+// --- health + info ----------------------------------------------------
 
 func TestAuthorityV3HealthAndInfo(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -205,7 +205,7 @@ func TestAuthorityV3HealthAndInfo(t *testing.T) {
 	h.AssertLogsConform(t)
 }
 
-// --- #25: mandatory authority attributes (auth) ----------------------------
+// --- mandatory authority attributes (auth) ----------------------------
 
 func TestAuthorityV3Auth(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -228,7 +228,7 @@ func TestAuthorityV3Auth(t *testing.T) {
 	itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 }
 
-// --- #25: issue + chain verification ---------------------------------------
+// --- issue + chain verification ---------------------------------------
 
 func TestAuthorityV3IssueVerifiesChain(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -263,7 +263,7 @@ func TestAuthorityV3IssueVerifiesChain(t *testing.T) {
 	itest.AssertProblem(t, bad, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 }
 
-// --- #25: renew ------------------------------------------------------------
+// --- renew ------------------------------------------------------------
 
 func TestAuthorityV3Renew(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -289,7 +289,7 @@ func TestAuthorityV3Renew(t *testing.T) {
 	}
 }
 
-// --- #25: revoke + CRL -----------------------------------------------------
+// --- revoke + CRL -----------------------------------------------------
 
 func TestAuthorityV3RevokeAndCRL(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -337,7 +337,7 @@ func TestAuthorityV3RevokeAndCRL(t *testing.T) {
 	}
 }
 
-// --- #25: register -> issue-against-registration ---------------------------
+// --- register -> issue-against-registration ---------------------------
 
 func TestAuthorityV3RegisterThenIssue(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -379,7 +379,7 @@ func TestAuthorityV3RegisterThenIssue(t *testing.T) {
 	itest.AssertProblem(t, resp, http.StatusNotFound, "OPERATION_NOT_FOUND")
 }
 
-// --- #25: identify ---------------------------------------------------------
+// --- identify ---------------------------------------------------------
 
 func TestAuthorityV3Identify(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -402,7 +402,7 @@ func TestAuthorityV3Identify(t *testing.T) {
 	itest.AssertProblem(t, resp, http.StatusNotFound, "CERTIFICATE_NOT_FOUND")
 }
 
-// --- #25: getCaCertificates ------------------------------------------------
+// --- getCaCertificates ------------------------------------------------
 
 func TestAuthorityV3GetCaCertificates(t *testing.T) {
 	h := startAuthority(t, nil)
@@ -412,7 +412,7 @@ func TestAuthorityV3GetCaCertificates(t *testing.T) {
 	}
 }
 
-// --- #25: async mode (202 -> poll -> 200; cancel; not-found) ---------------
+// --- async mode (202 -> poll -> 200; cancel; not-found) ---------------
 
 func TestAuthorityV3Async(t *testing.T) {
 	h := startAuthority(t, map[string]string{

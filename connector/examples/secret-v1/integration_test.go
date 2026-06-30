@@ -1,6 +1,6 @@
 package main_test
 
-// Integration tests for the secret-v1 example (issue #24), driven over the
+// Integration tests for the secret-v1 example, driven over the
 // public HTTP interface via the shared testcontainers harness. The example
 // is run as a real container; requests use the generated secret/v1 model
 // types so the test exercises the spec, the generated models, and the
@@ -102,7 +102,7 @@ func apiKeyContent(key string) mdl.SecretContent {
 	})
 }
 
-// --- #24: health + info ----------------------------------------------------
+// --- health + info ----------------------------------------------------
 
 func TestSecretV1HealthAndInfo(t *testing.T) {
 	h := startSecret(t)
@@ -131,7 +131,7 @@ func TestSecretV1HealthAndInfo(t *testing.T) {
 	h.AssertLogsConform(t)
 }
 
-// --- #24: credential-form auth --------------------------------------------
+// --- credential-form auth --------------------------------------------
 
 func TestSecretV1Auth(t *testing.T) {
 	h := startSecret(t)
@@ -152,7 +152,7 @@ func TestSecretV1Auth(t *testing.T) {
 	itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 }
 
-// --- #24: full lifecycle create -> read -> update -> rotate -> delete ------
+// --- full lifecycle create -> read -> update -> rotate -> delete ------
 
 func TestSecretV1Lifecycle(t *testing.T) {
 	h := startSecret(t)
@@ -208,7 +208,7 @@ func TestSecretV1Lifecycle(t *testing.T) {
 	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 }
 
-// --- #24: error paths ------------------------------------------------------
+// --- error paths ------------------------------------------------------
 
 func TestSecretV1Errors(t *testing.T) {
 	h := startSecret(t)
@@ -239,7 +239,7 @@ func TestSecretV1Errors(t *testing.T) {
 	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 }
 
-// --- #24: attribute schema endpoints ---------------------------------------
+// --- attribute schema endpoints ---------------------------------------
 
 func TestSecretV1Attributes(t *testing.T) {
 	h := startSecret(t)
@@ -268,7 +268,7 @@ func TestSecretV1Attributes(t *testing.T) {
 	itest.AssertStatus(t, resp, http.StatusOK)
 }
 
-// --- Karol's test case (issue #24) -----------------------------------------
+// --- Karol's test case -----------------------------------------
 
 // TestSecretV1KarolsCase walks the exact 10-step scenario from the issue:
 // error-before-existence, create, read-back, duplicate, type-changing update,
