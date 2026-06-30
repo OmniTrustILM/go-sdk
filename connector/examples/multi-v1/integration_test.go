@@ -31,12 +31,13 @@ const (
 // startMulti launches the multi-v1 example container. It is a v1-family
 // connector, so readiness is gated on /v1/health.
 //
-// A successful start is itself the core composition assertion: the stdlib
-// ServeMux panics at registration on any conflicting route pattern, so if
-// the two providers' routes (or the shared endpoints) collided, the
-// container would crash before serving and the harness readiness wait would
-// fail Start. Reaching the assertions below therefore proves the providers
-// compose on one mux without collisions.
+// A successful start is itself the core composition assertion: the shared
+// router encodes the method into each mux pattern, and the stdlib ServeMux
+// panics at registration on a conflicting method+pattern. So if the two
+// providers' routes (or the shared endpoints) registered conflicting
+// method+patterns, the container would crash before serving and the harness
+// readiness wait would fail Start. Reaching the assertions below therefore
+// proves the providers register on one mux without method+pattern conflicts.
 func startMulti(t *testing.T) *itest.Harness {
 	t.Helper()
 	return itest.Start(t, itest.Example{
@@ -71,7 +72,11 @@ func TestMultiV1InfoListsBothProviders(t *testing.T) {
 	byCode := map[string]v1FunctionGroup{}
 	for _, g := range groups {
 		if _, dup := byCode[g.FunctionGroupCode]; dup {
-			t.Errorf("function group %q listed more than once (shared info not served once)", g.FunctionGroupCode)
+			// /v1 builds one entry per registered provider (shared/info.go);
+			// a second GET /v1 registration would have panicked the mux. A
+			// duplicate code therefore means two providers registered under
+			// the same functionGroupCode.
+			t.Errorf("function group %q listed more than once (duplicate provider registration)", g.FunctionGroupCode)
 		}
 		byCode[g.FunctionGroupCode] = g
 	}
@@ -90,8 +95,32 @@ func TestMultiV1InfoListsBothProviders(t *testing.T) {
 		t.Errorf("%s kinds = %v, want to contain %q", fgAuthority, auth.Kinds, authorityKind)
 	}
 
+	// The example wires the shared listSupportedFunctions + checkHealth
+	// endpoints into BOTH function groups via WithExtraEndpoints, and
+	// shared/info.go merges those extras into each group's EndPoints. Assert
+	// they surface under each group — exercising the extras-merge path.
+	for code, g := range map[string]v1FunctionGroup{fgDiscovery: disco, fgAuthority: auth} {
+		if !hasEndpoint(g, http.MethodGet, "/v1") {
+			t.Errorf("%s endPoints missing listSupportedFunctions (GET /v1): %+v", code, g.EndPoints)
+		}
+		if !hasEndpoint(g, http.MethodGet, "/v1/health") {
+			t.Errorf("%s endPoints missing checkHealth (GET /v1/health): %+v", code, g.EndPoints)
+		}
+	}
+
 	// Container logs conform to the connector.log v1 contract.
 	h.AssertLogsConform(t)
+}
+
+// hasEndpoint reports whether g advertises an endpoint with the given method
+// and context.
+func hasEndpoint(g v1FunctionGroup, method, context string) bool {
+	for _, e := range g.EndPoints {
+		if e.Method == method && e.Context == context {
+			return true
+		}
+	}
+	return false
 }
 
 // TestMultiV1SharedHealth verifies the shared /v1/health endpoint is served
@@ -107,19 +136,27 @@ func TestMultiV1SharedHealth(t *testing.T) {
 func TestMultiV1BothProvidersReachable(t *testing.T) {
 	h := startMulti(t)
 
-	// Discovery: per-kind attribute schema -> 200 (array).
+	// Discovery: the per-kind attributes endpoint is reachable and returns a
+	// JSON array. (This example wires no attribute provider, so the body is
+	// an empty array for any kind — kind registration itself is verified in
+	// TestMultiV1InfoListsBothProviders, not here.)
 	discoAttrs := h.Do(t, itest.Request{
 		Method: http.MethodGet,
 		Path:   "/v1/discoveryProvider/" + discoveryKind + "/attributes",
 	})
 	itest.AssertStatus(t, discoAttrs, http.StatusOK)
+	var discoBody []any
+	discoAttrs.JSON(t, &discoBody)
 
-	// Authority v2: list authority instances -> 200 (array, possibly empty).
+	// Authority v2: list authority instances is reachable and returns a JSON
+	// array (possibly empty).
 	authList := h.Do(t, itest.Request{
 		Method: http.MethodGet,
 		Path:   "/v1/authorityProvider/authorities",
 	})
 	itest.AssertStatus(t, authList, http.StatusOK)
+	var authBody []any
+	authList.JSON(t, &authBody)
 }
 
 // TestMultiV1SharedMetrics verifies the shared Prometheus endpoint is served
