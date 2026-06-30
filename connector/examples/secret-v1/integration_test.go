@@ -1,6 +1,6 @@
 package main_test
 
-// Integration tests for the secret-v1 example (issue #24), driven over the
+// Integration tests for the secret-v1 example, driven over the
 // public HTTP interface via the shared testcontainers harness. The example
 // is run as a real container; requests use the generated secret/v1 model
 // types so the test exercises the spec, the generated models, and the
@@ -102,17 +102,7 @@ func apiKeyContent(key string) mdl.SecretContent {
 	})
 }
 
-// errorCode extracts the RFC 9457 ProblemDetail errorCode from a response.
-func errorCode(t *testing.T, resp itest.Response) string {
-	t.Helper()
-	var pd struct {
-		ErrorCode string `json:"errorCode"`
-	}
-	resp.JSON(t, &pd)
-	return pd.ErrorCode
-}
-
-// --- #24: health + info ----------------------------------------------------
+// --- health + info ----------------------------------------------------
 
 func TestSecretV1HealthAndInfo(t *testing.T) {
 	h := startSecret(t)
@@ -141,7 +131,7 @@ func TestSecretV1HealthAndInfo(t *testing.T) {
 	h.AssertLogsConform(t)
 }
 
-// --- #24: credential-form auth --------------------------------------------
+// --- credential-form auth --------------------------------------------
 
 func TestSecretV1Auth(t *testing.T) {
 	h := startSecret(t)
@@ -152,23 +142,17 @@ func TestSecretV1Auth(t *testing.T) {
 
 	// Wrong password -> 401 UNAUTHORIZED.
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathVaults, Body: authAttrs(vaultUser, "wrong")})
-	itest.AssertStatus(t, resp, http.StatusUnauthorized)
-	if code := errorCode(t, resp); code != "UNAUTHORIZED" {
-		t.Errorf("wrong-credentials errorCode = %q, want UNAUTHORIZED", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusUnauthorized, "UNAUTHORIZED")
 
 	// Missing password attribute -> 422 VALIDATION_FAILED.
 	resp = h.Do(t, itest.Request{
 		Method: http.MethodPost, Path: pathVaults,
 		Body: []mdl.RequestAttribute{stringAttr(usernameAttrUUID, "username", vaultUser)},
 	})
-	itest.AssertStatus(t, resp, http.StatusUnprocessableEntity)
-	if code := errorCode(t, resp); code != "VALIDATION_FAILED" {
-		t.Errorf("missing-attribute errorCode = %q, want VALIDATION_FAILED", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 }
 
-// --- #24: full lifecycle create -> read -> update -> rotate -> delete ------
+// --- full lifecycle create -> read -> update -> rotate -> delete ------
 
 func TestSecretV1Lifecycle(t *testing.T) {
 	h := startSecret(t)
@@ -221,13 +205,10 @@ func TestSecretV1Lifecycle(t *testing.T) {
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecretContent, Body: mdl.SecretRequestDto{
 		Name: name, Type: mdl.SECRETTYPE_API_KEY, VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
-	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
-		t.Errorf("read-after-delete errorCode = %q, want RESOURCE_NOT_FOUND", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 }
 
-// --- #24: error paths ------------------------------------------------------
+// --- error paths ------------------------------------------------------
 
 func TestSecretV1Errors(t *testing.T) {
 	h := startSecret(t)
@@ -243,31 +224,22 @@ func TestSecretV1Errors(t *testing.T) {
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecrets, Body: mdl.CreateSecretRequestDto{
 		Name: name, Secret: apiKeyContent("k"), VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusConflict)
-	if code := errorCode(t, resp); code != "RESOURCE_ALREADY_EXISTS" {
-		t.Errorf("duplicate-create errorCode = %q, want RESOURCE_ALREADY_EXISTS", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusConflict, "RESOURCE_ALREADY_EXISTS")
 
 	// read unknown -> 404 RESOURCE_NOT_FOUND
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecretContent, Body: mdl.SecretRequestDto{
 		Name: "no-such-secret", Type: mdl.SECRETTYPE_API_KEY, VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
-	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
-		t.Errorf("read-unknown errorCode = %q, want RESOURCE_NOT_FOUND", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 
 	// rotate unknown -> 404 RESOURCE_NOT_FOUND
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecretRotate, Body: mdl.SecretRequestDto{
 		Name: "no-such-secret", Type: mdl.SECRETTYPE_API_KEY, VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
-	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
-		t.Errorf("rotate-unknown errorCode = %q, want RESOURCE_NOT_FOUND", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 }
 
-// --- #24: attribute schema endpoints ---------------------------------------
+// --- attribute schema endpoints ---------------------------------------
 
 func TestSecretV1Attributes(t *testing.T) {
 	h := startSecret(t)
@@ -296,7 +268,7 @@ func TestSecretV1Attributes(t *testing.T) {
 	itest.AssertStatus(t, resp, http.StatusOK)
 }
 
-// --- Karol's test case (issue #24) -----------------------------------------
+// --- Karol's test case -----------------------------------------
 
 // TestSecretV1KarolsCase walks the exact 10-step scenario from the issue:
 // error-before-existence, create, read-back, duplicate, type-changing update,
@@ -309,22 +281,19 @@ func TestSecretV1KarolsCase(t *testing.T) {
 	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecretContent, Body: mdl.SecretRequestDto{
 		Name: name, Type: mdl.SECRETTYPE_BASIC_AUTH, VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
-	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
-		t.Errorf("step 1 errorCode = %q, want RESOURCE_NOT_FOUND", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 
 	// 2. Update non-existing -> 404 not-found.
 	resp = h.Do(t, itest.Request{Method: http.MethodPut, Path: pathSecrets, Body: mdl.UpdateSecretRequestDto{
 		Name: name, Secret: basicAuthContent("u", "p"), VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
+	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 
 	// 3. Delete non-existing -> 404 not-found.
 	resp = h.Do(t, itest.Request{Method: http.MethodDelete, Path: pathSecrets, Body: mdl.SecretRequestDto{
 		Name: name, Type: mdl.SECRETTYPE_BASIC_AUTH, VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
+	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 
 	// 4. Create, type basicAuth.
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecrets, Body: mdl.CreateSecretRequestDto{
@@ -350,10 +319,7 @@ func TestSecretV1KarolsCase(t *testing.T) {
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecrets, Body: mdl.CreateSecretRequestDto{
 		Name: name, Secret: basicAuthContent("dbadmin", "hunter2"), VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusConflict)
-	if code := errorCode(t, resp); code != "RESOURCE_ALREADY_EXISTS" {
-		t.Errorf("step 6 errorCode = %q, want RESOURCE_ALREADY_EXISTS", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusConflict, "RESOURCE_ALREADY_EXISTS")
 
 	// 7. Update, change type to jwtToken and change the value.
 	resp = h.Do(t, itest.Request{Method: http.MethodPut, Path: pathSecrets, Body: mdl.UpdateSecretRequestDto{
@@ -385,10 +351,7 @@ func TestSecretV1KarolsCase(t *testing.T) {
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSecretContent, Body: mdl.SecretRequestDto{
 		Name: name, Type: mdl.SECRETTYPE_JWT_TOKEN, VaultAttributes: validAuth(),
 	}})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
-	if code := errorCode(t, resp); code != "RESOURCE_NOT_FOUND" {
-		t.Errorf("step 10 errorCode = %q, want RESOURCE_NOT_FOUND", code)
-	}
+	itest.AssertProblem(t, resp, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 }
 
 // readSecret POSTs to the content endpoint and returns the decoded

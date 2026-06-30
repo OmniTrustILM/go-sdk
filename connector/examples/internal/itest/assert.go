@@ -8,11 +8,39 @@ import (
 )
 
 // AssertStatus fails the test when resp.Status != want, printing the body
-// (the most useful context for a wrong status).
-func AssertStatus(t *testing.T, resp Response, want int) {
+// (the most useful context for a wrong status). Returns whether the status
+// matched, so callers can bail before further assertions on the body.
+func AssertStatus(t *testing.T, resp Response, want int) bool {
 	t.Helper()
 	if resp.Status != want {
 		t.Errorf("status = %d, want %d\nbody: %s", resp.Status, want, resp.Body)
+		return false
+	}
+	return true
+}
+
+// AssertProblem asserts an RFC 9457 problem response: both the HTTP status
+// and the ProblemDetail errorCode extension (the v2-family error envelope
+// emitted by shared.WriteProblem). Asserting the code alongside the status
+// catches spec/model/handler drift that a status-only check would miss.
+//
+// On a status mismatch it stops before parsing the body — a wrong-status
+// response is often non-JSON (or empty), and a secondary "not JSON" error
+// would only mask the primary status failure.
+func AssertProblem(t *testing.T, resp Response, wantStatus int, wantCode string) {
+	t.Helper()
+	if !AssertStatus(t, resp, wantStatus) {
+		return
+	}
+	var pd struct {
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.Unmarshal(resp.Body, &pd); err != nil {
+		t.Errorf("error response body is not JSON: %v\nbody: %s", err, resp.Body)
+		return
+	}
+	if pd.ErrorCode != wantCode {
+		t.Errorf("errorCode = %q, want %q\nbody: %s", pd.ErrorCode, wantCode, resp.Body)
 	}
 }
 
