@@ -44,6 +44,31 @@ func AssertProblem(t *testing.T, resp Response, wantStatus int, wantCode string)
 	}
 }
 
+// AssertV1Error asserts a v1-family error response: the HTTP status and a
+// non-empty ErrorMessageDto `message` field (the shape shared.WriteV1Error
+// emits for 4xx/5xx other than 422). This is the v1 analog of AssertProblem;
+// v1-family connectors render their own message-based envelope rather than
+// the RFC 9457 ProblemDetail used by v2-family specs.
+//
+// Note: 422 validation responses use a bare []string body, not this shape —
+// assert those directly.
+func AssertV1Error(t *testing.T, resp Response, wantStatus int) {
+	t.Helper()
+	if !AssertStatus(t, resp, wantStatus) {
+		return
+	}
+	var em struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(resp.Body, &em); err != nil {
+		t.Errorf("v1 error body is not JSON: %v\nbody: %s", err, resp.Body)
+		return
+	}
+	if em.Message == "" {
+		t.Errorf("v1 error body has empty message\nbody: %s", resp.Body)
+	}
+}
+
 // AssertHealthy fetches path and verifies the response is a conformant
 // health body for the spec version implied by the path:
 //
