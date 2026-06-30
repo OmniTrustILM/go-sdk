@@ -21,8 +21,10 @@ import (
 )
 
 const (
-	fgNotification   = "notificationProvider"
-	notificationKind = "email"
+	// Function group code from the generated enum, so the test tracks the
+	// OpenAPI value if it ever changes.
+	fgNotification   = string(mdl.FUNCTIONGROUPCODE_NOTIFICATION_PROVIDER)
+	notificationKind = "email" // example default (NOTIFICATION_KIND)
 
 	base          = "/v1/notificationProvider"
 	pathInstances = base + "/notifications"
@@ -160,17 +162,24 @@ func TestNotificationV1Send(t *testing.T) {
 func TestNotificationV1Attributes(t *testing.T) {
 	h := startNotification(t)
 
-	// Per-kind attribute schema -> 200 (array).
+	// Per-kind attribute schema -> 200, a JSON array (never null: the handler
+	// emits [] via EnsureSlice).
 	resp := h.Do(t, itest.Request{Method: http.MethodGet, Path: base + "/" + notificationKind + "/attributes"})
 	itest.AssertStatus(t, resp, http.StatusOK)
 	var attrs []any
 	resp.JSON(t, &attrs)
+	if attrs == nil {
+		t.Errorf("%s/attributes returned null, want a JSON array", notificationKind)
+	}
 
-	// Mapping attributes -> 200 (array).
+	// Mapping attributes -> 200, a JSON array (never null).
 	resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: base + "/" + notificationKind + "/attributes/mapping"})
 	itest.AssertStatus(t, resp, http.StatusOK)
 	var mapping []any
 	resp.JSON(t, &mapping)
+	if mapping == nil {
+		t.Errorf("%s/attributes/mapping returned null, want a JSON array", notificationKind)
+	}
 
 	// Validate attributes (no attribute provider wired -> 200).
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: base + "/" + notificationKind + "/attributes/validate", Body: []mdl.RequestAttribute{}})
@@ -182,7 +191,8 @@ func TestNotificationV1Attributes(t *testing.T) {
 func TestNotificationV1CreateInvalid(t *testing.T) {
 	h := startNotification(t)
 
-	// Missing kind -> 400 INVALID_REQUEST (v1 envelope).
-	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathInstances, Body: instanceReq("no-kind", "")})
+	// Explicit empty/blank kind -> 400 INVALID_REQUEST (v1 envelope). The
+	// kind field is sent as "", not omitted.
+	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathInstances, Body: instanceReq("blank-kind", "")})
 	itest.AssertV1Error(t, resp, http.StatusBadRequest)
 }
