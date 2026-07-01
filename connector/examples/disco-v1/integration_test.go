@@ -51,19 +51,9 @@ func startDisco(t *testing.T) *itest.Harness {
 	})
 }
 
-// v1FunctionGroup is the subset of a listSupportedFunctions entry this suite
-// asserts on.
-type v1FunctionGroup struct {
-	FunctionGroupCode string   `json:"functionGroupCode"`
-	Kinds             []string `json:"kinds"`
-	EndPoints         []struct {
-		Name    string `json:"name"`
-		Context string `json:"context"`
-		Method  string `json:"method"`
-	} `json:"endPoints"`
-}
-
-func (g v1FunctionGroup) hasEndpoint(method, context string) bool {
+// hasEndpoint reports whether the function group advertises an endpoint with
+// the given method and context.
+func hasEndpoint(g mdl.InfoResponse, method, context string) bool {
 	for _, e := range g.EndPoints {
 		if e.Method == method && e.Context == context {
 			return true
@@ -79,12 +69,15 @@ func TestDiscoV1InfoAndHealth(t *testing.T) {
 
 	h.AssertHealthy(t, "/v1/health")
 
-	var groups []v1FunctionGroup
+	// Decode into the generated InfoResponse model (the exact /v1
+	// listSupportedFunctions element shape) for free schema enforcement +
+	// a typed functionGroupCode.
+	var groups []mdl.InfoResponse
 	if status := h.GetJSON(t, http.MethodGet, "/v1", nil, &groups); status != http.StatusOK {
 		t.Fatalf("GET /v1 = %d, want 200", status)
 	}
 
-	idx := slices.IndexFunc(groups, func(g v1FunctionGroup) bool { return g.FunctionGroupCode == fgDiscovery })
+	idx := slices.IndexFunc(groups, func(g mdl.InfoResponse) bool { return string(g.FunctionGroupCode) == fgDiscovery })
 	if idx < 0 {
 		t.Fatalf("/v1 missing %q function group: %+v", fgDiscovery, groups)
 	}
@@ -93,15 +86,20 @@ func TestDiscoV1InfoAndHealth(t *testing.T) {
 		t.Errorf("%s kinds = %v, want to contain %q", fgDiscovery, disco.Kinds, discoveryKind)
 	}
 
-	// The example wires the shared checkHealth + listSupportedFunctions
-	// endpoints into the discovery group via WithExtraEndpoints; assert they
-	// surface, plus the provider's own discover endpoint.
+	// Assert the full advertised endpoint set: the provider's own routes
+	// (FunctionGroup()) plus the shared checkHealth + listSupportedFunctions
+	// wired in via WithExtraEndpoints. A handler that stopped advertising one
+	// (while its route still worked) would be caught here.
 	for _, want := range []struct{ method, context string }{
-		{http.MethodGet, "/v1"},
-		{http.MethodGet, "/v1/health"},
-		{http.MethodPost, pathDiscover},
+		{http.MethodGet, "/v1"},                                 // listSupportedFunctions (extra)
+		{http.MethodGet, "/v1/health"},                          // checkHealth (extra)
+		{http.MethodPost, pathDiscover},                         // discoverCertificate
+		{http.MethodPost, pathDiscover + "/{uuid}"},             // getDiscovery
+		{http.MethodDelete, pathDiscover + "/{uuid}"},           // deleteDiscovery
+		{http.MethodGet, base + "/{kind}/attributes"},           // listAttributeDefinitions
+		{http.MethodPost, base + "/{kind}/attributes/validate"}, // validateAttributes
 	} {
-		if !disco.hasEndpoint(want.method, want.context) {
+		if !hasEndpoint(disco, want.method, want.context) {
 			t.Errorf("%s endPoints missing %s %s: %+v", fgDiscovery, want.method, want.context, disco.EndPoints)
 		}
 	}
@@ -120,13 +118,15 @@ func TestDiscoV1DiscoveryLifecycle(t *testing.T) {
 	start := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDiscover, Body: mdl.DiscoveryRequestDto{
 		Name: "scan-1", Kind: discoveryKind, Attributes: []mdl.RequestAttribute{},
 	}})
-	itest.AssertStatus(t, start, http.StatusOK)
+	if !itest.AssertStatus(t, start, http.StatusOK) {
+		t.FailNow() // avoid decoding an error envelope into the success DTO
+	}
 	var started mdl.DiscoveryProviderDto
 	start.JSON(t, &started)
 	if started.Uuid == "" {
 		t.Fatalf("discover returned no uuid: %s", start.Body)
 	}
-	if !validStatus(started.Status) {
+	if !started.Status.IsValid() {
 		t.Errorf("discover status = %q, not a known DiscoveryStatus", started.Status)
 	}
 
@@ -138,7 +138,9 @@ func TestDiscoV1DiscoveryLifecycle(t *testing.T) {
 	deadline := time.Now().Add(20 * time.Second)
 	for {
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDiscover + "/" + started.Uuid, Body: dataReq})
-		itest.AssertStatus(t, resp, http.StatusOK)
+		if !itest.AssertStatus(t, resp, http.StatusOK) {
+			t.FailNow() // a non-200 poll would otherwise fatal decoding the error envelope
+		}
 		resp.JSON(t, &final)
 		if slices.Contains(terminalStatuses, final.Status) {
 			break
@@ -177,11 +179,23 @@ func TestDiscoV1DiscoveryLifecycle(t *testing.T) {
 func TestDiscoV1Errors(t *testing.T) {
 	h := startDisco(t)
 
-	// Missing name -> 400 (v1 envelope).
+	// Empty name ("name":"", not omitted) hits the store's name guard ->
+	// 400 with the v1 {message} envelope.
 	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDiscover, Body: mdl.DiscoveryRequestDto{
-		Kind: discoveryKind,
+		Name: "", Kind: discoveryKind,
 	}})
 	itest.AssertV1Error(t, resp, http.StatusBadRequest)
+
+	// Absent name key takes the other path: the generated DiscoveryRequestDto
+	// decoder rejects the missing required field -> 422 with the v1 []string
+	// validation-error body (not the {message} envelope).
+	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDiscover, Body: map[string]any{"kind": discoveryKind}})
+	itest.AssertStatus(t, resp, http.StatusUnprocessableEntity)
+	var vErrs []string
+	resp.JSON(t, &vErrs)
+	if len(vErrs) == 0 {
+		t.Errorf("absent-name 422 body = %s, want a non-empty []string", resp.Body)
+	}
 
 	// Fetch unknown discovery -> 404.
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDiscover + "/00000000-0000-0000-0000-000000000000", Body: mdl.DiscoveryDataRequestDto{
@@ -207,11 +221,4 @@ func TestDiscoV1Attributes(t *testing.T) {
 	// Validate attributes (no provider wired -> 200).
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: base + "/" + discoveryKind + "/attributes/validate", Body: []mdl.RequestAttribute{}})
 	itest.AssertStatus(t, resp, http.StatusOK)
-}
-
-func validStatus(s mdl.DiscoveryStatus) bool {
-	return slices.Contains([]mdl.DiscoveryStatus{
-		mdl.DISCOVERYSTATUS_IN_PROGRESS, mdl.DISCOVERYSTATUS_PROCESSING,
-		mdl.DISCOVERYSTATUS_FAILED, mdl.DISCOVERYSTATUS_COMPLETED, mdl.DISCOVERYSTATUS_WARNING,
-	}, s)
 }
