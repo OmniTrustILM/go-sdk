@@ -155,6 +155,11 @@ func TestEntityV1LocationOperations(t *testing.T) {
 		PushAttributes:     []mdl.RequestAttribute{},
 	}})
 	itest.AssertStatus(t, resp, http.StatusOK)
+	var push mdl.PushCertificateResponseDto
+	resp.JSON(t, &push)
+	if push.CertificateMetadata == nil {
+		t.Errorf("push certificateMetadata is null, want an array: %s", resp.Body)
+	}
 
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: loc + "/push", Body: mdl.PushCertificateRequestDto{
 		LocationAttributes: []mdl.RequestAttribute{}, PushAttributes: []mdl.RequestAttribute{},
@@ -166,6 +171,11 @@ func TestEntityV1LocationOperations(t *testing.T) {
 		CertificateMetadata: []mdl.MetadataAttribute{}, LocationAttributes: []mdl.RequestAttribute{},
 	}})
 	itest.AssertStatus(t, resp, http.StatusOK)
+	var remove mdl.RemoveCertificateResponseDto
+	resp.JSON(t, &remove)
+	if remove.CertificateMetadata == nil {
+		t.Errorf("remove certificateMetadata is null, want an array: %s", resp.Body)
+	}
 
 	// Generate CSR -> 200, returns a non-empty CSR placeholder.
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: loc + "/csr", Body: mdl.GenerateCsrRequestDto{
@@ -203,16 +213,27 @@ func TestEntityV1Attributes(t *testing.T) {
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: base + "/" + entityKind + "/attributes/validate", Body: []mdl.RequestAttribute{}})
 	itest.AssertStatus(t, resp, http.StatusOK)
 
-	// Per-entity location attribute schemas -> 200.
-	uuid := createEntity(t, h, "attr-host")
-	loc := pathEntities + "/" + uuid
+	// Per-entity location/push/csr attribute schemas -> 200. These route
+	// through handlerbase.ListInstanceAttributes and, with no sub-provider
+	// wired (as in this example), return 200 [] for any UUID without
+	// consulting the store — so an unknown UUID is used deliberately to
+	// document that these schema endpoints are not store-backed. Note the
+	// singular /location/attributes vs plural /locations/{push,csr}/attributes
+	// naming. Each path is a subtest so a failure names the offending path.
 	for _, p := range []string{
-		loc + "/location/attributes",
-		loc + "/locations/push/attributes",
-		loc + "/locations/csr/attributes",
+		pathEntities + "/" + unknownEntity + "/location/attributes",
+		pathEntities + "/" + unknownEntity + "/locations/push/attributes",
+		pathEntities + "/" + unknownEntity + "/locations/csr/attributes",
 	} {
-		resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: p})
-		itest.AssertStatus(t, resp, http.StatusOK)
+		t.Run(p, func(t *testing.T) {
+			r := h.Do(t, itest.Request{Method: http.MethodGet, Path: p})
+			itest.AssertStatus(t, r, http.StatusOK)
+			var attrs []any
+			r.JSON(t, &attrs)
+			if attrs == nil {
+				t.Errorf("%s returned null, want a JSON array", p)
+			}
+		})
 	}
 }
 
