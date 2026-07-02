@@ -2,8 +2,11 @@ package authority_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	mdlv2 "github.com/OmniTrustILM/go-sdk/connector/model/authority/v2"
@@ -176,5 +179,105 @@ func TestCombinableWithOtherProviders(t *testing.T) {
 		if r.StatusCode == probe.wantNot {
 			t.Errorf("%s %s = %d; route not mounted", probe.method, probe.path, r.StatusCode)
 		}
+	}
+}
+
+// defsProvider is an AttributeDefinitionsProvider that returns whatever DTO it
+// was given on every ListDefinitions call — modelling a provider that caches a
+// single shared instance. A nil dto exercises the (nil, nil) contract-violation
+// path.
+type defsProvider struct{ dto *mdl.AttributeDefinitionsDto }
+
+func (d defsProvider) ListDefinitions(context.Context) (*mdl.AttributeDefinitionsDto, error) {
+	return d.dto, nil
+}
+func (defsProvider) GetDefinition(context.Context, string) (*mdl.BaseAttributeDto, error) {
+	return nil, nil
+}
+func (defsProvider) Callback(context.Context, *mdl.AttributeCallbackRequestDto) (*mdl.AttributeCallbackResponseDto, error) {
+	return nil, nil
+}
+
+// dataDef builds a minimal DATA BaseAttributeDto carrying the given UUID.
+func dataDef(uuid string) mdl.BaseAttributeDto {
+	d := mdl.NewDataAttributeV3(uuid, "n-"+uuid, 1, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
+		*mdl.NewDataAttributeProperties("L", true, true, false, false, false, false), mdl.ATTRIBUTEVERSION_V3)
+	w := mdl.DataAttributeV3AsBaseAttributeDtoV3(d)
+	return mdl.BaseAttributeDtoV3AsBaseAttributeDto(&w)
+}
+
+func attributesServer(t *testing.T, defs authority.AttributeDefinitionsProvider) *httptest.Server {
+	t.Helper()
+	h, err := authority.NewHandler(stubProvider{}, authority.WithAttributeDefinitions(defs))
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	c, err := shared.New(
+		shared.WithInfo(shared.Info{ID: "a", Name: "a", Version: "0.0.1"}),
+		shared.Register(h),
+	)
+	if err != nil {
+		t.Fatalf("shared.New: %v", err)
+	}
+	srv := httptest.NewServer(c.Handler())
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func getDefs(t *testing.T, srv *httptest.Server, query string) (mdl.AttributeDefinitionsDto, string) {
+	t.Helper()
+	resp, err := http.Get(srv.URL + "/v2/attributes" + query)
+	if err != nil {
+		t.Fatalf("GET /v2/attributes%s: %v", query, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /v2/attributes%s = %d, want 200", query, resp.StatusCode)
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	var out mdl.AttributeDefinitionsDto
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, raw)
+	}
+	return out, string(raw)
+}
+
+// TestListDefinitionsDoesNotMutateProviderResult proves the ?uuids= filter
+// builds a fresh response and never narrows or races on the DTO/slice the
+// provider returned (a provider may cache and share one instance).
+func TestListDefinitionsDoesNotMutateProviderResult(t *testing.T) {
+	cached := &mdl.AttributeDefinitionsDto{
+		ConnectorVersion: "1.0.0",
+		Definitions:      []mdl.BaseAttributeDto{dataDef("uuid-a"), dataDef("uuid-b")},
+	}
+	srv := attributesServer(t, defsProvider{dto: cached})
+
+	// A filtered request must not shrink the provider's shared slice.
+	filtered, _ := getDefs(t, srv, "?uuids=uuid-a")
+	if len(filtered.Definitions) != 1 {
+		t.Fatalf("filtered response has %d definitions, want 1", len(filtered.Definitions))
+	}
+	if len(cached.Definitions) != 2 {
+		t.Fatalf("provider's cached slice was mutated to %d definitions, want 2", len(cached.Definitions))
+	}
+
+	// A subsequent unfiltered request still sees the full set.
+	all, _ := getDefs(t, srv, "")
+	if len(all.Definitions) != 2 {
+		t.Fatalf("unfiltered response has %d definitions after a filtered call, want 2", len(all.Definitions))
+	}
+}
+
+// TestListDefinitionsNilResultDegradesToEmpty proves a wired provider that
+// returns (nil, nil) yields 200 with an empty (not null) definition set,
+// honoring the DTO's required connectorVersion/definitions.
+func TestListDefinitionsNilResultDegradesToEmpty(t *testing.T) {
+	srv := attributesServer(t, defsProvider{dto: nil})
+	out, raw := getDefs(t, srv, "")
+	if out.Definitions == nil {
+		t.Errorf("definitions is null, want []: %s", raw)
+	}
+	if strings.Contains(raw, ":null") || strings.TrimSpace(raw) == "null" {
+		t.Errorf("response body contains null: %s", raw)
 	}
 }

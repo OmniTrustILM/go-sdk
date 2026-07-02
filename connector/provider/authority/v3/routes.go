@@ -452,75 +452,45 @@ func (h *Handler) listRegisterAttributes(w http.ResponseWriter, r *http.Request)
 // 200 with the connector's attribute-definition set. With no provider wired,
 // returns an empty definition set (connectorVersion "", definitions []).
 func (h *Handler) listDefinitions(w http.ResponseWriter, r *http.Request) {
-	out := &mdl.AttributeDefinitionsDto{Definitions: []mdl.BaseAttributeDto{}}
+	var src *mdl.AttributeDefinitionsDto
 	var err error
 	if h.attributeDefs != nil {
-		out, err = h.attributeDefs.ListDefinitions(r.Context())
+		src, err = h.attributeDefs.ListDefinitions(r.Context())
 	}
 	shared.EmitEvent(r.Context(), eventListDefinitions, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	// Optional repeated ?uuids= filter (spec GET /v2/attributes): when present,
-	// return only the definitions whose connector-global UUID was requested.
-	if want := r.URL.Query()["uuids"]; len(want) > 0 && out != nil {
-		set := make(map[string]struct{}, len(want))
-		for _, u := range want {
-			if u != "" {
-				set[u] = struct{}{}
+	// Build a fresh response rather than mutating the value the provider
+	// returned: a provider may cache and share a single DTO/slice across
+	// requests, so filtering in place would narrow its set permanently and
+	// race under concurrency. A nil result (unwired, or a provider that
+	// returned (nil, nil)) degrades to an empty definition set.
+	out := &mdl.AttributeDefinitionsDto{Definitions: []mdl.BaseAttributeDto{}}
+	if src != nil {
+		out.ConnectorVersion = src.ConnectorVersion
+		// Optional repeated ?uuids= filter (spec GET /v2/attributes): when
+		// present, return only the definitions whose connector-global UUID
+		// was requested.
+		if want := r.URL.Query()["uuids"]; len(want) > 0 {
+			set := make(map[string]struct{}, len(want))
+			for _, u := range want {
+				if u != "" {
+					set[u] = struct{}{}
+				}
 			}
-		}
-		filtered := make([]mdl.BaseAttributeDto, 0, len(out.Definitions))
-		for _, def := range out.Definitions {
-			if _, ok := set[definitionUUID(def)]; ok {
-				filtered = append(filtered, def)
+			for _, def := range src.Definitions {
+				if _, ok := set[DefinitionUUID(def)]; ok {
+					out.Definitions = append(out.Definitions, def)
+				}
 			}
+		} else {
+			out.Definitions = append(out.Definitions, src.Definitions...)
 		}
-		out.Definitions = filtered
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write listDefinitions response", "err", writeErr)
-	}
-}
-
-// definitionUUID extracts the connector-global UUID from a polymorphic
-// BaseAttributeDto (a doubly-nested oneOf: schema v2/v3, then one of the five
-// attribute kinds). The UUID lives on the leaf variant, reached via
-// GetActualInstance. Returns "" when no concrete variant is set.
-func definitionUUID(def mdl.BaseAttributeDto) string {
-	var inst any
-	switch {
-	case def.BaseAttributeDtoV3 != nil:
-		inst = def.BaseAttributeDtoV3.GetActualInstance()
-	case def.BaseAttributeDtoV2 != nil:
-		inst = def.BaseAttributeDtoV2.GetActualInstance()
-	default:
-		return ""
-	}
-	switch v := inst.(type) {
-	case *mdl.DataAttributeV3:
-		return v.Uuid
-	case *mdl.InfoAttributeV3:
-		return v.Uuid
-	case *mdl.GroupAttributeV3:
-		return v.Uuid
-	case *mdl.MetadataAttributeV3:
-		return v.Uuid
-	case *mdl.CustomAttributeV3:
-		return v.Uuid
-	case *mdl.DataAttributeV2:
-		return v.Uuid
-	case *mdl.InfoAttributeV2:
-		return v.Uuid
-	case *mdl.GroupAttributeV2:
-		return v.Uuid
-	case *mdl.MetadataAttributeV2:
-		return v.Uuid
-	case *mdl.CustomAttributeV2:
-		return v.Uuid
-	default:
-		return ""
 	}
 }
 

@@ -136,11 +136,12 @@ func (a *Attrs) ListDefinitions(ctx context.Context) (*mdl.AttributeDefinitionsD
 }
 
 // GetDefinition serves GET /v2/attributes/{uuid}: one definition by UUID, or
-// ErrDefinitionNotFound when unknown. The definition's UUID is read back via
-// its concrete V3 wrapper.
+// ErrDefinitionNotFound when unknown. Uses authority.DefinitionUUID so the
+// lookup covers every attribute kind and stays consistent with ListDefinitions
+// even if this example later publishes non-data attributes.
 func (a *Attrs) GetDefinition(ctx context.Context, id string) (*mdl.BaseAttributeDto, error) {
 	for _, def := range a.definitions() {
-		if v3 := def.BaseAttributeDtoV3; v3 != nil && v3.DataAttributeV3 != nil && v3.DataAttributeV3.Uuid == id {
+		if authority.DefinitionUUID(def) == id {
 			d := def
 			return &d, nil
 		}
