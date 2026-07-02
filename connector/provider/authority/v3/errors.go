@@ -28,6 +28,8 @@ var (
 	// ErrConnectionFailed -> 503 (upstream CA unreachable)
 	ErrConnectionFailed = shared.Unavailable("CONNECTION_FAILED", "could not connect to authority backend")
 
-	// ErrDefinitionNotFound -> 404 (getDefinition with an unknown attribute UUID)
-	ErrDefinitionNotFound = shared.NotFound("DEFINITION_NOT_FOUND", "attribute definition not found")
+	// ErrDefinitionNotFound -> 404 (getDefinition with an unknown attribute UUID).
+	// Uses the spec ErrorCode enum value ATTRIBUTE_DEFINITION_NOT_FOUND
+	// (ProblemDetailExtended.errorCode is $ref ErrorCode).
+	ErrDefinitionNotFound = shared.NotFound("ATTRIBUTE_DEFINITION_NOT_FOUND", "attribute definition not found")
 )

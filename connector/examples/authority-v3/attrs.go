@@ -148,13 +148,17 @@ func (a *Attrs) GetDefinition(ctx context.Context, id string) (*mdl.BaseAttribut
 	return nil, authority.ErrDefinitionNotFound.WithProperty("uuid", id)
 }
 
-// Callback serves POST /v2/attributes/callback. This example publishes no
-// dynamic-attribute callbacks, so it returns a valid empty response
-// (no content, no attributes) — enough to demonstrate the wiring.
+// Callback serves POST /v2/attributes/callback. No example attribute defines a
+// dynamic-attribute callback, so Core never actually invokes this; it exists
+// only to demonstrate the wiring. The response DTO requires exactly one of
+// content or attributes to be set (the other left unset), so we set the content
+// arm to an empty slice and leave Attributes nil. Serialization subtlety: the
+// model's ToMap gates on IsNil, so a non-nil empty slice ([]T{}) is emitted as
+// "content":[] while a nil slice is omitted — setting both arms (even empty)
+// would emit both keys and violate the contract.
 func (a *Attrs) Callback(ctx context.Context, _ *mdl.AttributeCallbackRequestDto) (*mdl.AttributeCallbackResponseDto, error) {
 	resp := mdl.NewAttributeCallbackResponseDto()
-	resp.Content = []mdl.BaseAttributeContentDtoV3{}
-	resp.Attributes = []mdl.BaseAttributeDto{}
+	resp.Content = []mdl.BaseAttributeContentDtoV3{} // exactly-one arm; Attributes left unset (nil)
 	total := int64(0)
 	resp.TotalItems = &total
 	return resp, nil

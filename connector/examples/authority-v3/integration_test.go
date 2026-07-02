@@ -429,13 +429,22 @@ func TestAuthorityV3AttributeDefinitions(t *testing.T) {
 		t.Errorf("listDefinitions returned no definitions: %s", resp.Body)
 	}
 
+	// listDefinitions with the optional ?uuids= filter -> only the requested one.
+	resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v2/attributes?uuids=" + caNameAttrUUID})
+	itest.AssertStatus(t, resp, http.StatusOK)
+	var filtered mdl.AttributeDefinitionsDto
+	resp.JSON(t, &filtered)
+	if len(filtered.Definitions) != 1 {
+		t.Errorf("listDefinitions?uuids= returned %d definitions, want 1: %s", len(filtered.Definitions), resp.Body)
+	}
+
 	// getDefinition for a known attribute UUID -> 200.
 	resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v2/attributes/" + caNameAttrUUID})
 	itest.AssertStatus(t, resp, http.StatusOK)
 
-	// getDefinition for an unknown UUID -> 404 DEFINITION_NOT_FOUND.
+	// getDefinition for an unknown UUID -> 404 ATTRIBUTE_DEFINITION_NOT_FOUND.
 	resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v2/attributes/00000000-0000-0000-0000-000000000000"})
-	itest.AssertProblem(t, resp, http.StatusNotFound, "DEFINITION_NOT_FOUND")
+	itest.AssertProblem(t, resp, http.StatusNotFound, "ATTRIBUTE_DEFINITION_NOT_FOUND")
 
 	// callback -> 200 with a (possibly empty) resolved response.
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: "/v2/attributes/callback", Body: mdl.AttributeCallbackRequestDto{

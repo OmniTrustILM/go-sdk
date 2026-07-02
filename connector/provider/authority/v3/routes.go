@@ -462,8 +462,65 @@ func (h *Handler) listDefinitions(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
+	// Optional repeated ?uuids= filter (spec GET /v2/attributes): when present,
+	// return only the definitions whose connector-global UUID was requested.
+	if want := r.URL.Query()["uuids"]; len(want) > 0 && out != nil {
+		set := make(map[string]struct{}, len(want))
+		for _, u := range want {
+			if u != "" {
+				set[u] = struct{}{}
+			}
+		}
+		filtered := make([]mdl.BaseAttributeDto, 0, len(out.Definitions))
+		for _, def := range out.Definitions {
+			if _, ok := set[definitionUUID(def)]; ok {
+				filtered = append(filtered, def)
+			}
+		}
+		out.Definitions = filtered
+	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write listDefinitions response", "err", writeErr)
+	}
+}
+
+// definitionUUID extracts the connector-global UUID from a polymorphic
+// BaseAttributeDto (a doubly-nested oneOf: schema v2/v3, then one of the five
+// attribute kinds). The UUID lives on the leaf variant, reached via
+// GetActualInstance. Returns "" when no concrete variant is set.
+func definitionUUID(def mdl.BaseAttributeDto) string {
+	var inst any
+	switch {
+	case def.BaseAttributeDtoV3 != nil:
+		inst = def.BaseAttributeDtoV3.GetActualInstance()
+	case def.BaseAttributeDtoV2 != nil:
+		inst = def.BaseAttributeDtoV2.GetActualInstance()
+	default:
+		return ""
+	}
+	switch v := inst.(type) {
+	case *mdl.DataAttributeV3:
+		return v.Uuid
+	case *mdl.InfoAttributeV3:
+		return v.Uuid
+	case *mdl.GroupAttributeV3:
+		return v.Uuid
+	case *mdl.MetadataAttributeV3:
+		return v.Uuid
+	case *mdl.CustomAttributeV3:
+		return v.Uuid
+	case *mdl.DataAttributeV2:
+		return v.Uuid
+	case *mdl.InfoAttributeV2:
+		return v.Uuid
+	case *mdl.GroupAttributeV2:
+		return v.Uuid
+	case *mdl.MetadataAttributeV2:
+		return v.Uuid
+	case *mdl.CustomAttributeV2:
+		return v.Uuid
+	default:
+		return ""
 	}
 }
 
