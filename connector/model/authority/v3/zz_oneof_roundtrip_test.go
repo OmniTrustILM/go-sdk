@@ -354,11 +354,11 @@ func TestOneOfBaseAttributeDtoV2InfoBrokenByDesign(t *testing.T) {
 //
 // IMPORTANT — verified against the generated decoder and the spec:
 //
-//   - The spec (connector/spec/authority-v3.yaml, schema BaseAttributeDto at
-//     ~line 3023) defines a *bare* oneOf with NO `discriminator` stanza.
+//   - The spec (connector/spec/authority-v3.json, schema BaseAttributeDto)
+//     defines a *bare* oneOf with NO `discriminator` stanza.
 //     tools/fixoneof invented `schemaVersion` as the discriminator. That only
-//     works because BaseAttributeDtoV3 *requires* schemaVersion (spec line
-//     ~3084) while BaseAttributeDtoV2 has no such field at all.
+//     works because BaseAttributeDtoV3 *requires* schemaVersion while
+//     BaseAttributeDtoV2 has no such field at all.
 //
 //   - Consequence: the patched decoder probes `schemaVersion`. A realistic V3
 //     payload carries `"schemaVersion":"v3"` and decodes fine. A realistic V2
