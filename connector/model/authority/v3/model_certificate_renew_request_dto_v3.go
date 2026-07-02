@@ -3,7 +3,7 @@ Authority Provider v3 API
 
 REST API for implementations of custom v3 Authority Provider
 
-API version: 2.17.1-SNAPSHOT
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -37,6 +37,8 @@ type CertificateRenewRequestDtoV3 struct {
 	Attributes []RequestAttribute `json:"attributes,omitempty"`
 	// Optional connector-defined metadata returned by the original issue/renew/register response. Replayed here so a stateless connector can resolve the upstream end-entity without an extra lookup.
 	Meta []MetadataAttribute `json:"meta,omitempty"`
+	// Optional structured request content (typed RDNs, SANs, extensions). Present ONLY when the connector advertises the CERTIFICATE_REQUEST_STRUCTURED feature flag. When present it is the authoritative source of subject identity and extensions for this renewal; otherwise identity is derived from existingCertificate (serial + issuer DN) as documented above.
+	RequestContent *X509RequestContent `json:"requestContent,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -302,6 +304,38 @@ func (o *CertificateRenewRequestDtoV3) SetMeta(v []MetadataAttribute) {
 	o.Meta = v
 }
 
+// GetRequestContent returns the RequestContent field value if set, zero value otherwise.
+func (o *CertificateRenewRequestDtoV3) GetRequestContent() X509RequestContent {
+	if o == nil || IsNil(o.RequestContent) {
+		var ret X509RequestContent
+		return ret
+	}
+	return *o.RequestContent
+}
+
+// GetRequestContentOk returns a tuple with the RequestContent field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *CertificateRenewRequestDtoV3) GetRequestContentOk() (*X509RequestContent, bool) {
+	if o == nil || IsNil(o.RequestContent) {
+		return nil, false
+	}
+	return o.RequestContent, true
+}
+
+// HasRequestContent returns a boolean if a field has been set.
+func (o *CertificateRenewRequestDtoV3) HasRequestContent() bool {
+	if o != nil && !IsNil(o.RequestContent) {
+		return true
+	}
+
+	return false
+}
+
+// SetRequestContent gets a reference to the given X509RequestContent and assigns it to the RequestContent field.
+func (o *CertificateRenewRequestDtoV3) SetRequestContent(v X509RequestContent) {
+	o.RequestContent = &v
+}
+
 func (o CertificateRenewRequestDtoV3) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -329,6 +363,9 @@ func (o CertificateRenewRequestDtoV3) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Meta) {
 		toSerialize["meta"] = o.Meta
+	}
+	if !IsNil(o.RequestContent) {
+		toSerialize["requestContent"] = o.RequestContent
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -383,6 +420,7 @@ func (o *CertificateRenewRequestDtoV3) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "reuseKey")
 		delete(additionalProperties, "attributes")
 		delete(additionalProperties, "meta")
+		delete(additionalProperties, "requestContent")
 		o.AdditionalProperties = additionalProperties
 	}
 

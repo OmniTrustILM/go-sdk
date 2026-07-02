@@ -19,47 +19,47 @@ import (
 // to mount routes; route behavior is covered by the example's live tests.
 type stubProvider struct{}
 
-func (stubProvider) Issue(context.Context, *mdl.CertificateSignRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
-	return mdl.NewCertificateDataResponseDto(), false, nil
+func (stubProvider) Issue(context.Context, *mdl.CertificateSignRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
+	return mdl.NewCertificateDataResponseDtoV3(), false, nil
 }
-func (stubProvider) IssueStatus(context.Context, *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
-	return mdl.NewCertificateDataResponseDto(), false, nil
+func (stubProvider) IssueStatus(context.Context, *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error) {
+	return mdl.NewCertificateOperationStatusResponseDtoV3(mdl.CERTIFICATEOPERATIONSTATUSV3_COMPLETED), nil
 }
 func (stubProvider) CancelIssue(context.Context, *mdl.CertificateOperationCancelRequestDtoV3) error {
 	return nil
 }
-func (stubProvider) Renew(context.Context, *mdl.CertificateRenewRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
-	return mdl.NewCertificateDataResponseDto(), false, nil
+func (stubProvider) Renew(context.Context, *mdl.CertificateRenewRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
+	return mdl.NewCertificateDataResponseDtoV3(), false, nil
 }
-func (stubProvider) Register(context.Context, *mdl.CertificateRegistrationRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
-	return mdl.NewCertificateDataResponseDto(), false, nil
+func (stubProvider) Register(context.Context, *mdl.CertificateRegistrationRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
+	return mdl.NewCertificateDataResponseDtoV3(), false, nil
 }
-func (stubProvider) RegisterStatus(context.Context, *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
-	return mdl.NewCertificateDataResponseDto(), false, nil
+func (stubProvider) RegisterStatus(context.Context, *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error) {
+	return mdl.NewCertificateOperationStatusResponseDtoV3(mdl.CERTIFICATEOPERATIONSTATUSV3_COMPLETED), nil
 }
 func (stubProvider) CancelRegister(context.Context, *mdl.CertificateOperationCancelRequestDtoV3) error {
 	return nil
 }
-func (stubProvider) Revoke(context.Context, *mdl.CertificateRevocationRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+func (stubProvider) Revoke(context.Context, *mdl.CertificateRevocationRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
 	return nil, false, nil
 }
-func (stubProvider) RevokeStatus(context.Context, *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
-	return nil, false, nil
+func (stubProvider) RevokeStatus(context.Context, *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error) {
+	return mdl.NewCertificateOperationStatusResponseDtoV3(mdl.CERTIFICATEOPERATIONSTATUSV3_COMPLETED), nil
 }
 func (stubProvider) CancelRevoke(context.Context, *mdl.CertificateOperationCancelRequestDtoV3) error {
 	return nil
 }
-func (stubProvider) Identify(context.Context, *mdl.CertificateIdentificationRequestDtoV3) (*mdl.CertificateDataResponseDto, error) {
-	return mdl.NewCertificateDataResponseDto(), nil
+func (stubProvider) Identify(context.Context, *mdl.CertificateIdentificationRequestDtoV3) (*mdl.CertificateIdentificationResponseDtoV3, error) {
+	return mdl.NewCertificateIdentificationResponseDtoV3(nil), nil
 }
 func (stubProvider) CheckAuthorityConnection(context.Context, []mdl.RequestAttribute) error {
 	return nil
 }
-func (stubProvider) GetCrl(context.Context, *mdl.CrlRequestDtoV3) (*mdl.CertificateRevocationListResponseDto, error) {
-	return mdl.NewCertificateRevocationListResponseDto(""), nil
+func (stubProvider) GetCrl(context.Context, *mdl.CrlRequestDtoV3) (*mdl.CrlResponseDtoV3, error) {
+	return mdl.NewCrlResponseDtoV3(""), nil
 }
-func (stubProvider) GetCaCertificates(context.Context, *mdl.CaCertificatesRequestDtoV3) (*mdl.CaCertificatesResponseDto, error) {
-	return mdl.NewCaCertificatesResponseDto(nil), nil
+func (stubProvider) GetCaCertificates(context.Context, *mdl.CaCertificatesRequestDtoV3) (*mdl.CaCertificatesResponseDtoV3, error) {
+	return mdl.NewCaCertificatesResponseDtoV3(nil), nil
 }
 
 // stubSecret implements secret.Provider with inert responses.

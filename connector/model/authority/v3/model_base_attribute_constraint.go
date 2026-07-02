@@ -3,7 +3,7 @@ Authority Provider v3 API
 
 REST API for implementations of custom v3 Authority Provider
 
-API version: 2.17.1-SNAPSHOT
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -85,6 +85,8 @@ func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("BaseAttributeConstraint: unknown type %q", probe.Disc)
 	}
 }
+
+
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

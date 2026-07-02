@@ -152,7 +152,7 @@ func caRoot(t *testing.T, h *itest.Harness) *x509.Certificate {
 		AuthorityAttributes: validAuth(), RaProfileAttributes: []mdl.RequestAttribute{},
 	}})
 	itest.AssertStatus(t, resp, http.StatusOK)
-	var out mdl.CaCertificatesResponseDto
+	var out mdl.CaCertificatesResponseDtoV3
 	resp.JSON(t, &out)
 	if len(out.Certificates) == 0 || out.Certificates[0].CertificateData == nil {
 		t.Fatalf("getCaCertificates returned no chain: %s", resp.Body)
@@ -161,7 +161,7 @@ func caRoot(t *testing.T, h *itest.Harness) *x509.Certificate {
 }
 
 // issueCert issues a certificate for cn and returns the response DTO.
-func issueCert(t *testing.T, h *itest.Harness, cn string) mdl.CertificateDataResponseDto {
+func issueCert(t *testing.T, h *itest.Harness, cn string) mdl.CertificateDataResponseDtoV3 {
 	t.Helper()
 	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathIssue, Body: mdl.CertificateSignRequestDtoV3{
 		AuthorityAttributes: validAuth(),
@@ -170,7 +170,7 @@ func issueCert(t *testing.T, h *itest.Harness, cn string) mdl.CertificateDataRes
 		Attributes:          validityAttrs(90),
 	}})
 	itest.AssertStatus(t, resp, http.StatusOK)
-	var out mdl.CertificateDataResponseDto
+	var out mdl.CertificateDataResponseDtoV3
 	resp.JSON(t, &out)
 	// Fatal guard here covers every caller: a non-200 leaves CertificateData
 	// nil, and the callers dereference it — a panic would abort the whole
@@ -277,7 +277,7 @@ func TestAuthorityV3Renew(t *testing.T) {
 		Attributes:          validityAttrs(60),
 	}})
 	itest.AssertStatus(t, resp, http.StatusOK)
-	var renewed mdl.CertificateDataResponseDto
+	var renewed mdl.CertificateDataResponseDtoV3
 	resp.JSON(t, &renewed)
 	if renewed.CertificateData == nil {
 		t.Fatal("renew returned no certificateData")
@@ -311,10 +311,10 @@ func TestAuthorityV3RevokeAndCRL(t *testing.T) {
 		AuthorityAttributes: validAuth(), RaProfileAttributes: []mdl.RequestAttribute{},
 	}})
 	itest.AssertStatus(t, resp, http.StatusOK)
-	var crlResp mdl.CertificateRevocationListResponseDto
+	var crlResp mdl.CrlResponseDtoV3
 	resp.JSON(t, &crlResp)
 
-	crlDER, err := base64.StdEncoding.DecodeString(crlResp.CrlData)
+	crlDER, err := base64.StdEncoding.DecodeString(crlResp.Crl)
 	if err != nil {
 		t.Fatalf("crl base64: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestAuthorityV3RegisterThenIssue(t *testing.T) {
 		SubjectDn:           ptr(registeredCN),
 	}})
 	itest.AssertStatus(t, resp, http.StatusOK)
-	var reg mdl.CertificateDataResponseDto
+	var reg mdl.CertificateDataResponseDtoV3
 	resp.JSON(t, &reg)
 	if metaValue(t, reg.Meta, "registration_id") == "" {
 		t.Fatalf("register response carries no registration_id meta: %s", resp.Body)
@@ -367,7 +367,7 @@ func TestAuthorityV3RegisterThenIssue(t *testing.T) {
 	}
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathIssue, Body: issueReq})
 	itest.AssertStatus(t, resp, http.StatusOK)
-	var issued mdl.CertificateDataResponseDto
+	var issued mdl.CertificateDataResponseDtoV3
 	resp.JSON(t, &issued)
 	leaf := parseCertB64(t, *issued.CertificateData)
 	if leaf.Subject.CommonName != registeredCN {
@@ -412,7 +412,44 @@ func TestAuthorityV3GetCaCertificates(t *testing.T) {
 	}
 }
 
-// --- async mode (202 -> poll -> 200; cancel; not-found) ---------------
+// --- connector Attributes API (/v2/attributes) ------------------------
+
+func TestAuthorityV3AttributeDefinitions(t *testing.T) {
+	h := startAuthority(t, nil)
+
+	// listDefinitions -> 200 with the connector's definition set.
+	resp := h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v2/attributes"})
+	itest.AssertStatus(t, resp, http.StatusOK)
+	var defs mdl.AttributeDefinitionsDto
+	resp.JSON(t, &defs)
+	if defs.ConnectorVersion == "" {
+		t.Errorf("listDefinitions connectorVersion is empty: %s", resp.Body)
+	}
+	if len(defs.Definitions) == 0 {
+		t.Errorf("listDefinitions returned no definitions: %s", resp.Body)
+	}
+
+	// getDefinition for a known attribute UUID -> 200.
+	resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v2/attributes/" + caNameAttrUUID})
+	itest.AssertStatus(t, resp, http.StatusOK)
+
+	// getDefinition for an unknown UUID -> 404 DEFINITION_NOT_FOUND.
+	resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v2/attributes/00000000-0000-0000-0000-000000000000"})
+	itest.AssertProblem(t, resp, http.StatusNotFound, "DEFINITION_NOT_FOUND")
+
+	// callback -> 200 with a (possibly empty) resolved response.
+	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: "/v2/attributes/callback", Body: mdl.AttributeCallbackRequestDto{
+		ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY,
+		InterfaceVersion:   "v3",
+		AttributeUuid:      caNameAttrUUID,
+		AttributeName:      "ca_name",
+		ContextAttributes:  []mdl.ScopedAttributes{},
+		CurrentAttributes:  []mdl.RequestAttribute{},
+	}})
+	itest.AssertStatus(t, resp, http.StatusOK)
+}
+
+// --- async mode (202 accept -> poll status -> completed; cancel; not-found) ---
 
 func TestAuthorityV3Async(t *testing.T) {
 	h := startAuthority(t, map[string]string{
@@ -423,13 +460,13 @@ func TestAuthorityV3Async(t *testing.T) {
 		"APP_ASYNC_DELAY": "5s",
 	})
 
-	accept := func() mdl.CertificateDataResponseDto {
+	accept := func() mdl.CertificateDataResponseDtoV3 {
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathIssue, Body: mdl.CertificateSignRequestDtoV3{
 			AuthorityAttributes: validAuth(), RaProfileAttributes: []mdl.RequestAttribute{},
 			Request: genCSR(t, "async.example.test"), Attributes: validityAttrs(90),
 		}})
 		itest.AssertStatus(t, resp, http.StatusAccepted)
-		var out mdl.CertificateDataResponseDto
+		var out mdl.CertificateDataResponseDtoV3
 		resp.JSON(t, &out)
 		if metaValue(t, out.Meta, "job_id") == "" {
 			t.Fatalf("async accept carries no job_id meta: %s", resp.Body)
@@ -448,39 +485,50 @@ func TestAuthorityV3Async(t *testing.T) {
 		}}
 	}
 
-	// 202 -> poll (pending 202) -> done (200). Rather than asserting an
-	// exact status on the first poll (timing-fragile), the loop records that
-	// it observed at least one pending response before completion — proving
-	// the 202->200 transition without depending on how fast the job lazily
-	// completes relative to the round-trips.
+	// Accept -> 202 with a job_id, then poll /status. In v3 the status
+	// endpoint always answers 200; the CertificateOperationStatusV3 field
+	// carries progress (inProgress -> completed). The loop records that it
+	// observed at least one inProgress response before completion, proving
+	// the transition without depending on how fast the job lazily completes
+	// relative to the round-trips.
 	job := accept()
 	var (
 		completed  bool
 		sawPending bool
 		doneCert   *string
 	)
-	deadline := time.Now().Add(15 * time.Second)
+	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		resp := h.Do(t, statusReq(job.Meta))
-		if resp.Status == http.StatusOK {
-			var out mdl.CertificateDataResponseDto
-			resp.JSON(t, &out)
+		if !itest.AssertStatus(t, resp, http.StatusOK) {
+			t.FailNow() // status is always 200 now; a non-200 is a real failure
+		}
+		var st mdl.CertificateOperationStatusResponseDtoV3
+		resp.JSON(t, &st)
+		switch st.Status {
+		case mdl.CERTIFICATEOPERATIONSTATUSV3_IN_PROGRESS:
+			sawPending = true
+		case mdl.CERTIFICATEOPERATIONSTATUSV3_COMPLETED:
 			completed = true
-			doneCert = out.CertificateData
+			doneCert = st.CertificateData
+		case mdl.CERTIFICATEOPERATIONSTATUSV3_FAILED:
+			t.Fatalf("async issue reported failed status; reason=%v", st.Reason)
+		default:
+			t.Fatalf("async status = %q, not a known CertificateOperationStatusV3", st.Status)
+		}
+		if completed {
 			break
 		}
-		itest.AssertStatus(t, resp, http.StatusAccepted)
-		sawPending = true
 		time.Sleep(300 * time.Millisecond)
 	}
 	if !sawPending {
-		t.Error("async job never reported pending (202) before completing")
+		t.Error("async job never reported inProgress before completing")
 	}
 	if !completed {
-		t.Fatal("async job never completed to 200 within the deadline")
+		t.Fatal("async job never reached completed status within the deadline")
 	}
 	if doneCert == nil {
-		t.Fatal("async job completed (200) but returned no certificateData")
+		t.Fatal("async job completed but returned no certificateData")
 	}
 	parseCertB64(t, *doneCert) // completed job yields a real certificate
 

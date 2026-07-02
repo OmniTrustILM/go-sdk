@@ -3,7 +3,7 @@ Authority Provider v3 API
 
 REST API for implementations of custom v3 Authority Provider
 
-API version: 2.17.1-SNAPSHOT
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -27,6 +27,8 @@ type AttributeCallback struct {
 	CallbackMethod *string `json:"callbackMethod,omitempty"`
 	// Mappings for the callback method
 	Mappings []AttributeCallbackMapping `json:"mappings"`
+	// Names of the attributes this Attributes v2 callback consumes and is triggered by. Marks an NG (Attributes v2) callback; at most one of dependsOn / callbackContext may be set (neither = no callback). Forbidden on RESOURCE attributes. Enforced by Core.
+	DependsOn []string `json:"dependsOn,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -138,6 +140,38 @@ func (o *AttributeCallback) SetMappings(v []AttributeCallbackMapping) {
 	o.Mappings = v
 }
 
+// GetDependsOn returns the DependsOn field value if set, zero value otherwise.
+func (o *AttributeCallback) GetDependsOn() []string {
+	if o == nil || IsNil(o.DependsOn) {
+		var ret []string
+		return ret
+	}
+	return o.DependsOn
+}
+
+// GetDependsOnOk returns a tuple with the DependsOn field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *AttributeCallback) GetDependsOnOk() ([]string, bool) {
+	if o == nil || IsNil(o.DependsOn) {
+		return nil, false
+	}
+	return o.DependsOn, true
+}
+
+// HasDependsOn returns a boolean if a field has been set.
+func (o *AttributeCallback) HasDependsOn() bool {
+	if o != nil && !IsNil(o.DependsOn) {
+		return true
+	}
+
+	return false
+}
+
+// SetDependsOn gets a reference to the given []string and assigns it to the DependsOn field.
+func (o *AttributeCallback) SetDependsOn(v []string) {
+	o.DependsOn = v
+}
+
 func (o AttributeCallback) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -155,6 +189,9 @@ func (o AttributeCallback) ToMap() (map[string]interface{}, error) {
 		toSerialize["callbackMethod"] = o.CallbackMethod
 	}
 	toSerialize["mappings"] = o.Mappings
+	if !IsNil(o.DependsOn) {
+		toSerialize["dependsOn"] = o.DependsOn
+	}
 
 	for key, value := range o.AdditionalProperties {
 		toSerialize[key] = value
@@ -201,6 +238,7 @@ func (o *AttributeCallback) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "callbackContext")
 		delete(additionalProperties, "callbackMethod")
 		delete(additionalProperties, "mappings")
+		delete(additionalProperties, "dependsOn")
 		o.AdditionalProperties = additionalProperties
 	}
 

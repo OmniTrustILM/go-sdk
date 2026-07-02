@@ -3,7 +3,7 @@ Authority Provider v3 API
 
 REST API for implementations of custom v3 Authority Provider
 
-API version: 2.17.1-SNAPSHOT
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -31,6 +31,8 @@ type CertificateRegistrationRequestDtoV3 struct {
 	SubjectAltName *string `json:"subjectAltName,omitempty"`
 	// Structured certificate extensions (OID + critical + base64 value). All extensions OTHER than SAN go here.
 	Extensions []CertificateExtension `json:"extensions,omitempty"`
+	// Optional structured request content (typed RDNs, SANs, extensions). Present ONLY when the connector advertises the CERTIFICATE_REQUEST_STRUCTURED feature flag; otherwise Core renders the flat subjectDn/subjectAltName/extensions fields from the same content. The structured form is authoritative when both are present.
+	RequestContent *X509RequestContent `json:"requestContent,omitempty"`
 	// Register-specific dynamic attributes
 	Attributes []RequestAttribute `json:"attributes,omitempty"`
 	AdditionalProperties map[string]interface{}
@@ -201,6 +203,38 @@ func (o *CertificateRegistrationRequestDtoV3) SetExtensions(v []CertificateExten
 	o.Extensions = v
 }
 
+// GetRequestContent returns the RequestContent field value if set, zero value otherwise.
+func (o *CertificateRegistrationRequestDtoV3) GetRequestContent() X509RequestContent {
+	if o == nil || IsNil(o.RequestContent) {
+		var ret X509RequestContent
+		return ret
+	}
+	return *o.RequestContent
+}
+
+// GetRequestContentOk returns a tuple with the RequestContent field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *CertificateRegistrationRequestDtoV3) GetRequestContentOk() (*X509RequestContent, bool) {
+	if o == nil || IsNil(o.RequestContent) {
+		return nil, false
+	}
+	return o.RequestContent, true
+}
+
+// HasRequestContent returns a boolean if a field has been set.
+func (o *CertificateRegistrationRequestDtoV3) HasRequestContent() bool {
+	if o != nil && !IsNil(o.RequestContent) {
+		return true
+	}
+
+	return false
+}
+
+// SetRequestContent gets a reference to the given X509RequestContent and assigns it to the RequestContent field.
+func (o *CertificateRegistrationRequestDtoV3) SetRequestContent(v X509RequestContent) {
+	o.RequestContent = &v
+}
+
 // GetAttributes returns the Attributes field value if set, zero value otherwise.
 func (o *CertificateRegistrationRequestDtoV3) GetAttributes() []RequestAttribute {
 	if o == nil || IsNil(o.Attributes) {
@@ -254,6 +288,9 @@ func (o CertificateRegistrationRequestDtoV3) ToMap() (map[string]interface{}, er
 	if !IsNil(o.Extensions) {
 		toSerialize["extensions"] = o.Extensions
 	}
+	if !IsNil(o.RequestContent) {
+		toSerialize["requestContent"] = o.RequestContent
+	}
 	if !IsNil(o.Attributes) {
 		toSerialize["attributes"] = o.Attributes
 	}
@@ -306,6 +343,7 @@ func (o *CertificateRegistrationRequestDtoV3) UnmarshalJSON(data []byte) (err er
 		delete(additionalProperties, "subjectDn")
 		delete(additionalProperties, "subjectAltName")
 		delete(additionalProperties, "extensions")
+		delete(additionalProperties, "requestContent")
 		delete(additionalProperties, "attributes")
 		o.AdditionalProperties = additionalProperties
 	}

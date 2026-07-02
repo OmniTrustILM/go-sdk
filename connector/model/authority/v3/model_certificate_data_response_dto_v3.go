@@ -3,7 +3,7 @@ Authority Provider v3 API
 
 REST API for implementations of custom v3 Authority Provider
 
-API version: 2.17.1-SNAPSHOT
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -15,11 +15,11 @@ import (
 	"encoding/json"
 )
 
-// checks if the CertificateDataResponseDto type satisfies the MappedNullable interface at compile time
-var _ MappedNullable = &CertificateDataResponseDto{}
+// checks if the CertificateDataResponseDtoV3 type satisfies the MappedNullable interface at compile time
+var _ MappedNullable = &CertificateDataResponseDtoV3{}
 
-// CertificateDataResponseDto struct for CertificateDataResponseDto
-type CertificateDataResponseDto struct {
+// CertificateDataResponseDtoV3 struct for CertificateDataResponseDtoV3
+type CertificateDataResponseDtoV3 struct {
 	// Base64-encoded certificate content. Populated only for issue/renew sync 200. Null for any async 202 response; register sync 200 (registration produces no cert); revoke responses (revoke never carries a payload).
 	CertificateData *string `json:"certificateData,omitempty"`
 	// Connector-defined metadata. Present on async 202 as the tracking handle Core replays on subsequent /status and /cancel calls; optional on 200 responses.
@@ -29,31 +29,31 @@ type CertificateDataResponseDto struct {
 	AdditionalProperties map[string]interface{}
 }
 
-type _CertificateDataResponseDto CertificateDataResponseDto
+type _CertificateDataResponseDtoV3 CertificateDataResponseDtoV3
 
-// NewCertificateDataResponseDto instantiates a new CertificateDataResponseDto object
+// NewCertificateDataResponseDtoV3 instantiates a new CertificateDataResponseDtoV3 object
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewCertificateDataResponseDto() *CertificateDataResponseDto {
-	this := CertificateDataResponseDto{}
+func NewCertificateDataResponseDtoV3() *CertificateDataResponseDtoV3 {
+	this := CertificateDataResponseDtoV3{}
 	var certificateType CertificateType = CERTIFICATETYPE_X_509
 	this.CertificateType = &certificateType
 	return &this
 }
 
-// NewCertificateDataResponseDtoWithDefaults instantiates a new CertificateDataResponseDto object
+// NewCertificateDataResponseDtoV3WithDefaults instantiates a new CertificateDataResponseDtoV3 object
 // This constructor will only assign default values to properties that have it defined,
 // but it doesn't guarantee that properties required by API are set
-func NewCertificateDataResponseDtoWithDefaults() *CertificateDataResponseDto {
-	this := CertificateDataResponseDto{}
+func NewCertificateDataResponseDtoV3WithDefaults() *CertificateDataResponseDtoV3 {
+	this := CertificateDataResponseDtoV3{}
 	var certificateType CertificateType = CERTIFICATETYPE_X_509
 	this.CertificateType = &certificateType
 	return &this
 }
 
 // GetCertificateData returns the CertificateData field value if set, zero value otherwise.
-func (o *CertificateDataResponseDto) GetCertificateData() string {
+func (o *CertificateDataResponseDtoV3) GetCertificateData() string {
 	if o == nil || IsNil(o.CertificateData) {
 		var ret string
 		return ret
@@ -63,7 +63,7 @@ func (o *CertificateDataResponseDto) GetCertificateData() string {
 
 // GetCertificateDataOk returns a tuple with the CertificateData field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *CertificateDataResponseDto) GetCertificateDataOk() (*string, bool) {
+func (o *CertificateDataResponseDtoV3) GetCertificateDataOk() (*string, bool) {
 	if o == nil || IsNil(o.CertificateData) {
 		return nil, false
 	}
@@ -71,7 +71,7 @@ func (o *CertificateDataResponseDto) GetCertificateDataOk() (*string, bool) {
 }
 
 // HasCertificateData returns a boolean if a field has been set.
-func (o *CertificateDataResponseDto) HasCertificateData() bool {
+func (o *CertificateDataResponseDtoV3) HasCertificateData() bool {
 	if o != nil && !IsNil(o.CertificateData) {
 		return true
 	}
@@ -80,12 +80,12 @@ func (o *CertificateDataResponseDto) HasCertificateData() bool {
 }
 
 // SetCertificateData gets a reference to the given string and assigns it to the CertificateData field.
-func (o *CertificateDataResponseDto) SetCertificateData(v string) {
+func (o *CertificateDataResponseDtoV3) SetCertificateData(v string) {
 	o.CertificateData = &v
 }
 
 // GetMeta returns the Meta field value if set, zero value otherwise.
-func (o *CertificateDataResponseDto) GetMeta() []MetadataAttribute {
+func (o *CertificateDataResponseDtoV3) GetMeta() []MetadataAttribute {
 	if o == nil || IsNil(o.Meta) {
 		var ret []MetadataAttribute
 		return ret
@@ -95,7 +95,7 @@ func (o *CertificateDataResponseDto) GetMeta() []MetadataAttribute {
 
 // GetMetaOk returns a tuple with the Meta field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *CertificateDataResponseDto) GetMetaOk() ([]MetadataAttribute, bool) {
+func (o *CertificateDataResponseDtoV3) GetMetaOk() ([]MetadataAttribute, bool) {
 	if o == nil || IsNil(o.Meta) {
 		return nil, false
 	}
@@ -103,7 +103,7 @@ func (o *CertificateDataResponseDto) GetMetaOk() ([]MetadataAttribute, bool) {
 }
 
 // HasMeta returns a boolean if a field has been set.
-func (o *CertificateDataResponseDto) HasMeta() bool {
+func (o *CertificateDataResponseDtoV3) HasMeta() bool {
 	if o != nil && !IsNil(o.Meta) {
 		return true
 	}
@@ -112,12 +112,12 @@ func (o *CertificateDataResponseDto) HasMeta() bool {
 }
 
 // SetMeta gets a reference to the given []MetadataAttribute and assigns it to the Meta field.
-func (o *CertificateDataResponseDto) SetMeta(v []MetadataAttribute) {
+func (o *CertificateDataResponseDtoV3) SetMeta(v []MetadataAttribute) {
 	o.Meta = v
 }
 
 // GetCertificateType returns the CertificateType field value if set, zero value otherwise.
-func (o *CertificateDataResponseDto) GetCertificateType() CertificateType {
+func (o *CertificateDataResponseDtoV3) GetCertificateType() CertificateType {
 	if o == nil || IsNil(o.CertificateType) {
 		var ret CertificateType
 		return ret
@@ -127,7 +127,7 @@ func (o *CertificateDataResponseDto) GetCertificateType() CertificateType {
 
 // GetCertificateTypeOk returns a tuple with the CertificateType field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *CertificateDataResponseDto) GetCertificateTypeOk() (*CertificateType, bool) {
+func (o *CertificateDataResponseDtoV3) GetCertificateTypeOk() (*CertificateType, bool) {
 	if o == nil || IsNil(o.CertificateType) {
 		return nil, false
 	}
@@ -135,7 +135,7 @@ func (o *CertificateDataResponseDto) GetCertificateTypeOk() (*CertificateType, b
 }
 
 // HasCertificateType returns a boolean if a field has been set.
-func (o *CertificateDataResponseDto) HasCertificateType() bool {
+func (o *CertificateDataResponseDtoV3) HasCertificateType() bool {
 	if o != nil && !IsNil(o.CertificateType) {
 		return true
 	}
@@ -144,11 +144,11 @@ func (o *CertificateDataResponseDto) HasCertificateType() bool {
 }
 
 // SetCertificateType gets a reference to the given CertificateType and assigns it to the CertificateType field.
-func (o *CertificateDataResponseDto) SetCertificateType(v CertificateType) {
+func (o *CertificateDataResponseDtoV3) SetCertificateType(v CertificateType) {
 	o.CertificateType = &v
 }
 
-func (o CertificateDataResponseDto) MarshalJSON() ([]byte, error) {
+func (o CertificateDataResponseDtoV3) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
 		return []byte{}, err
@@ -156,7 +156,7 @@ func (o CertificateDataResponseDto) MarshalJSON() ([]byte, error) {
 	return json.Marshal(toSerialize)
 }
 
-func (o CertificateDataResponseDto) ToMap() (map[string]interface{}, error) {
+func (o CertificateDataResponseDtoV3) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	if !IsNil(o.CertificateData) {
 		toSerialize["certificateData"] = o.CertificateData
@@ -175,16 +175,16 @@ func (o CertificateDataResponseDto) ToMap() (map[string]interface{}, error) {
 	return toSerialize, nil
 }
 
-func (o *CertificateDataResponseDto) UnmarshalJSON(data []byte) (err error) {
-	varCertificateDataResponseDto := _CertificateDataResponseDto{}
+func (o *CertificateDataResponseDtoV3) UnmarshalJSON(data []byte) (err error) {
+	varCertificateDataResponseDtoV3 := _CertificateDataResponseDtoV3{}
 
-	err = json.Unmarshal(data, &varCertificateDataResponseDto)
+	err = json.Unmarshal(data, &varCertificateDataResponseDtoV3)
 
 	if err != nil {
 		return err
 	}
 
-	*o = CertificateDataResponseDto(varCertificateDataResponseDto)
+	*o = CertificateDataResponseDtoV3(varCertificateDataResponseDtoV3)
 
 	additionalProperties := make(map[string]interface{})
 
@@ -198,38 +198,38 @@ func (o *CertificateDataResponseDto) UnmarshalJSON(data []byte) (err error) {
 	return err
 }
 
-type NullableCertificateDataResponseDto struct {
-	value *CertificateDataResponseDto
+type NullableCertificateDataResponseDtoV3 struct {
+	value *CertificateDataResponseDtoV3
 	isSet bool
 }
 
-func (v NullableCertificateDataResponseDto) Get() *CertificateDataResponseDto {
+func (v NullableCertificateDataResponseDtoV3) Get() *CertificateDataResponseDtoV3 {
 	return v.value
 }
 
-func (v *NullableCertificateDataResponseDto) Set(val *CertificateDataResponseDto) {
+func (v *NullableCertificateDataResponseDtoV3) Set(val *CertificateDataResponseDtoV3) {
 	v.value = val
 	v.isSet = true
 }
 
-func (v NullableCertificateDataResponseDto) IsSet() bool {
+func (v NullableCertificateDataResponseDtoV3) IsSet() bool {
 	return v.isSet
 }
 
-func (v *NullableCertificateDataResponseDto) Unset() {
+func (v *NullableCertificateDataResponseDtoV3) Unset() {
 	v.value = nil
 	v.isSet = false
 }
 
-func NewNullableCertificateDataResponseDto(val *CertificateDataResponseDto) *NullableCertificateDataResponseDto {
-	return &NullableCertificateDataResponseDto{value: val, isSet: true}
+func NewNullableCertificateDataResponseDtoV3(val *CertificateDataResponseDtoV3) *NullableCertificateDataResponseDtoV3 {
+	return &NullableCertificateDataResponseDtoV3{value: val, isSet: true}
 }
 
-func (v NullableCertificateDataResponseDto) MarshalJSON() ([]byte, error) {
+func (v NullableCertificateDataResponseDtoV3) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v.value)
 }
 
-func (v *NullableCertificateDataResponseDto) UnmarshalJSON(src []byte) error {
+func (v *NullableCertificateDataResponseDtoV3) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }
