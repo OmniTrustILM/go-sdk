@@ -74,6 +74,10 @@ func (h *Handler) issueStatus(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
+		return
+	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write issueStatus response", "err", writeErr)
 	}
@@ -162,6 +166,10 @@ func (h *Handler) registerStatus(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
+		return
+	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write registerStatus response", "err", writeErr)
 	}
@@ -224,6 +232,10 @@ func (h *Handler) revokeStatus(w http.ResponseWriter, r *http.Request) {
 	shared.EmitEvent(r.Context(), eventRevokeStatus, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
+		return
+	}
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
@@ -513,6 +525,10 @@ func (h *Handler) getDefinition(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
+		return
+	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write getDefinition response", "err", writeErr)
 	}
@@ -537,6 +553,10 @@ func (h *Handler) attributeCallback(w http.ResponseWriter, r *http.Request) {
 	shared.EmitEvent(r.Context(), eventAttributeCallback, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
+		return
+	}
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {

@@ -281,3 +281,18 @@ func TestListDefinitionsNilResultDegradesToEmpty(t *testing.T) {
 		t.Errorf("response body contains null: %s", raw)
 	}
 }
+
+// TestGetDefinitionNilResultIs500 proves the single-resource handlers guard
+// against a wired provider returning (nil, nil): rather than a 200 with a null
+// body, that contract violation surfaces as a 500.
+func TestGetDefinitionNilResultIs500(t *testing.T) {
+	srv := attributesServer(t, defsProvider{}) // GetDefinition returns (nil, nil)
+	resp, err := http.Get(srv.URL + "/v2/attributes/whatever")
+	if err != nil {
+		t.Fatalf("GET /v2/attributes/whatever: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("GetDefinition nil result = %d, want 500", resp.StatusCode)
+	}
+}
