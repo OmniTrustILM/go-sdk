@@ -52,3 +52,77 @@ type RevokeAttributeProvider interface {
 type RegisterAttributeProvider interface {
 	RegisterAttributes(ctx context.Context, req *mdl.CertificateAttributeListRequestDtoV3) ([]mdl.BaseAttributeDto, error)
 }
+
+// AttributeDefinitionsProvider serves the connector-level Attributes API
+// (spec tag "Connector Attributes v2") introduced in authority-v3:
+//
+//	GET  /v2/attributes            -> list every attribute definition
+//	GET  /v2/attributes/{uuid}     -> one definition by UUID
+//	POST /v2/attributes/callback   -> resolve a dynamic-attribute callback
+//
+// These endpoints are connector-global rather than authority-scoped; they
+// are exposed here because authority-v3 is currently their only implementor.
+// Wire one via WithAttributeDefinitions; when unwired, ListDefinitions
+// returns an empty definition set, GetDefinition responds 404, and Callback
+// responds 404.
+type AttributeDefinitionsProvider interface {
+	// ListDefinitions returns the connector version and every attribute
+	// definition the connector publishes. GET /v2/attributes -> 200. The
+	// handler treats the returned value as read-only (it copies into a fresh
+	// response before applying the optional ?uuids= filter), so an
+	// implementation may safely cache and return a shared instance.
+	ListDefinitions(ctx context.Context) (*mdl.AttributeDefinitionsDto, error)
+
+	// GetDefinition returns a single attribute definition by UUID, or
+	// ErrDefinitionNotFound (404) when unknown. GET /v2/attributes/{uuid}.
+	GetDefinition(ctx context.Context, uuid string) (*mdl.BaseAttributeDto, error)
+
+	// Callback resolves a dynamic-attribute callback. POST
+	// /v2/attributes/callback -> 200 with the resolved content/attributes.
+	Callback(ctx context.Context, req *mdl.AttributeCallbackRequestDto) (*mdl.AttributeCallbackResponseDto, error)
+}
+
+// DefinitionUUID extracts the connector-global UUID from a polymorphic
+// BaseAttributeDto (a doubly-nested oneOf: schema v2/v3, then one of the five
+// attribute kinds). The UUID lives on the leaf variant, reached via
+// GetActualInstance. Returns "" when no concrete variant is set.
+//
+// The handler uses it to serve the ?uuids= filter on GET /v2/attributes;
+// AttributeDefinitionsProvider implementations can reuse it in GetDefinition
+// so their by-UUID lookup stays consistent with the listing across every
+// attribute kind.
+func DefinitionUUID(def mdl.BaseAttributeDto) string {
+	var inst any
+	switch {
+	case def.BaseAttributeDtoV3 != nil:
+		inst = def.BaseAttributeDtoV3.GetActualInstance()
+	case def.BaseAttributeDtoV2 != nil:
+		inst = def.BaseAttributeDtoV2.GetActualInstance()
+	default:
+		return ""
+	}
+	switch v := inst.(type) {
+	case *mdl.DataAttributeV3:
+		return v.Uuid
+	case *mdl.InfoAttributeV3:
+		return v.Uuid
+	case *mdl.GroupAttributeV3:
+		return v.Uuid
+	case *mdl.MetadataAttributeV3:
+		return v.Uuid
+	case *mdl.CustomAttributeV3:
+		return v.Uuid
+	case *mdl.DataAttributeV2:
+		return v.Uuid
+	case *mdl.InfoAttributeV2:
+		return v.Uuid
+	case *mdl.GroupAttributeV2:
+		return v.Uuid
+	case *mdl.MetadataAttributeV2:
+		return v.Uuid
+	case *mdl.CustomAttributeV2:
+		return v.Uuid
+	default:
+		return ""
+	}
+}

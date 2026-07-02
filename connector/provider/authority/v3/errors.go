@@ -27,4 +27,14 @@ var (
 
 	// ErrConnectionFailed -> 503 (upstream CA unreachable)
 	ErrConnectionFailed = shared.Unavailable("CONNECTION_FAILED", "could not connect to authority backend")
+
+	// ErrDefinitionNotFound -> 404 (getDefinition with an unknown attribute UUID).
+	// Uses the spec ErrorCode enum value ATTRIBUTE_DEFINITION_NOT_FOUND
+	// (ProblemDetailExtended.errorCode is $ref ErrorCode).
+	ErrDefinitionNotFound = shared.NotFound("ATTRIBUTE_DEFINITION_NOT_FOUND", "attribute definition not found")
+
+	// ErrNilResponse -> 500. Guards handlers whose provider method must always
+	// return a value: a nil result with no error is a provider contract
+	// violation, and serializing it would emit a 200 with a null body.
+	ErrNilResponse = shared.Internal("INTERNAL_SERVER_ERROR", "provider returned no response")
 )

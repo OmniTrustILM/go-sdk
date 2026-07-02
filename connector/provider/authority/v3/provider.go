@@ -16,7 +16,10 @@
 // Sync vs async: issue, renew, register and revoke may complete synchronously
 // (200/204) or be accepted for asynchronous processing (202 with a meta
 // tracking handle that Core replays on /status and /cancel calls). The
-// Provider signals which happened through the `accepted` return value.
+// Provider signals which happened through the `accepted` return value. The
+// /status endpoints always answer 200 with a CertificateOperationStatus
+// response whose `status` field (inProgress / completed / failed) reports
+// where the async operation stands.
 package authority
 
 import (
@@ -27,7 +30,7 @@ import (
 
 // Provider is the core business contract every Authority Provider v3
 // connector must implement. Methods correspond 1:1 to the operations in
-// authority-v3.yaml.
+// authority-v3.json.
 //
 // Returned errors should be *shared.Error (use the sentinel values in
 // errors.go or build with shared.NotFound/Invalid/...). Plain errors are
@@ -40,14 +43,14 @@ type Provider interface {
 	// resp.CertificateData. Asynchronous acceptance returns (resp, true, nil)
 	// and renders 202; resp.Meta must carry the tracking handle Core replays
 	// on IssueStatus / CancelIssue.
-	Issue(ctx context.Context, req *mdl.CertificateSignRequestDtoV3) (resp *mdl.CertificateDataResponseDto, accepted bool, err error)
+	Issue(ctx context.Context, req *mdl.CertificateSignRequestDtoV3) (resp *mdl.CertificateDataResponseDtoV3, accepted bool, err error)
 
 	// IssueStatus reports the state of an async issue/renew operation
-	// identified by req.Meta. Completion returns (resp, false, nil) -> 200
-	// with the certificate; still-pending returns (resp, true, nil) -> 202
-	// echoing the tracking handle. Unknown handles should return
-	// ErrOperationNotFound.
-	IssueStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (resp *mdl.CertificateDataResponseDto, pending bool, err error)
+	// identified by req.Meta. It always renders 200; the returned
+	// CertificateOperationStatusResponseDtoV3.Status (inProgress / completed
+	// / failed) reports progress, with CertificateData populated once
+	// completed. Unknown handles should return ErrOperationNotFound.
+	IssueStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error)
 
 	// CancelIssue aborts an in-flight async issue/renew operation. Nil error
 	// renders 204. Operations past the point of no return should return
@@ -57,7 +60,7 @@ type Provider interface {
 	// Renew signs a renewal for an existing certificate. Same sync/async
 	// semantics as Issue. When req.ReuseKey is true the CSR may be absent
 	// and proof-of-possession is delegated to the upstream CA's policy.
-	Renew(ctx context.Context, req *mdl.CertificateRenewRequestDtoV3) (resp *mdl.CertificateDataResponseDto, accepted bool, err error)
+	Renew(ctx context.Context, req *mdl.CertificateRenewRequestDtoV3) (resp *mdl.CertificateDataResponseDtoV3, accepted bool, err error)
 
 	// --- Certificate Management: register family --------------------------
 
@@ -65,11 +68,11 @@ type Provider interface {
 	// (no CSR involved). Synchronous completion returns (resp, false, nil)
 	// -> 200 with resp.Meta identifying the registration (no
 	// CertificateData); async acceptance returns (resp, true, nil) -> 202.
-	Register(ctx context.Context, req *mdl.CertificateRegistrationRequestDtoV3) (resp *mdl.CertificateDataResponseDto, accepted bool, err error)
+	Register(ctx context.Context, req *mdl.CertificateRegistrationRequestDtoV3) (resp *mdl.CertificateDataResponseDtoV3, accepted bool, err error)
 
 	// RegisterStatus reports the state of an async register operation.
 	// Same semantics as IssueStatus.
-	RegisterStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (resp *mdl.CertificateDataResponseDto, pending bool, err error)
+	RegisterStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error)
 
 	// CancelRegister aborts an in-flight async register operation. Same
 	// semantics as CancelIssue.
@@ -81,12 +84,11 @@ type Provider interface {
 	// (nil, false, nil) -> bare 204 (revoke carries no response payload).
 	// Async acceptance returns (resp, true, nil) -> 202 with resp.Meta as
 	// the tracking handle.
-	Revoke(ctx context.Context, req *mdl.CertificateRevocationRequestDtoV3) (resp *mdl.CertificateDataResponseDto, accepted bool, err error)
+	Revoke(ctx context.Context, req *mdl.CertificateRevocationRequestDtoV3) (resp *mdl.CertificateDataResponseDtoV3, accepted bool, err error)
 
-	// RevokeStatus reports the state of an async revoke operation.
-	// Completion returns (nil, false, nil) -> bare 204; still-pending
-	// returns (resp, true, nil) -> 202 echoing the tracking handle.
-	RevokeStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (resp *mdl.CertificateDataResponseDto, pending bool, err error)
+	// RevokeStatus reports the state of an async revoke operation. Always
+	// renders 200 with the operation status (same shape as IssueStatus).
+	RevokeStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error)
 
 	// CancelRevoke aborts an in-flight async revoke operation. Same
 	// semantics as CancelIssue.
@@ -97,7 +99,7 @@ type Provider interface {
 	// Identify looks up the certificate in req at the upstream CA. Always
 	// synchronous; returns 200 with resp.Meta identifying the certificate.
 	// Unknown certificates should return ErrCertificateNotFound.
-	Identify(ctx context.Context, req *mdl.CertificateIdentificationRequestDtoV3) (*mdl.CertificateDataResponseDto, error)
+	Identify(ctx context.Context, req *mdl.CertificateIdentificationRequestDtoV3) (*mdl.CertificateIdentificationResponseDtoV3, error)
 
 	// --- Authority Management ---------------------------------------------
 
@@ -107,9 +109,9 @@ type Provider interface {
 	CheckAuthorityConnection(ctx context.Context, attrs []mdl.RequestAttribute) error
 
 	// GetCrl returns the latest CRL (delta when req.Delta and supported).
-	GetCrl(ctx context.Context, req *mdl.CrlRequestDtoV3) (*mdl.CertificateRevocationListResponseDto, error)
+	GetCrl(ctx context.Context, req *mdl.CrlRequestDtoV3) (*mdl.CrlResponseDtoV3, error)
 
 	// GetCaCertificates returns the CA certificate chain for the authority
 	// identified by the request attributes.
-	GetCaCertificates(ctx context.Context, req *mdl.CaCertificatesRequestDtoV3) (*mdl.CaCertificatesResponseDto, error)
+	GetCaCertificates(ctx context.Context, req *mdl.CaCertificatesRequestDtoV3) (*mdl.CaCertificatesResponseDtoV3, error)
 }

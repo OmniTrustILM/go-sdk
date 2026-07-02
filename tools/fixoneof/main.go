@@ -155,6 +155,24 @@ var wrappers = []wrapper{
 			"secretKey":  "SecretKeySecretContent",
 		},
 	},
+	{
+		// authority-v3: anonymous oneOf inside FieldMapping.fields[] items.
+		// The spec's discriminator sits on the MappedField allOf base
+		// (propertyName "fieldType", FieldType enum rdn/san/extension); each
+		// variant is allOf(MappedField + specifics), so fieldType selects the
+		// variant. Patching by discriminator is stricter than the generator's
+		// match-counting fallback (a contradictory payload like
+		// {fieldType:"rdn", extensionOid:...} is rejected rather than resolved
+		// by shape).
+		fileSuffix:    "model_field_mapping_fields_inner.go",
+		typeName:      "FieldMappingFieldsInner",
+		discriminator: "fieldType",
+		cases: map[string]string{
+			"extension": "ExtensionMappedField",
+			"rdn":       "RdnMappedField",
+			"san":       "SanMappedField",
+		},
+	},
 }
 
 // knownUnpatchable lists oneOf wrappers the generator emits but for which

@@ -487,6 +487,38 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 		&BaseAttributeConstraint{}, `{"type":"bogus"}`)
 }
 
+// 7b. FieldMappingFieldsInner — discriminator "fieldType" on the MappedField
+// allOf base (FieldType enum extension/rdn/san).
+func TestOneOfFieldMappingFieldsInner(t *testing.T) {
+	cases := []oneOfCase{
+		{
+			name:       "extension",
+			payload:    `{"fieldType":"extension","extensionOid":"2.5.29.17"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &ExtensionMappedField{},
+			discSubstr: []string{`"fieldType":"extension"`, `"extensionOid":"2.5.29.17"`},
+		},
+		{
+			name:       "rdn",
+			payload:    `{"fieldType":"rdn","rdn":"CN"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &RdnMappedField{},
+			discSubstr: []string{`"fieldType":"rdn"`, `"rdn":"CN"`},
+		},
+		{
+			name:       "san",
+			payload:    `{"fieldType":"san","generalNameType":"dns"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &SanMappedField{},
+			discSubstr: []string{`"fieldType":"san"`, `"generalNameType":"dns"`},
+		},
+	}
+	runDiscriminatorCases(t, "FieldMappingFieldsInner", cases)
+
+	assertUnknownDiscriminator(t, "FieldMappingFieldsInner",
+		&FieldMappingFieldsInner{}, `{"fieldType":"bogus"}`)
+}
+
 // 8. ResourceObjectContentData — discriminator "resource".
 // authorities/entities/locations/credentials -> ResourceSimpleContentData;
 // certificates -> ResourceCertificateContentData;

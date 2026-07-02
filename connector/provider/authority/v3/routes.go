@@ -28,6 +28,9 @@ const (
 	eventListIssueAttrs     = "list_issue_attributes"
 	eventListRevokeAttrs    = "list_revoke_attributes"
 	eventListRegisterAttrs  = "list_register_attributes"
+	eventListDefinitions    = "list_definitions"
+	eventGetDefinition      = "get_definition"
+	eventAttributeCallback  = "attribute_callback"
 )
 
 // --- Certificate Management: issue family ----------------------------------
@@ -57,7 +60,7 @@ func (h *Handler) issue(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /v3/authorityProvider/certificates/issue/status
-// 200 done (certificate in body) | 202 pending (meta echoed).
+// 200 with the operation status (inProgress / completed / failed).
 func (h *Handler) issueStatus(w http.ResponseWriter, r *http.Request) {
 	var in mdl.CertificateOperationStatusRequestDtoV3
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
@@ -65,17 +68,17 @@ func (h *Handler) issueStatus(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
-	out, pending, err := h.provider.IssueStatus(r.Context(), &in)
+	out, err := h.provider.IssueStatus(r.Context(), &in)
 	shared.EmitEvent(r.Context(), eventIssueStatus, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	status := http.StatusOK
-	if pending {
-		status = http.StatusAccepted
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
+		return
 	}
-	if writeErr := shared.WriteJSON(w, status, out); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write issueStatus response", "err", writeErr)
 	}
 }
@@ -149,7 +152,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /v3/authorityProvider/certificates/register/status
-// 200 done | 202 pending.
+// 200 with the operation status (inProgress / completed / failed).
 func (h *Handler) registerStatus(w http.ResponseWriter, r *http.Request) {
 	var in mdl.CertificateOperationStatusRequestDtoV3
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
@@ -157,17 +160,17 @@ func (h *Handler) registerStatus(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
-	out, pending, err := h.provider.RegisterStatus(r.Context(), &in)
+	out, err := h.provider.RegisterStatus(r.Context(), &in)
 	shared.EmitEvent(r.Context(), eventRegisterStatus, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	status := http.StatusOK
-	if pending {
-		status = http.StatusAccepted
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
+		return
 	}
-	if writeErr := shared.WriteJSON(w, status, out); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write registerStatus response", "err", writeErr)
 	}
 }
@@ -217,7 +220,7 @@ func (h *Handler) revoke(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /v3/authorityProvider/certificates/revoke/status
-// 204 done (no body) | 202 pending (meta echoed).
+// 200 with the operation status (inProgress / completed / failed).
 func (h *Handler) revokeStatus(w http.ResponseWriter, r *http.Request) {
 	var in mdl.CertificateOperationStatusRequestDtoV3
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
@@ -225,17 +228,17 @@ func (h *Handler) revokeStatus(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
-	out, pending, err := h.provider.RevokeStatus(r.Context(), &in)
+	out, err := h.provider.RevokeStatus(r.Context(), &in)
 	shared.EmitEvent(r.Context(), eventRevokeStatus, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if !pending {
-		w.WriteHeader(http.StatusNoContent)
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusAccepted, out); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write revokeStatus response", "err", writeErr)
 	}
 }
@@ -452,5 +455,111 @@ func (h *Handler) listRegisterAttributes(w http.ResponseWriter, r *http.Request)
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
 		h.LoggerFor(r).Error("write listRegisterAttributes response", "err", writeErr)
+	}
+}
+
+// --- Connector Attributes API (/v2/attributes) ------------------------------
+
+// GET /v2/attributes
+// 200 with the connector's attribute-definition set. With no provider wired,
+// returns an empty definition set (connectorVersion "", definitions []).
+func (h *Handler) listDefinitions(w http.ResponseWriter, r *http.Request) {
+	var src *mdl.AttributeDefinitionsDto
+	var err error
+	if h.attributeDefs != nil {
+		src, err = h.attributeDefs.ListDefinitions(r.Context())
+	}
+	shared.EmitEvent(r.Context(), eventListDefinitions, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	// Build a fresh response rather than mutating the value the provider
+	// returned: a provider may cache and share a single DTO/slice across
+	// requests, so filtering in place would narrow its set permanently and
+	// race under concurrency. A nil result (unwired, or a provider that
+	// returned (nil, nil)) degrades to an empty definition set.
+	out := &mdl.AttributeDefinitionsDto{Definitions: []mdl.BaseAttributeDto{}}
+	if src != nil {
+		out.ConnectorVersion = src.ConnectorVersion
+		// Optional repeated ?uuids= filter (spec GET /v2/attributes): when
+		// present, return only the definitions whose connector-global UUID
+		// was requested.
+		if want := r.URL.Query()["uuids"]; len(want) > 0 {
+			set := make(map[string]struct{}, len(want))
+			for _, u := range want {
+				if u != "" {
+					set[u] = struct{}{}
+				}
+			}
+			for _, def := range src.Definitions {
+				if _, ok := set[DefinitionUUID(def)]; ok {
+					out.Definitions = append(out.Definitions, def)
+				}
+			}
+		} else {
+			out.Definitions = append(out.Definitions, src.Definitions...)
+		}
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
+		h.LoggerFor(r).Error("write listDefinitions response", "err", writeErr)
+	}
+}
+
+// GET /v2/attributes/{uuid}
+// 200 with one definition | 404 when unknown or no provider is wired.
+func (h *Handler) getDefinition(w http.ResponseWriter, r *http.Request) {
+	uuid, ok := shared.RequirePathValue(w, r, "uuid")
+	if !ok {
+		return
+	}
+	if h.attributeDefs == nil {
+		err := ErrDefinitionNotFound.WithProperty("uuid", uuid)
+		shared.EmitEvent(r.Context(), eventGetDefinition, err)
+		shared.RenderError(w, r, err)
+		return
+	}
+	out, err := h.attributeDefs.GetDefinition(r.Context(), uuid)
+	shared.EmitEvent(r.Context(), eventGetDefinition, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
+		h.LoggerFor(r).Error("write getDefinition response", "err", writeErr)
+	}
+}
+
+// POST /v2/attributes/callback
+// 200 with the resolved callback content | 404 when no provider is wired.
+func (h *Handler) attributeCallback(w http.ResponseWriter, r *http.Request) {
+	var in mdl.AttributeCallbackRequestDto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		shared.EmitEvent(r.Context(), eventAttributeCallback, err)
+		shared.RenderError(w, r, err)
+		return
+	}
+	if h.attributeDefs == nil {
+		err := ErrDefinitionNotFound.WithProperty("attributeName", in.AttributeName)
+		shared.EmitEvent(r.Context(), eventAttributeCallback, err)
+		shared.RenderError(w, r, err)
+		return
+	}
+	out, err := h.attributeDefs.Callback(r.Context(), &in)
+	shared.EmitEvent(r.Context(), eventAttributeCallback, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if out == nil {
+		shared.RenderError(w, r, ErrNilResponse)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
+		h.LoggerFor(r).Error("write attributeCallback response", "err", writeErr)
 	}
 }

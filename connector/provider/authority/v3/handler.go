@@ -30,6 +30,7 @@ type Handler struct {
 	issueAttrs     IssueAttributeProvider
 	revokeAttrs    RevokeAttributeProvider
 	registerAttrs  RegisterAttributeProvider
+	attributeDefs  AttributeDefinitionsProvider
 }
 
 // NewHandler builds a Handler for the given Provider.
@@ -91,4 +92,11 @@ func (h *Handler) Mount(r shared.Router) {
 	r.Handle(http.MethodPost, base+"/authorities/crl", h.getCrl)
 	r.Handle(http.MethodPost, base+"/authorities/caCertificates", h.getCaCertificates)
 	r.Handle(http.MethodGet, base+"/authorities/attributes", h.listAuthorityAttributes)
+
+	// Connector-level Attributes API (spec tag "Connector Attributes v2").
+	// Mounted at the connector-global /v2/attributes prefix, not under the
+	// authority base path.
+	r.Handle(http.MethodGet, "/v2/attributes", h.listDefinitions)
+	r.Handle(http.MethodGet, "/v2/attributes/{uuid}", h.getDefinition)
+	r.Handle(http.MethodPost, "/v2/attributes/callback", h.attributeCallback)
 }

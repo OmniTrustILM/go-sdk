@@ -87,3 +87,17 @@ func WithRegisterAttributes(p RegisterAttributeProvider) Option {
 		return nil
 	}
 }
+
+// WithAttributeDefinitions registers the provider backing the connector-level
+// Attributes API: GET /v2/attributes, GET /v2/attributes/{uuid}, and
+// POST /v2/attributes/callback. When not supplied, list returns an empty
+// definition set and get/callback respond 404.
+func WithAttributeDefinitions(p AttributeDefinitionsProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("attribute definitions provider must not be nil")
+		}
+		h.attributeDefs = p
+		return nil
+	}
+}

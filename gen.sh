@@ -15,7 +15,7 @@ set -euo pipefail
 SPECS=(
     "authority-v1.json:connector/model/authority/v1:v1"
     "authority-v2.json:connector/model/authority/v2:v2"
-    "authority-v3.yaml:connector/model/authority/v3:v3"
+    "authority-v3.json:connector/model/authority/v3:v3"
     "compliance-v1.json:connector/model/compliance/v1:v1"
     "compliance-v2.json:connector/model/compliance/v2:v2"
     "credential.json:connector/model/credential/v1:v1"

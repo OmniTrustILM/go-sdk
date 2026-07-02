@@ -4,6 +4,7 @@ import (
 	"context"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/authority/v3"
+	authority "github.com/OmniTrustILM/go-sdk/connector/provider/authority/v3"
 )
 
 // Attribute UUIDs are the stable identifiers Core matches attributes by.
@@ -34,8 +35,9 @@ const (
 	metaJobUUID          = "0b1c2d3e-4f50-4617-8829-93a4b5c6d706"
 )
 
-// Attrs implements the five attribute provider interfaces of
-// provider/authority/v3. Authority attributes are mandatory (required:true)
+// Attrs implements the six attribute provider interfaces of
+// provider/authority/v3 (the five per-operation attribute providers plus
+// AttributeDefinitionsProvider). Authority attributes are mandatory (required:true)
 // and validated on every operation by Backend.checkAuth — this is the
 // stateless-v3 pattern: schema published here, enforcement per request.
 type Attrs struct {
@@ -109,6 +111,58 @@ func (a *Attrs) RevokeAttributes(ctx context.Context, _ *mdl.CertificateAttribut
 // RegisterAttributes — registration carries its identity in the request DTO.
 func (a *Attrs) RegisterAttributes(ctx context.Context, _ *mdl.CertificateAttributeListRequestDtoV3) ([]mdl.BaseAttributeDto, error) {
 	return []mdl.BaseAttributeDto{}, nil
+}
+
+// --- Connector Attributes API (/v2/attributes) ------------------------------
+
+// definitions is the connector's full attribute-definition set: the two
+// mandatory authority attributes plus the mandatory validity_days issue
+// attribute, keyed by their stable UUIDs.
+func (a *Attrs) definitions() []mdl.BaseAttributeDto {
+	return []mdl.BaseAttributeDto{
+		stringDataAttr(caNameAttrUUID, "ca_name", "CA Name",
+			"Name of the CA instance to operate against (this example provisions exactly one)."),
+		stringDataAttr(apiKeyAttrUUID, "api_key", "API Key",
+			"Credential for the upstream CA. Validated on every request."),
+		integerDataAttr(validityDaysAttrUUID, "validity_days", "Validity (days)",
+			"Requested certificate lifetime in days (1-825)."),
+	}
+}
+
+// ListDefinitions serves GET /v2/attributes: the connector version and every
+// attribute definition the connector publishes.
+func (a *Attrs) ListDefinitions(ctx context.Context) (*mdl.AttributeDefinitionsDto, error) {
+	return mdl.NewAttributeDefinitionsDto(connectorVersion, a.definitions()), nil
+}
+
+// GetDefinition serves GET /v2/attributes/{uuid}: one definition by UUID, or
+// ErrDefinitionNotFound when unknown. Uses authority.DefinitionUUID so the
+// lookup covers every attribute kind and stays consistent with ListDefinitions
+// even if this example later publishes non-data attributes.
+func (a *Attrs) GetDefinition(ctx context.Context, id string) (*mdl.BaseAttributeDto, error) {
+	for _, def := range a.definitions() {
+		if authority.DefinitionUUID(def) == id {
+			d := def
+			return &d, nil
+		}
+	}
+	return nil, authority.ErrDefinitionNotFound.WithProperty("uuid", id)
+}
+
+// Callback serves POST /v2/attributes/callback. No example attribute defines a
+// dynamic-attribute callback, so Core never actually invokes this; it exists
+// only to demonstrate the wiring. The response DTO requires exactly one of
+// content or attributes to be set (the other left unset), so we set the content
+// arm to an empty slice and leave Attributes nil. Serialization subtlety: the
+// model's ToMap gates on IsNil, so a non-nil empty slice ([]T{}) is emitted as
+// "content":[] while a nil slice is omitted — setting both arms (even empty)
+// would emit both keys and violate the contract.
+func (a *Attrs) Callback(ctx context.Context, _ *mdl.AttributeCallbackRequestDto) (*mdl.AttributeCallbackResponseDto, error) {
+	resp := mdl.NewAttributeCallbackResponseDto()
+	resp.Content = []mdl.BaseAttributeContentDtoV3{} // exactly-one arm; Attributes left unset (nil)
+	total := int64(0)
+	resp.TotalItems = &total
+	return resp, nil
 }
 
 // --- request-side extraction helpers ----------------------------------------

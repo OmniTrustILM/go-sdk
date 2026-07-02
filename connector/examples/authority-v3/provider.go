@@ -116,9 +116,9 @@ func parseCSR(b64 string) (*x509.CertificateRequest, error) {
 	return csr, nil
 }
 
-// certResponse assembles the CertificateDataResponseDto for an issued cert.
-func certResponse(der []byte, serial string) *mdl.CertificateDataResponseDto {
-	resp := mdl.NewCertificateDataResponseDto()
+// certResponse assembles the CertificateDataResponseDtoV3 for an issued cert.
+func certResponse(der []byte, serial string) *mdl.CertificateDataResponseDtoV3 {
+	resp := mdl.NewCertificateDataResponseDtoV3()
 	b64 := base64.StdEncoding.EncodeToString(der)
 	resp.CertificateData = &b64
 	ct := mdl.CERTIFICATETYPE_X_509
@@ -134,7 +134,7 @@ func certResponse(der []byte, serial string) *mdl.CertificateDataResponseDto {
 // Issue signs the CSR synchronously, or — when APP_ASYNC_ISSUE=true —
 // enqueues a simulated async job that completes APP_ASYNC_DELAY after
 // acceptance and returns 202 with a job tracking handle in meta.
-func (b *Backend) Issue(ctx context.Context, req *mdl.CertificateSignRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+func (b *Backend) Issue(ctx context.Context, req *mdl.CertificateSignRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
 		return nil, false, err
 	}
@@ -170,7 +170,7 @@ func (b *Backend) Issue(ctx context.Context, req *mdl.CertificateSignRequestDtoV
 		b.mu.Lock()
 		b.jobs[jobID] = &asyncJob{req: req, regID: regID, readyAt: time.Now().Add(b.cfg.AsyncDelay)}
 		b.mu.Unlock()
-		resp := mdl.NewCertificateDataResponseDto()
+		resp := mdl.NewCertificateDataResponseDtoV3()
 		resp.Meta = []mdl.MetadataAttribute{
 			newMetaString(metaJobUUID, "job_id", "Async Job", jobID),
 		}
@@ -205,32 +205,35 @@ func (b *Backend) consumeRegistration(regID string) (*pkix.Name, error) {
 	return &pkix.Name{CommonName: reg.subjectDn}, nil
 }
 
-// IssueStatus resolves an async job by the job_id meta handle. Pending until
-// readyAt passes; on first completed poll the CSR is actually signed.
-func (b *Backend) IssueStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+// IssueStatus resolves an async job by the job_id meta handle. It always
+// answers 200 with the operation status: inProgress until readyAt passes,
+// then completed (the CSR is lazily signed on the first ready poll, and the
+// certificate is returned in CertificateData). Unknown/cancelled jobs return
+// ErrOperationNotFound (404).
+func (b *Backend) IssueStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	jobID, ok := metaString(req.Meta, metaJobUUID)
 	if !ok {
-		return nil, false, shared.Invalid("VALIDATION_FAILED", "meta attribute %q (job_id) is required", metaJobUUID)
+		return nil, shared.Invalid("VALIDATION_FAILED", "meta attribute %q (job_id) is required", metaJobUUID)
 	}
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	job, exists := b.jobs[jobID]
 	if !exists || job.canceled {
-		return nil, false, authority.ErrOperationNotFound.WithProperty("job_id", jobID)
+		return nil, authority.ErrOperationNotFound.WithProperty("job_id", jobID)
 	}
 
 	if !job.done {
 		if time.Now().Before(job.readyAt) {
-			// Still pending: echo the tracking handle.
-			resp := mdl.NewCertificateDataResponseDto()
+			// Still pending: report inProgress, echoing the tracking handle.
+			resp := mdl.NewCertificateOperationStatusResponseDtoV3(mdl.CERTIFICATEOPERATIONSTATUSV3_IN_PROGRESS)
 			resp.Meta = []mdl.MetadataAttribute{
 				newMetaString(metaJobUUID, "job_id", "Async Job", jobID),
 			}
-			return resp, true, nil
+			return resp, nil
 		}
 		// Deadline passed: complete the job now (lazy completion).
 		var csr *x509.CertificateRequest
@@ -249,22 +252,30 @@ func (b *Backend) IssueStatus(ctx context.Context, req *mdl.CertificateOperation
 			err = fmt.Errorf("job carries no request")
 		}
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		// Consume the registration (if any) now — at actual signing time,
 		// not at acceptance — so the registered subject overrides the CSR
 		// subject and a canceled job never burns the registration.
 		subjectOverride, err := b.consumeRegistration(job.regID)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		der, serial, signErr := b.ca.Sign(csr, validity, subjectOverride)
 		if signErr != nil {
-			return nil, false, shared.Invalid("VALIDATION_FAILED", "%s", signErr.Error())
+			return nil, shared.Invalid("VALIDATION_FAILED", "%s", signErr.Error())
 		}
 		job.done, job.serial, job.certDER = true, serial, der
 	}
-	return certResponse(job.certDER, job.serial), false, nil
+
+	// Completed: report the issued certificate.
+	resp := mdl.NewCertificateOperationStatusResponseDtoV3(mdl.CERTIFICATEOPERATIONSTATUSV3_COMPLETED)
+	b64 := base64.StdEncoding.EncodeToString(job.certDER)
+	resp.CertificateData = &b64
+	resp.Meta = []mdl.MetadataAttribute{
+		newMetaString(metaSerialUUID, "serial", "Certificate Serial", job.serial),
+	}
+	return resp, nil
 }
 
 // CancelIssue aborts a pending async job. Completed jobs refuse with 422.
@@ -294,7 +305,7 @@ func (b *Backend) CancelIssue(ctx context.Context, req *mdl.CertificateOperation
 // Renew validates the existing certificate, then signs the renewal CSR with
 // the same sync/async behavior as Issue. With ReuseKey=true and no CSR the
 // example refuses — it cannot prove possession of the original key.
-func (b *Backend) Renew(ctx context.Context, req *mdl.CertificateRenewRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+func (b *Backend) Renew(ctx context.Context, req *mdl.CertificateRenewRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
 		return nil, false, err
 	}
@@ -333,7 +344,7 @@ func (b *Backend) Renew(ctx context.Context, req *mdl.CertificateRenewRequestDto
 		b.mu.Lock()
 		b.jobs[jobID] = &asyncJob{renewReq: req, readyAt: time.Now().Add(b.cfg.AsyncDelay)}
 		b.mu.Unlock()
-		resp := mdl.NewCertificateDataResponseDto()
+		resp := mdl.NewCertificateDataResponseDtoV3()
 		resp.Meta = []mdl.MetadataAttribute{
 			newMetaString(metaJobUUID, "job_id", "Async Job", jobID),
 		}
@@ -352,7 +363,7 @@ func (b *Backend) Renew(ctx context.Context, req *mdl.CertificateRenewRequestDto
 // Register stores a pre-registered identity. Always synchronous in this
 // example; the returned meta carries the registration id a later Issue
 // consumes (the registered subject then overrides the CSR subject).
-func (b *Backend) Register(ctx context.Context, req *mdl.CertificateRegistrationRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+func (b *Backend) Register(ctx context.Context, req *mdl.CertificateRegistrationRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
 		return nil, false, err
 	}
@@ -366,30 +377,31 @@ func (b *Backend) Register(ctx context.Context, req *mdl.CertificateRegistration
 	regID := uuid.NewString()
 	b.ca.AddRegistration(regID, subjectDn, subjectAlt)
 
-	resp := mdl.NewCertificateDataResponseDto()
+	resp := mdl.NewCertificateDataResponseDtoV3()
 	resp.Meta = []mdl.MetadataAttribute{
 		newMetaString(metaRegistrationUUID, "registration_id", "Registration", regID),
 	}
 	return resp, false, nil
 }
 
-// RegisterStatus: registration is synchronous, so a known id is always done.
-func (b *Backend) RegisterStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+// RegisterStatus: registration is synchronous, so a known id reports
+// completed; unknown ids report ErrOperationNotFound (404).
+func (b *Backend) RegisterStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	regID, ok := metaString(req.Meta, metaRegistrationUUID)
 	if !ok {
-		return nil, false, shared.Invalid("VALIDATION_FAILED", "meta attribute %q (registration_id) is required", metaRegistrationUUID)
+		return nil, shared.Invalid("VALIDATION_FAILED", "meta attribute %q (registration_id) is required", metaRegistrationUUID)
 	}
 	if b.ca.GetRegistration(regID) == nil {
-		return nil, false, authority.ErrOperationNotFound.WithProperty("registration_id", regID)
+		return nil, authority.ErrOperationNotFound.WithProperty("registration_id", regID)
 	}
-	resp := mdl.NewCertificateDataResponseDto()
+	resp := mdl.NewCertificateOperationStatusResponseDtoV3(mdl.CERTIFICATEOPERATIONSTATUSV3_COMPLETED)
 	resp.Meta = []mdl.MetadataAttribute{
 		newMetaString(metaRegistrationUUID, "registration_id", "Registration", regID),
 	}
-	return resp, false, nil
+	return resp, nil
 }
 
 // CancelRegister: synchronous registration is always past the point of no
@@ -411,7 +423,7 @@ func (b *Backend) CancelRegister(ctx context.Context, req *mdl.CertificateOperat
 // --- revoke family --------------------------------------------------------------
 
 // Revoke marks the certificate revoked. Always synchronous (204).
-func (b *Backend) Revoke(ctx context.Context, req *mdl.CertificateRevocationRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+func (b *Backend) Revoke(ctx context.Context, req *mdl.CertificateRevocationRequestDtoV3) (*mdl.CertificateDataResponseDtoV3, bool, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
 		return nil, false, err
 	}
@@ -431,21 +443,25 @@ func (b *Backend) Revoke(ctx context.Context, req *mdl.CertificateRevocationRequ
 	return nil, false, nil
 }
 
-// RevokeStatus: revocation is synchronous; a revoked serial reports done
-// (204), an issued-but-not-revoked or unknown serial reports 404.
-func (b *Backend) RevokeStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateDataResponseDto, bool, error) {
+// RevokeStatus: revocation is synchronous; a revoked serial reports
+// completed, an issued-but-not-revoked or unknown serial reports 404.
+func (b *Backend) RevokeStatus(ctx context.Context, req *mdl.CertificateOperationStatusRequestDtoV3) (*mdl.CertificateOperationStatusResponseDtoV3, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	serial, ok := metaString(req.Meta, metaSerialUUID)
 	if !ok {
-		return nil, false, shared.Invalid("VALIDATION_FAILED", "meta attribute %q (serial) is required", metaSerialUUID)
+		return nil, shared.Invalid("VALIDATION_FAILED", "meta attribute %q (serial) is required", metaSerialUUID)
 	}
 	rec := b.ca.Lookup(serial)
 	if rec == nil || !rec.revoked {
-		return nil, false, authority.ErrOperationNotFound.WithProperty("serial", serial)
+		return nil, authority.ErrOperationNotFound.WithProperty("serial", serial)
 	}
-	return nil, false, nil
+	resp := mdl.NewCertificateOperationStatusResponseDtoV3(mdl.CERTIFICATEOPERATIONSTATUSV3_COMPLETED)
+	resp.Meta = []mdl.MetadataAttribute{
+		newMetaString(metaSerialUUID, "serial", "Certificate Serial", serial),
+	}
+	return resp, nil
 }
 
 // CancelRevoke: synchronous revocation cannot be canceled — always 422 for
@@ -470,7 +486,7 @@ func (b *Backend) CancelRevoke(ctx context.Context, req *mdl.CertificateOperatio
 // Identify reports whether the certificate was issued by this CA. Returns
 // the serial as meta on success, 404 when the serial is unknown or the
 // certificate bytes do not match the issued record.
-func (b *Backend) Identify(ctx context.Context, req *mdl.CertificateIdentificationRequestDtoV3) (*mdl.CertificateDataResponseDto, error) {
+func (b *Backend) Identify(ctx context.Context, req *mdl.CertificateIdentificationRequestDtoV3) (*mdl.CertificateIdentificationResponseDtoV3, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
 		return nil, err
 	}
@@ -483,11 +499,9 @@ func (b *Backend) Identify(ctx context.Context, req *mdl.CertificateIdentificati
 	if rec == nil || !rec.cert.Equal(cert) {
 		return nil, authority.ErrCertificateNotFound.WithProperty("serial", serial)
 	}
-	resp := mdl.NewCertificateDataResponseDto()
-	resp.Meta = []mdl.MetadataAttribute{
+	return mdl.NewCertificateIdentificationResponseDtoV3([]mdl.MetadataAttribute{
 		newMetaString(metaSerialUUID, "serial", "Certificate Serial", serial),
-	}
-	return resp, nil
+	}), nil
 }
 
 // --- authority management -------------------------------------------------------
@@ -499,9 +513,8 @@ func (b *Backend) CheckAuthorityConnection(ctx context.Context, attrs []mdl.Requ
 }
 
 // GetCrl signs and returns a fresh full CRL. The example does not maintain
-// delta CRLs: requests with delta=true still receive the full CRL, flagged
-// delta=false so callers are not misled.
-func (b *Backend) GetCrl(ctx context.Context, req *mdl.CrlRequestDtoV3) (*mdl.CertificateRevocationListResponseDto, error) {
+// delta CRLs; requests with delta=true still receive the full CRL.
+func (b *Backend) GetCrl(ctx context.Context, req *mdl.CrlRequestDtoV3) (*mdl.CrlResponseDtoV3, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
 		return nil, err
 	}
@@ -509,23 +522,20 @@ func (b *Backend) GetCrl(ctx context.Context, req *mdl.CrlRequestDtoV3) (*mdl.Ce
 	if err != nil {
 		return nil, fmt.Errorf("generate CRL: %w", err)
 	}
-	resp := mdl.NewCertificateRevocationListResponseDto(base64.StdEncoding.EncodeToString(der))
-	delta := false
-	resp.Delta = &delta
-	return resp, nil
+	return mdl.NewCrlResponseDtoV3(base64.StdEncoding.EncodeToString(der)), nil
 }
 
 // GetCaCertificates returns the single-element chain: the root certificate.
-func (b *Backend) GetCaCertificates(ctx context.Context, req *mdl.CaCertificatesRequestDtoV3) (*mdl.CaCertificatesResponseDto, error) {
+func (b *Backend) GetCaCertificates(ctx context.Context, req *mdl.CaCertificatesRequestDtoV3) (*mdl.CaCertificatesResponseDtoV3, error) {
 	if err := b.checkAuth(req.AuthorityAttributes); err != nil {
 		return nil, err
 	}
-	root := mdl.NewCertificateDataResponseDto()
+	root := mdl.NewCertificateDataResponseDtoV3()
 	b64 := base64.StdEncoding.EncodeToString(b.ca.RootDER())
 	root.CertificateData = &b64
 	ct := mdl.CERTIFICATETYPE_X_509
 	root.CertificateType = &ct
-	return mdl.NewCaCertificatesResponseDto([]mdl.CertificateDataResponseDto{*root}), nil
+	return mdl.NewCaCertificatesResponseDtoV3([]mdl.CertificateDataResponseDtoV3{*root}), nil
 }
 
 // parseCertB64 decodes a base64 DER certificate.

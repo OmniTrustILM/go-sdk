@@ -72,6 +72,7 @@ func main() {
 		authority.WithIssueAttributes(attrs),
 		authority.WithRevokeAttributes(attrs),
 		authority.WithRegisterAttributes(attrs),
+		authority.WithAttributeDefinitions(attrs),
 	)
 	if err != nil {
 		logger.Error("build authority handler", "err", err)
