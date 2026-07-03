@@ -83,9 +83,10 @@ func createToken(t *testing.T, h *itest.Harness, name string) string {
 // tools/fixoneof knownUnpatchable), independent of the example — so response
 // shape is verified via this focused view.
 type keyView struct {
-	Uuid    string `json:"uuid"`
-	Name    string `json:"name"`
-	KeyData struct {
+	Uuid        string  `json:"uuid"`
+	Name        string  `json:"name"`
+	Association *string `json:"association"`
+	KeyData     struct {
 		Type string `json:"type"`
 	} `json:"keyData"`
 }
@@ -243,11 +244,20 @@ func TestCryptographyV1TokenLifecycle(t *testing.T) {
 	itest.AssertStatus(t, deact, http.StatusNoContent)
 	assertTokenStatus(mdl.TOKENINSTANCESTATUS_DEACTIVATED)
 
-	// Update.
+	// Update, then read the token back to confirm the rename actually applied
+	// (a handler that returned 200 without storing the change would be caught).
 	upd := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathTokens + "/" + id, Body: mdl.TokenInstanceRequestDto{
 		Name: "tok-1-renamed", Kind: cryptoKind, Attributes: []mdl.RequestAttribute{},
 	}})
 	itest.AssertStatus(t, upd, http.StatusOK)
+	reget := h.Do(t, itest.Request{Method: http.MethodGet, Path: pathTokens + "/" + id})
+	if itest.AssertStatus(t, reget, http.StatusOK) {
+		var updated mdl.TokenInstanceDto
+		reget.JSON(t, &updated)
+		if updated.Name != "tok-1-renamed" {
+			t.Errorf("after update, token name = %q, want %q", updated.Name, "tok-1-renamed")
+		}
+	}
 
 	// Remove -> 204, then get -> 404.
 	del := h.Do(t, itest.Request{Method: http.MethodDelete, Path: pathTokens + "/" + id})
@@ -281,6 +291,20 @@ func TestCryptographyV1KeyLifecycle(t *testing.T) {
 	pair.JSON(t, &kp)
 	if kp.PublicKeyData.Uuid == "" || kp.PrivateKeyData.Uuid == "" {
 		t.Fatalf("createKeyPair missing key uuids: %s", pair.Body)
+	}
+	// The two arms carry distinct key types...
+	if kp.PublicKeyData.KeyData.Type != string(mdl.KEYTYPE_PUBLIC) {
+		t.Errorf("public arm type = %q, want %q", kp.PublicKeyData.KeyData.Type, mdl.KEYTYPE_PUBLIC)
+	}
+	if kp.PrivateKeyData.KeyData.Type != string(mdl.KEYTYPE_PRIVATE) {
+		t.Errorf("private arm type = %q, want %q", kp.PrivateKeyData.KeyData.Type, mdl.KEYTYPE_PRIVATE)
+	}
+	// ...and a shared, non-empty association UUID links them.
+	if kp.PublicKeyData.Association == nil || kp.PrivateKeyData.Association == nil {
+		t.Fatalf("key pair missing association: %s", pair.Body)
+	}
+	if *kp.PublicKeyData.Association == "" || *kp.PublicKeyData.Association != *kp.PrivateKeyData.Association {
+		t.Errorf("key pair association mismatch: public=%q private=%q", *kp.PublicKeyData.Association, *kp.PrivateKeyData.Association)
 	}
 
 	// Random data -> 200, non-empty base64 payload.
