@@ -425,11 +425,15 @@ func TestCryptographyV1Errors(t *testing.T) {
 	// TokenInstanceRequestDto rejects the missing required field -> 422 with
 	// the v1 []string validation body (not the {message} envelope).
 	resp = h.Do(t, itest.Request{Method: http.MethodPost, Path: pathTokens, Body: map[string]any{"kind": cryptoKind, "attributes": []any{}}})
-	itest.AssertStatus(t, resp, http.StatusUnprocessableEntity)
-	var vErrs []string
-	resp.JSON(t, &vErrs)
-	if len(vErrs) == 0 {
-		t.Errorf("absent-name 422 body = %s, want a non-empty []string", resp.Body)
+	if itest.AssertStatus(t, resp, http.StatusUnprocessableEntity) {
+		// Only decode on the expected status: a wrong-status body is often a
+		// different shape (e.g. the {message} envelope), and decoding it into
+		// []string would t.Fatalf and mask the original status mismatch.
+		var vErrs []string
+		resp.JSON(t, &vErrs)
+		if len(vErrs) == 0 {
+			t.Errorf("absent-name 422 body = %s, want a non-empty []string", resp.Body)
+		}
 	}
 
 	unknown := "00000000-0000-0000-0000-000000000000"
