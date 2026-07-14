@@ -1,0 +1,64 @@
+package attributes
+
+import (
+	mdl "github.com/OmniTrustILM/go-sdk/connector/model/attributes/v2"
+)
+
+// attrInfo is the connector-global identity and optional trigger of one
+// attribute definition, extracted from the polymorphic BaseAttributeDto.
+type attrInfo struct {
+	uuid     string
+	name     string
+	callback *mdl.AttributeCallback // nil unless the attribute declares one
+	ok       bool                   // false when no concrete variant is set
+}
+
+// inspect extracts the uuid, name, and optional AttributeCallback from a
+// polymorphic BaseAttributeDto (a doubly-nested oneOf: schema v2/v3, then one
+// of the five attribute kinds). Only DATA and GROUP attributes carry a
+// callback; the other kinds report a nil callback. ok is false when the
+// definition carries no concrete variant.
+func inspect(def mdl.BaseAttributeDto) attrInfo {
+	var inst any
+	switch {
+	case def.BaseAttributeDtoV3 != nil:
+		inst = def.BaseAttributeDtoV3.GetActualInstance()
+	case def.BaseAttributeDtoV2 != nil:
+		inst = def.BaseAttributeDtoV2.GetActualInstance()
+	default:
+		return attrInfo{}
+	}
+	switch v := inst.(type) {
+	case *mdl.DataAttributeV3:
+		return attrInfo{uuid: v.Uuid, name: v.Name, callback: v.AttributeCallback, ok: true}
+	case *mdl.GroupAttributeV3:
+		return attrInfo{uuid: v.Uuid, name: v.Name, callback: v.AttributeCallback, ok: true}
+	case *mdl.InfoAttributeV3:
+		return attrInfo{uuid: v.Uuid, name: v.Name, ok: true}
+	case *mdl.MetadataAttributeV3:
+		return attrInfo{uuid: v.Uuid, name: v.Name, ok: true}
+	case *mdl.CustomAttributeV3:
+		return attrInfo{uuid: v.Uuid, name: v.Name, ok: true}
+	case *mdl.DataAttributeV2:
+		return attrInfo{uuid: v.Uuid, name: v.Name, callback: v.AttributeCallback, ok: true}
+	case *mdl.GroupAttributeV2:
+		return attrInfo{uuid: v.Uuid, name: v.Name, callback: v.AttributeCallback, ok: true}
+	case *mdl.InfoAttributeV2:
+		return attrInfo{uuid: v.Uuid, name: v.Name, ok: true}
+	case *mdl.MetadataAttributeV2:
+		return attrInfo{uuid: v.Uuid, name: v.Name, ok: true}
+	case *mdl.CustomAttributeV2:
+		return attrInfo{uuid: v.Uuid, name: v.Name, ok: true}
+	default:
+		return attrInfo{}
+	}
+}
+
+// DefinitionUUID returns the connector-global UUID of a polymorphic attribute
+// definition across every attribute kind and schema version, or "" when the
+// definition carries no concrete variant.
+func DefinitionUUID(def mdl.BaseAttributeDto) string { return inspect(def).uuid }
+
+// DefinitionName returns the name of a polymorphic attribute definition, or ""
+// when the definition carries no concrete variant.
+func DefinitionName(def mdl.BaseAttributeDto) string { return inspect(def).name }
