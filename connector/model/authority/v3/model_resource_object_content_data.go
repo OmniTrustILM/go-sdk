@@ -56,10 +56,11 @@ func (dst *ResourceObjectContentData) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("ResourceObjectContentData: probe resource: %w", err)
 	}
+	disc := probe.Disc
 	dst.ResourceCertificateContentData = nil
 	dst.ResourceSecretContentData = nil
 	dst.ResourceSimpleContentData = nil
-	switch probe.Disc {
+	switch disc {
 	case "certificates":
 		var v ResourceCertificateContentData
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -82,11 +83,9 @@ func (dst *ResourceObjectContentData) UnmarshalJSON(data []byte) error {
 		dst.ResourceSimpleContentData = &v
 		return nil
 	default:
-		return fmt.Errorf("ResourceObjectContentData: unknown resource %q", probe.Disc)
+		return fmt.Errorf("ResourceObjectContentData: unknown resource %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

@@ -56,10 +56,14 @@ func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("BaseAttributeConstraint: probe type: %w", err)
 	}
+	disc := probe.Disc
+	if disc == "" {
+		disc = "regExp" // absent type defaults to this per the Java wire contract
+	}
 	dst.DateTimeAttributeConstraint = nil
 	dst.RangeAttributeConstraint = nil
 	dst.RegexpAttributeConstraint = nil
-	switch probe.Disc {
+	switch disc {
 	case "dateTime":
 		var v DateTimeAttributeConstraint
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -82,11 +86,9 @@ func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
 		dst.RegexpAttributeConstraint = &v
 		return nil
 	default:
-		return fmt.Errorf("BaseAttributeConstraint: unknown type %q", probe.Disc)
+		return fmt.Errorf("BaseAttributeConstraint: unknown type %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

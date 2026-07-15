@@ -44,6 +44,15 @@ type wrapper struct {
 	typeName      string
 	discriminator string
 	cases         map[string]string
+	// numeric, when true, reads the discriminator as a JSON number (e.g. the
+	// attribute `version` 2/3 that the Java BaseAttributeSerializer writes)
+	// rather than a string, normalizing it to its textual form for the switch.
+	numeric bool
+	// defaultDisc, when non-empty, is the discriminator value assumed when the
+	// field is absent/empty on the wire — matching a Java deserializer's
+	// defaultImpl (e.g. BaseAttribute/RequestAttribute default a missing
+	// version to V2).
+	defaultDisc string
 }
 
 var wrappers = []wrapper{
@@ -91,18 +100,53 @@ var wrappers = []wrapper{
 		},
 	},
 	{
+		// BaseAttribute (outer V2/V3 selector). The Java wire discriminator is
+		// a NUMERIC `version` (2/3) written by BaseAttributeSerializer, NOT the
+		// `schemaVersion` string the OpenAPI declares (that field is only
+		// emitted when a concrete subtype is serialized by its own type, and is
+		// absent on the canonical connector-definition wire). A missing version
+		// defaults to 2 (V2), matching BaseAttributeDeserializer.
 		fileSuffix:    "model_base_attribute_dto.go",
 		typeName:      "BaseAttributeDto",
-		discriminator: "schemaVersion",
+		discriminator: "version",
+		numeric:       true,
+		defaultDisc:   "2",
 		cases: map[string]string{
-			"v2": "BaseAttributeDtoV2",
-			"v3": "BaseAttributeDtoV3",
+			"2": "BaseAttributeDtoV2",
+			"3": "BaseAttributeDtoV3",
 		},
 	},
 	{
+		// DataAttribute (V2/V3), same numeric `version` selector as BaseAttribute.
+		fileSuffix:    "model_data_attribute.go",
+		typeName:      "DataAttribute",
+		discriminator: "version",
+		numeric:       true,
+		defaultDisc:   "2",
+		cases: map[string]string{
+			"2": "DataAttributeV2",
+			"3": "DataAttributeV3",
+		},
+	},
+	{
+		// MetadataAttribute (V2/V3), same numeric `version` selector.
+		fileSuffix:    "model_metadata_attribute.go",
+		typeName:      "MetadataAttribute",
+		discriminator: "version",
+		numeric:       true,
+		defaultDisc:   "2",
+		cases: map[string]string{
+			"2": "MetadataAttributeV2",
+			"3": "MetadataAttributeV3",
+		},
+	},
+	{
+		// RequestAttribute uses a STRING `version` ("v2"/"v3"); a missing
+		// version defaults to V2 (Java @JsonTypeInfo defaultImpl).
 		fileSuffix:    "model_request_attribute.go",
 		typeName:      "RequestAttribute",
 		discriminator: "version",
+		defaultDisc:   "v2",
 		cases: map[string]string{
 			"v2": "RequestAttributeV2",
 			"v3": "RequestAttributeV3",
@@ -121,6 +165,7 @@ var wrappers = []wrapper{
 		fileSuffix:    "model_base_attribute_constraint.go",
 		typeName:      "BaseAttributeConstraint",
 		discriminator: "type",
+		defaultDisc:   "regExp", // Java defaultImpl = RegexpAttributeConstraint
 		cases: map[string]string{
 			"dateTime": "DateTimeAttributeConstraint",
 			"range":    "RangeAttributeConstraint",
@@ -187,10 +232,12 @@ var wrappers = []wrapper{
 // add a `discriminator` stanza in the corresponding spec schema, regenerate,
 // and add a matching wrappers entry above.
 var knownUnpatchable = map[string]string{
-	"BaseAttributeContentDtoV2": "spec defines no discriminator for V2 content oneOf; variants share {Reference, Data} shape and differ only by Data's Go type. Match-counting works for shape-distinct cases but fails when two variants share a JSON-encodable shape (e.g. StringAttributeContentV2 vs DateAttributeContentV2 both have Data=string). Fix requires adding `discriminator.propertyName: contentType` in the spec (as V3 already has).",
-	"DataAttribute":             "spec defines no discriminator for the DataAttribute V2/V3 oneOf; relies on `version` being shape-distinguishable. Fix requires adding `discriminator.propertyName: version` in the spec.",
-	"KeyDataValue":              "spec defines no discriminator for the KeyDataValue oneOf (anonymous oneOf inside KeyData.value); variants are mostly shape-distinct (CustomKeyValue has `values`, others have `value`) but Eprki/Prki/Raw/Spki share the `value` field and collide. Fix requires a spec-level discriminator (e.g. on KeyData.format).",
-	"MetadataAttribute":         "spec defines no discriminator for the MetadataAttribute V2/V3 oneOf; same issue as DataAttribute.",
+	// Verified against the Java interfaces repo (source of truth): these two
+	// oneOfs have NO per-object wire discriminator, so no in-object field lets
+	// a decoder pick a variant — Java itself cannot either. They are inherently
+	// parent-context-only and cannot round-trip a standalone element.
+	"BaseAttributeContentDtoV2": "V2 attribute content carries NO per-object discriminator on the Java wire: BaseAttributeContentV2.getContentType() is @JsonIgnore, every variant serializes as bare {reference,data}, and Java's AttributeContentDeserializer decodes them all into the single base type (never a specific variant). The V2/V3 choice comes from the parent attribute's sibling contentType, and V2-variant selection is parent-context/data-shape only. Not fixable without a spec/wire discriminator on the V2 content object itself.",
+	"KeyDataValue":              "KeyData.value uses @JsonTypeInfo(EXTERNAL_PROPERTY, property=\"format\") — the discriminator is a sibling field on the parent KeyData, not inside the value object. RawKeyValue/SpkiKeyValue/PrkiKeyValue/EprkiKeyValue serialize as byte-identical {\"value\":\"...\"}; only KeyData.format distinguishes them. No in-object field exists to dispatch on, so a standalone KeyDataValue cannot be resolved to a variant (Java needs the parent's format).",
 }
 
 // generateUnmarshal renders the discriminator-aware UnmarshalJSON body for w.
@@ -222,12 +269,26 @@ func generateUnmarshal(w wrapper) string {
 	b.WriteString("// fails on this oneOf because multiple variants share the same Go struct\n")
 	b.WriteString("// shape and pass strict decode simultaneously.\n")
 	fmt.Fprintf(&b, "func (dst *%s) UnmarshalJSON(data []byte) error {\n", w.typeName)
+	probeType := "string"
+	if w.numeric {
+		probeType = "json.Number"
+	}
 	b.WriteString("\tvar probe struct {\n")
-	fmt.Fprintf(&b, "\t\tDisc string `json:\"%s\"`\n", w.discriminator)
+	fmt.Fprintf(&b, "\t\tDisc %s `json:\"%s\"`\n", probeType, w.discriminator)
 	b.WriteString("\t}\n")
 	b.WriteString("\tif err := json.Unmarshal(data, &probe); err != nil {\n")
 	fmt.Fprintf(&b, "\t\treturn fmt.Errorf(\"%s: probe %s: %%w\", err)\n", w.typeName, w.discriminator)
 	b.WriteString("\t}\n")
+	if w.numeric {
+		b.WriteString("\tdisc := string(probe.Disc)\n")
+	} else {
+		b.WriteString("\tdisc := probe.Disc\n")
+	}
+	if w.defaultDisc != "" {
+		b.WriteString("\tif disc == \"\" {\n")
+		fmt.Fprintf(&b, "\t\tdisc = %q // absent %s defaults to this per the Java wire contract\n", w.defaultDisc, w.discriminator)
+		b.WriteString("\t}\n")
+	}
 
 	// Reset every distinct variant pointer so reused dst values do not retain
 	// stale data from a previous decode call.
@@ -235,7 +296,7 @@ func generateUnmarshal(w wrapper) string {
 		fmt.Fprintf(&b, "\tdst.%s = nil\n", field)
 	}
 
-	b.WriteString("\tswitch probe.Disc {\n")
+	b.WriteString("\tswitch disc {\n")
 	for _, field := range fields {
 		discs := byField[field]
 		caseLabels := make([]string, len(discs))
@@ -251,7 +312,7 @@ func generateUnmarshal(w wrapper) string {
 		b.WriteString("\t\treturn nil\n")
 	}
 	b.WriteString("\tdefault:\n")
-	fmt.Fprintf(&b, "\t\treturn fmt.Errorf(\"%s: unknown %s %%q\", probe.Disc)\n", w.typeName, w.discriminator)
+	fmt.Fprintf(&b, "\t\treturn fmt.Errorf(\"%s: unknown %s %%q\", disc)\n", w.typeName, w.discriminator)
 	b.WriteString("\t}\n")
 	b.WriteString("}\n")
 	return b.String()

@@ -3,7 +3,7 @@ Authority Provider Legacy API
 
 REST API for implementations of custom Legacy Authority Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -13,7 +13,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 )
 
 // checks if the CertificateDataResponseDto type satisfies the MappedNullable interface at compile time
@@ -21,8 +20,8 @@ var _ MappedNullable = &CertificateDataResponseDto{}
 
 // CertificateDataResponseDto struct for CertificateDataResponseDto
 type CertificateDataResponseDto struct {
-	// Base64 encoded Certificate content
-	CertificateData string `json:"certificateData"`
+	// Base64 encoded Certificate content. Required for synchronous (HTTP 200) responses; absent for asynchronous (HTTP 202) responses, where the operation is still in flight and only optional metadata may be carried in the body.
+	CertificateData *string `json:"certificateData,omitempty"`
 	// UUID of Certificate
 	Uuid *string `json:"uuid,omitempty"`
 	// Metadata for the Certificate
@@ -38,9 +37,8 @@ type _CertificateDataResponseDto CertificateDataResponseDto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewCertificateDataResponseDto(certificateData string) *CertificateDataResponseDto {
+func NewCertificateDataResponseDto() *CertificateDataResponseDto {
 	this := CertificateDataResponseDto{}
-	this.CertificateData = certificateData
 	var certificateType CertificateType = "X509"
 	this.CertificateType = &certificateType
 	return &this
@@ -56,28 +54,36 @@ func NewCertificateDataResponseDtoWithDefaults() *CertificateDataResponseDto {
 	return &this
 }
 
-// GetCertificateData returns the CertificateData field value
+// GetCertificateData returns the CertificateData field value if set, zero value otherwise.
 func (o *CertificateDataResponseDto) GetCertificateData() string {
-	if o == nil {
+	if o == nil || IsNil(o.CertificateData) {
 		var ret string
 		return ret
 	}
-
-	return o.CertificateData
+	return *o.CertificateData
 }
 
-// GetCertificateDataOk returns a tuple with the CertificateData field value
+// GetCertificateDataOk returns a tuple with the CertificateData field value if set, nil otherwise
 // and a boolean to check if the value has been set.
 func (o *CertificateDataResponseDto) GetCertificateDataOk() (*string, bool) {
-	if o == nil {
+	if o == nil || IsNil(o.CertificateData) {
 		return nil, false
 	}
-	return &o.CertificateData, true
+	return o.CertificateData, true
 }
 
-// SetCertificateData sets field value
+// HasCertificateData returns a boolean if a field has been set.
+func (o *CertificateDataResponseDto) HasCertificateData() bool {
+	if o != nil && !IsNil(o.CertificateData) {
+		return true
+	}
+
+	return false
+}
+
+// SetCertificateData gets a reference to the given string and assigns it to the CertificateData field.
 func (o *CertificateDataResponseDto) SetCertificateData(v string) {
-	o.CertificateData = v
+	o.CertificateData = &v
 }
 
 // GetUuid returns the Uuid field value if set, zero value otherwise.
@@ -186,7 +192,9 @@ func (o CertificateDataResponseDto) MarshalJSON() ([]byte, error) {
 
 func (o CertificateDataResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
-	toSerialize["certificateData"] = o.CertificateData
+	if !IsNil(o.CertificateData) {
+		toSerialize["certificateData"] = o.CertificateData
+	}
 	if !IsNil(o.Uuid) {
 		toSerialize["uuid"] = o.Uuid
 	}
@@ -205,27 +213,6 @@ func (o CertificateDataResponseDto) ToMap() (map[string]interface{}, error) {
 }
 
 func (o *CertificateDataResponseDto) UnmarshalJSON(data []byte) (err error) {
-	// This validates that all required properties are included in the JSON object
-	// by unmarshalling the object into a generic map with string keys and checking
-	// that every required field exists as a key in the generic map.
-	requiredProperties := []string{
-		"certificateData",
-	}
-
-	allProperties := make(map[string]interface{})
-
-	err = json.Unmarshal(data, &allProperties)
-
-	if err != nil {
-		return err;
-	}
-
-	for _, requiredProperty := range(requiredProperties) {
-		if _, exists := allProperties[requiredProperty]; !exists {
-			return fmt.Errorf("no value given for required property %v", requiredProperty)
-		}
-	}
-
 	varCertificateDataResponseDto := _CertificateDataResponseDto{}
 
 	err = json.Unmarshal(data, &varCertificateDataResponseDto)

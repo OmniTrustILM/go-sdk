@@ -3,7 +3,7 @@ Secret Provider API
 
 REST API for implementations of custom Secret Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -25,6 +25,12 @@ const (
 	FEATUREFLAG_OPEN_METRICS FeatureFlag = "openMetrics"
 	FEATUREFLAG_SECRET_VERSIONING FeatureFlag = "secretVersioning"
 	FEATUREFLAG_SECRET_ROTATION FeatureFlag = "secretRotation"
+	FEATUREFLAG_CONTENT_SIGNING FeatureFlag = "contentSigning"
+	FEATUREFLAG_TIMESTAMPING FeatureFlag = "timestamping"
+	FEATUREFLAG_CERTIFICATE_REGISTRATION FeatureFlag = "certificateRegistration"
+	FEATUREFLAG_CERTIFICATE_STATUS_POLLING FeatureFlag = "certificateStatusPolling"
+	FEATUREFLAG_CERTIFICATE_REQUEST_STRUCTURED FeatureFlag = "certificateRequestStructured"
+	FEATUREFLAG_CERTIFICATE_IDENTITY_OVERRIDE FeatureFlag = "certificateIdentityOverride"
 )
 
 // All allowed values of FeatureFlag enum
@@ -33,6 +39,12 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"openMetrics",
 	"secretVersioning",
 	"secretRotation",
+	"contentSigning",
+	"timestamping",
+	"certificateRegistration",
+	"certificateStatusPolling",
+	"certificateRequestStructured",
+	"certificateIdentityOverride",
 }
 
 func (v *FeatureFlag) UnmarshalJSON(src []byte) error {

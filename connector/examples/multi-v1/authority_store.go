@@ -120,8 +120,9 @@ func (s *AuthorityStore) IssueCertificate(ctx context.Context, authorityUuid str
 		return nil, authority.ErrInvalidRequest.WithProperty("reason", "request is required")
 	}
 	certUUID := uuid.NewString()
+	certData := base64.StdEncoding.EncodeToString([]byte("issued-placeholder-cert"))
 	return &mdl.CertificateDataResponseDto{
-		CertificateData: base64.StdEncoding.EncodeToString([]byte("issued-placeholder-cert")),
+		CertificateData: &certData,
 		Uuid:            &certUUID,
 		Meta:            []mdl.MetadataAttribute{},
 	}, nil
@@ -129,8 +130,9 @@ func (s *AuthorityStore) IssueCertificate(ctx context.Context, authorityUuid str
 
 func (s *AuthorityStore) RenewCertificate(ctx context.Context, authorityUuid string, req *mdl.CertificateRenewRequestDto) (*mdl.CertificateDataResponseDto, error) {
 	certUUID := uuid.NewString()
+	certData := base64.StdEncoding.EncodeToString([]byte("renewed-placeholder-cert"))
 	return &mdl.CertificateDataResponseDto{
-		CertificateData: base64.StdEncoding.EncodeToString([]byte("renewed-placeholder-cert")),
+		CertificateData: &certData,
 		Uuid:            &certUUID,
 		Meta:            []mdl.MetadataAttribute{},
 	}, nil

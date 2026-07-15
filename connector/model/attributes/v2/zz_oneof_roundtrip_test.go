@@ -7,6 +7,28 @@
 // tests lock in the discriminator-aware oneOf decoders that tools/fixoneof
 // patches in, so a future regeneration that forgets to re-run fixoneof — or a
 // fixoneof change that breaks a variant — fails loudly here.
+//
+// DISPATCH CONTRACT (matches the Java wire, encoded in tools/fixoneof):
+//   - BaseAttributeDto switches on a NUMERIC `version` (2->V2, 3->V3); a
+//     missing version defaults to V2. `version` is emitted as a JSON number.
+//   - RequestAttribute switches on a STRING `version` ("v2"/"v3"); missing
+//     defaults to RequestAttributeV2.
+//   - ResponseAttribute switches on a STRING `version` with NO default
+//     (a missing/unknown version errors).
+//   - BaseAttributeConstraint switches on `type` with a RegexpAttributeConstraint
+//     default; BaseAttributeDtoV2/V3 switch on `type` (no default).
+//
+// Because every generated leaf model strictly requires its discriminator field
+// (a V2 attribute requires `version`; a constraint requires `type`), a
+// discriminator-ABSENT payload cannot fully decode: the wrapper's defaultImpl
+// routes it to the default variant, whose leaf then rejects it for the missing
+// required field. assertDefaultRoutes pins that behaviour — the default is
+// wired (the error names the default variant, not "unknown"), even though a
+// bare default payload cannot round-trip.
+//
+// BaseAttributeContentDtoV2 is the single non-discriminator oneOf here; it
+// still uses the generator's match-counting decoder and is provably
+// un-decodable (documented inline with t.Skip).
 package v2
 
 import (
@@ -86,8 +108,32 @@ func assertUnknown(t *testing.T, wrapper string, w json.Unmarshaler, payload str
 	}
 }
 
-// RequestAttribute — discriminator "version" (v2/v3). On the callback wire as
-// currentAttributes / scope attributes.
+// assertDefaultRoutes pins the defaultImpl behaviour of a wrapper whose fixoneof
+// entry carries a defaultDisc. A discriminator-ABSENT payload must route to the
+// named default variant's decoder — NOT the "unknown" branch a wrapper without
+// a default would take. Because the generated leaf strictly requires its
+// discriminator field (e.g. a V2 attribute requires `version`, a constraint
+// requires `type`), the routed decode then fails its required-property check;
+// so a bare default payload errors while naming the default variant. This
+// proves the default is wired without pretending a discriminator-less payload
+// can round-trip.
+func assertDefaultRoutes(t *testing.T, wrapper, defaultVariant string, w json.Unmarshaler, payload string) {
+	t.Helper()
+	err := json.Unmarshal([]byte(payload), w)
+	if err == nil {
+		t.Fatalf("%s: expected discriminator-absent payload to route to %s and fail at its leaf, got nil", wrapper, defaultVariant)
+	}
+	if strings.Contains(err.Error(), "unknown") {
+		t.Fatalf("%s: discriminator-absent payload hit the unknown branch — default %s not applied: %v", wrapper, defaultVariant, err)
+	}
+	if !strings.Contains(err.Error(), defaultVariant) {
+		t.Fatalf("%s: expected default routing to %s, got: %v", wrapper, defaultVariant, err)
+	}
+}
+
+// RequestAttribute — discriminator STRING "version" (v2/v3); missing defaults to
+// RequestAttributeV2. On the callback wire as currentAttributes / scope
+// attributes.
 func TestOneOfRequestAttribute(t *testing.T) {
 	runCases(t, "RequestAttribute", []oneOfCase{
 		{
@@ -105,13 +151,80 @@ func TestOneOfRequestAttribute(t *testing.T) {
 			discSubstr: []string{`"version":"v2"`},
 		},
 	})
+	// A missing version defaults to RequestAttributeV2; its leaf then requires
+	// `version`, so a bare default payload cannot round-trip.
+	assertDefaultRoutes(t, "RequestAttribute", "RequestAttributeV2",
+		&RequestAttribute{}, `{"uuid":"u","name":"n","contentType":"string"}`)
 	assertUnknown(t, "RequestAttribute", &RequestAttribute{}, `{"version":"v9"}`)
 }
 
-// BaseAttributeContentDtoV3 — discriminator "contentType". The callback
-// response content arm.
+// BaseAttributeContentDtoV3 — discriminator "contentType" (12 variants). The
+// callback response content arm.
 func TestOneOfBaseAttributeContentDtoV3(t *testing.T) {
 	runCases(t, "BaseAttributeContentDtoV3", []oneOfCase{
+		{
+			name:       "boolean",
+			payload:    `{"contentType":"boolean","data":true}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &BooleanAttributeContentV3{},
+			discSubstr: []string{`"contentType":"boolean"`},
+		},
+		{
+			name:       "codeblock",
+			payload:    `{"contentType":"codeblock","data":{"language":"bash","code":"echo hi"}}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &CodeBlockAttributeContentV3{},
+			discSubstr: []string{`"contentType":"codeblock"`},
+		},
+		{
+			name:       "date",
+			payload:    `{"contentType":"date","data":"2026-06-04"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &DateAttributeContentV3{},
+			discSubstr: []string{`"contentType":"date"`},
+		},
+		{
+			name:       "datetime",
+			payload:    `{"contentType":"datetime","data":"2026-06-04T10:00:00Z"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &DateTimeAttributeContentV3{},
+			discSubstr: []string{`"contentType":"datetime"`},
+		},
+		{
+			name:       "file",
+			payload:    `{"contentType":"file","data":{"content":"YQ==","fileName":"f.txt","mimeType":"text/plain"}}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &FileAttributeContentV3{},
+			discSubstr: []string{`"contentType":"file"`},
+		},
+		{
+			name:       "float",
+			payload:    `{"contentType":"float","data":1.5}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &FloatAttributeContentV3{},
+			discSubstr: []string{`"contentType":"float"`},
+		},
+		{
+			name:       "integer",
+			payload:    `{"contentType":"integer","data":7}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &IntegerAttributeContentV3{},
+			discSubstr: []string{`"contentType":"integer"`},
+		},
+		{
+			name:       "object",
+			payload:    `{"contentType":"object","data":{"any":"thing"}}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &ObjectAttributeContentV3{},
+			discSubstr: []string{`"contentType":"object"`},
+		},
+		{
+			name:       "resource",
+			payload:    `{"contentType":"resource","data":{"resource":"authorities","uuid":"u","name":"n"}}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &ResourceObjectContent{},
+			discSubstr: []string{`"contentType":"resource"`},
+		},
 		{
 			name:       "string",
 			payload:    `{"contentType":"string","data":"x"}`,
@@ -120,95 +233,154 @@ func TestOneOfBaseAttributeContentDtoV3(t *testing.T) {
 			discSubstr: []string{`"contentType":"string"`},
 		},
 		{
-			name:       "boolean",
-			payload:    `{"contentType":"boolean","data":true}`,
+			name:       "text",
+			payload:    `{"contentType":"text","data":"a longer text"}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
-			wantType:   &BooleanAttributeContentV3{},
-			discSubstr: []string{`"contentType":"boolean"`},
+			wantType:   &TextAttributeContentV3{},
+			discSubstr: []string{`"contentType":"text"`},
+		},
+		{
+			name:       "time",
+			payload:    `{"contentType":"time","data":"10:00:00"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeContentDtoV3{} },
+			wantType:   &TimeAttributeContentV3{},
+			discSubstr: []string{`"contentType":"time"`},
 		},
 	})
 	assertUnknown(t, "BaseAttributeContentDtoV3", &BaseAttributeContentDtoV3{}, `{"contentType":"bogus"}`)
 }
 
 // BaseAttributeDtoV3 — discriminator "type". A definition-registry element.
+// V3 variants carry a required schemaVersion "v3" and, where applicable, a
+// numeric version 3.
 func TestOneOfBaseAttributeDtoV3(t *testing.T) {
 	runCases(t, "BaseAttributeDtoV3", []oneOfCase{
 		{
+			name:       "custom",
+			payload:    `{"type":"custom","uuid":"u","name":"n","version":3,"contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
+			wantType:   &CustomAttributeV3{},
+			discSubstr: []string{`"type":"custom"`, `"schemaVersion":"v3"`},
+		},
+		{
 			name:       "data",
-			payload:    `{"type":"data","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
+			payload:    `{"type":"data","uuid":"u","name":"n","version":3,"contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
 			wantType:   &DataAttributeV3{},
-			discSubstr: []string{`"type":"data"`},
+			discSubstr: []string{`"type":"data"`, `"schemaVersion":"v3"`},
+		},
+		{
+			name:       "group",
+			payload:    `{"type":"group","uuid":"u","name":"n","schemaVersion":"v3"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
+			wantType:   &GroupAttributeV3{},
+			discSubstr: []string{`"type":"group"`, `"schemaVersion":"v3"`},
+		},
+		{
+			name:       "info",
+			payload:    `{"type":"info","uuid":"u","name":"n","content":[{"contentType":"string","data":"x"}],"contentType":"string","properties":` + infoMetaProps + `,"schemaVersion":"v3"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
+			wantType:   &InfoAttributeV3{},
+			discSubstr: []string{`"type":"info"`, `"schemaVersion":"v3"`},
+		},
+		{
+			name:       "meta",
+			payload:    `{"type":"meta","uuid":"u","name":"n","version":3,"contentType":"string","properties":` + infoMetaProps + `,"schemaVersion":"v3"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
+			wantType:   &MetadataAttributeV3{},
+			discSubstr: []string{`"type":"meta"`, `"schemaVersion":"v3"`},
 		},
 	})
 	assertUnknown(t, "BaseAttributeDtoV3", &BaseAttributeDtoV3{}, `{"type":"bogus"}`)
 }
 
-// BaseAttributeDto — discriminator "schemaVersion" (v2/v3). The outer registry
-// element type.
+// BaseAttributeDto — outer V2/V3 selector on a NUMERIC `version` (2->V2, 3->V3);
+// a missing version defaults to V2. `version` is emitted as a JSON number, so
+// the discriminator survives as `"version":2` / `"version":3`.
 func TestOneOfBaseAttributeDto(t *testing.T) {
 	runCases(t, "BaseAttributeDto", []oneOfCase{
 		{
 			name:       "v3",
-			payload:    `{"schemaVersion":"v3","type":"data","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `}`,
+			payload:    `{"version":3,"type":"data","uuid":"u","name":"n","contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDto{} },
 			wantType:   &BaseAttributeDtoV3{},
-			discSubstr: []string{`"schemaVersion":"v3"`},
+			discSubstr: []string{`"version":3`},
+		},
+		{
+			name:       "v2",
+			payload:    `{"version":2,"type":"data","uuid":"u","name":"n","contentType":"string","properties":` + fullProps + `}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeDto{} },
+			wantType:   &BaseAttributeDtoV2{},
+			discSubstr: []string{`"version":2`},
 		},
 	})
-	assertUnknown(t, "BaseAttributeDto", &BaseAttributeDto{}, `{"schemaVersion":"v9"}`)
+	// A missing version defaults to V2; the BaseAttributeDtoV2 leaf then requires
+	// `version`, so a bare default payload cannot round-trip.
+	assertDefaultRoutes(t, "BaseAttributeDto", "BaseAttributeDtoV2",
+		&BaseAttributeDto{}, `{"type":"data","uuid":"u","name":"n","contentType":"string","properties":`+fullProps+`}`)
+	assertUnknown(t, "BaseAttributeDto", &BaseAttributeDto{}, `{"version":9,"type":"data","uuid":"u","name":"n"}`)
 }
 
 // BaseAttributeDtoV2 — discriminator "type" (custom/data/group/info/meta). V2
-// variants carry no schemaVersion field. The "info" variant is intentionally
-// absent from the happy path: InfoAttributeV2 requires a content array of the
-// un-decodable BaseAttributeContentDtoV2 oneOf, so it is pinned separately by
-// TestOneOfBaseAttributeDtoV2InfoBrokenByDesign below.
+// variants carry a numeric version 2 and no schemaVersion field.
+//
+// The "info" variant round-trips only with an EMPTY content array: a non-empty
+// content array holds BaseAttributeContentDtoV2 elements, the un-decodable
+// match-counting oneOf, and fails transitively (pinned by
+// TestOneOfBaseAttributeDtoV2InfoContent below).
 func TestOneOfBaseAttributeDtoV2(t *testing.T) {
 	runCases(t, "BaseAttributeDtoV2", []oneOfCase{
 		{
 			name:       "custom",
-			payload:    `{"type":"custom","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `}`,
+			payload:    `{"type":"custom","uuid":"u","name":"n","version":2,"contentType":"string","properties":` + fullProps + `}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &CustomAttributeV2{},
-			discSubstr: []string{`"type":"custom"`},
+			discSubstr: []string{`"type":"custom"`, `"version":2`},
 		},
 		{
 			name:       "data",
-			payload:    `{"type":"data","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `}`,
+			payload:    `{"type":"data","uuid":"u","name":"n","version":2,"contentType":"string","properties":` + fullProps + `}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &DataAttributeV2{},
-			discSubstr: []string{`"type":"data"`},
+			discSubstr: []string{`"type":"data"`, `"version":2`},
 		},
 		{
 			name:       "group",
-			payload:    `{"type":"group","uuid":"u","name":"n","version":1}`,
+			payload:    `{"type":"group","uuid":"u","name":"n","version":2}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &GroupAttributeV2{},
-			discSubstr: []string{`"type":"group"`},
+			discSubstr: []string{`"type":"group"`, `"version":2`},
+		},
+		{
+			name:       "info",
+			payload:    `{"type":"info","uuid":"u","name":"n","version":2,"content":[],"contentType":"string","properties":` + infoMetaProps + `}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
+			wantType:   &InfoAttributeV2{},
+			discSubstr: []string{`"type":"info"`, `"version":2`},
 		},
 		{
 			name:       "meta",
-			payload:    `{"type":"meta","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + infoMetaProps + `}`,
+			payload:    `{"type":"meta","uuid":"u","name":"n","version":2,"contentType":"string","properties":` + infoMetaProps + `}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &MetadataAttributeV2{},
-			discSubstr: []string{`"type":"meta"`},
+			discSubstr: []string{`"type":"meta"`, `"version":2`},
 		},
 	})
-	assertUnknown(t, "BaseAttributeDtoV2", &BaseAttributeDtoV2{}, `{"type":"bogus","uuid":"u","name":"n","version":1}`)
+	assertUnknown(t, "BaseAttributeDtoV2", &BaseAttributeDtoV2{}, `{"type":"bogus","uuid":"u","name":"n","version":2}`)
 }
 
-// TestOneOfBaseAttributeDtoV2InfoBrokenByDesign pins the transitive breakage of
-// the info V2 variant. BaseAttributeDtoV2's discriminator decode for "info"
-// selects InfoAttributeV2, but InfoAttributeV2 then requires a `content` array
-// whose element type is the un-decodable match-counting BaseAttributeContentDtoV2
-// oneOf (see TestOneOfBaseAttributeContentDtoV2). So a realistic info V2 payload
-// fails deep inside the nested content oneOf with the "matches more than one
-// schema" error, regardless of the (correct) outer type discriminator. This is
-// collateral damage from tools/fixoneof knownUnpatchable[BaseAttributeContentDtoV2];
-// fixing the V2 content oneOf's spec discriminator would also unblock this case.
-func TestOneOfBaseAttributeDtoV2InfoBrokenByDesign(t *testing.T) {
-	const infoV2 = `{"type":"info","uuid":"u","name":"n","version":1,"content":[{"data":"x"}],"contentType":"string","properties":` + infoMetaProps + `}`
+// TestOneOfBaseAttributeDtoV2InfoContent pins the transitive breakage of a V2
+// info attribute carrying a NON-empty content array. BaseAttributeDtoV2's
+// discriminator decode for "info" correctly selects InfoAttributeV2, but
+// InfoAttributeV2's `content` is []BaseAttributeContentDtoV2 — the un-decodable
+// match-counting oneOf (see TestOneOfBaseAttributeContentDtoV2). So a realistic
+// info V2 payload fails deep inside the nested content oneOf with the "matches
+// more than one schema" error, regardless of the (correct) outer type
+// discriminator. This is collateral damage from tools/fixoneof
+// knownUnpatchable[BaseAttributeContentDtoV2]. (The empty-content info variant
+// round-trips and is covered as a happy path above.)
+func TestOneOfBaseAttributeDtoV2InfoContent(t *testing.T) {
+	const infoV2 = `{"type":"info","uuid":"u","name":"n","version":2,"content":[{"data":"x"}],"contentType":"string","properties":` + infoMetaProps + `}`
 	var w BaseAttributeDtoV2
 	err := json.Unmarshal([]byte(infoV2), &w)
 	if err == nil {
@@ -217,12 +389,10 @@ func TestOneOfBaseAttributeDtoV2InfoBrokenByDesign(t *testing.T) {
 	if !strings.Contains(err.Error(), "matches more than one schema") {
 		t.Fatalf("BaseAttributeDtoV2 info: expected nested ambiguous-match error, got %q", err.Error())
 	}
-	t.Skip("InfoAttributeV2 requires a content array of BaseAttributeContentDtoV2, " +
-		"the un-decodable match-counting oneOf (see TestOneOfBaseAttributeContentDtoV2). " +
-		"Fix the V2 content oneOf's spec discriminator to unblock.")
 }
 
-// ResponseAttribute — discriminator "version" (v2/v3).
+// ResponseAttribute — discriminator STRING "version" (v2/v3) with NO default: a
+// missing version errors just like an unknown one.
 func TestOneOfResponseAttribute(t *testing.T) {
 	runCases(t, "ResponseAttribute", []oneOfCase{
 		{
@@ -240,11 +410,15 @@ func TestOneOfResponseAttribute(t *testing.T) {
 			discSubstr: []string{`"version":"v3"`},
 		},
 	})
+	// No defaultImpl: a missing version falls through to the unknown branch.
+	assertUnknown(t, "ResponseAttribute", &ResponseAttribute{},
+		`{"uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
 	assertUnknown(t, "ResponseAttribute", &ResponseAttribute{},
 		`{"version":"v9","uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
 }
 
-// BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp).
+// BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp);
+// missing type defaults to RegexpAttributeConstraint.
 func TestOneOfBaseAttributeConstraint(t *testing.T) {
 	runCases(t, "BaseAttributeConstraint", []oneOfCase{
 		{
@@ -269,6 +443,10 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 			discSubstr: []string{`"type":"regExp"`},
 		},
 	})
+	// A missing type defaults to RegexpAttributeConstraint; its leaf then requires
+	// `type`, so a bare default payload cannot round-trip.
+	assertDefaultRoutes(t, "BaseAttributeConstraint", "RegexpAttributeConstraint",
+		&BaseAttributeConstraint{}, `{}`)
 	assertUnknown(t, "BaseAttributeConstraint", &BaseAttributeConstraint{}, `{"type":"bogus"}`)
 }
 

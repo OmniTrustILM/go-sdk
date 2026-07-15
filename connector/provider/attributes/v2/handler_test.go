@@ -27,7 +27,7 @@ const (
 
 // dataAttr builds a static DATA attribute definition (no callback).
 func dataAttr(uuid, name string) mdl.BaseAttributeDto {
-	d := mdl.NewDataAttributeV3(uuid, name, 1, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
+	d := mdl.NewDataAttributeV3(uuid, name, 3, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
 		*mdl.NewDataAttributeProperties(name, true, false, false, false, false, false), mdl.ATTRIBUTEVERSION_V3)
 	w := mdl.DataAttributeV3AsBaseAttributeDtoV3(d)
 	return mdl.BaseAttributeDtoV3AsBaseAttributeDto(&w)
@@ -37,7 +37,7 @@ func dataAttr(uuid, name string) mdl.BaseAttributeDto {
 // deps. deps is stored as a non-nil slice, which is what marks the callback as
 // an Attributes v2 (NG) callback.
 func callbackAttr(uuid, name string, deps []string) mdl.BaseAttributeDto {
-	d := mdl.NewDataAttributeV3(uuid, name, 1, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
+	d := mdl.NewDataAttributeV3(uuid, name, 3, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
 		*mdl.NewDataAttributeProperties(name, true, false, false, false, false, false), mdl.ATTRIBUTEVERSION_V3)
 	cb := mdl.NewAttributeCallback([]mdl.AttributeCallbackMapping{})
 	cb.DependsOn = append([]string{}, deps...) // non-nil => NG callback
@@ -64,7 +64,7 @@ func bothOuterArms(uuid, name string) mdl.BaseAttributeDto {
 // twoNestedKinds builds a malformed definition whose V3 arm populates two
 // attribute-kind arms (data + info).
 func twoNestedKinds(uuid, name string) mdl.BaseAttributeDto {
-	dv3 := mdl.NewDataAttributeV3(uuid, name, 1, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
+	dv3 := mdl.NewDataAttributeV3(uuid, name, 3, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
 		*mdl.NewDataAttributeProperties(name, true, false, false, false, false, false), mdl.ATTRIBUTEVERSION_V3)
 	w := mdl.BaseAttributeDtoV3{DataAttributeV3: dv3, InfoAttributeV3: &mdl.InfoAttributeV3{}}
 	return mdl.BaseAttributeDtoV3AsBaseAttributeDto(&w)

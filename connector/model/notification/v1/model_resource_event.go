@@ -3,7 +3,7 @@ Notification Provider API
 
 REST API for implementations of custom Notification Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -26,6 +26,8 @@ const (
 	RESOURCEEVENT_CERTIFICATE_DISCOVERED ResourceEvent = "certificate_discovered"
 	RESOURCEEVENT_CERTIFICATE_EXPIRING ResourceEvent = "certificate_expiring"
 	RESOURCEEVENT_CERTIFICATE_NOT_COMPLIANT ResourceEvent = "certificate_not_compliant"
+	RESOURCEEVENT_CERTIFICATE_UPLOADED ResourceEvent = "certificate_uploaded"
+	RESOURCEEVENT_CERTIFICATE_REGISTERED ResourceEvent = "certificate_registered"
 	RESOURCEEVENT_DISCOVERY_FINISHED ResourceEvent = "discovery_finished"
 	RESOURCEEVENT_APPROVAL_REQUESTED ResourceEvent = "approval_requested"
 	RESOURCEEVENT_APPROVAL_CLOSED ResourceEvent = "approval_closed"
@@ -39,6 +41,8 @@ var AllowedResourceEventEnumValues = []ResourceEvent{
 	"certificate_discovered",
 	"certificate_expiring",
 	"certificate_not_compliant",
+	"certificate_uploaded",
+	"certificate_registered",
 	"discovery_finished",
 	"approval_requested",
 	"approval_closed",

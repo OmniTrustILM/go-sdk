@@ -3,7 +3,7 @@ Compliance Provider v2 API
 
 REST API for implementations of custom v2 Compliance Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 

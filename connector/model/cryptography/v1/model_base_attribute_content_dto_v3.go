@@ -3,7 +3,7 @@ Cryptography Provider API
 
 REST API for implementations of custom Cryptography Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -128,6 +128,7 @@ func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("BaseAttributeContentDtoV3: probe contentType: %w", err)
 	}
+	disc := probe.Disc
 	dst.BooleanAttributeContentV3 = nil
 	dst.CodeBlockAttributeContentV3 = nil
 	dst.DateAttributeContentV3 = nil
@@ -140,7 +141,7 @@ func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
 	dst.StringAttributeContentV3 = nil
 	dst.TextAttributeContentV3 = nil
 	dst.TimeAttributeContentV3 = nil
-	switch probe.Disc {
+	switch disc {
 	case "boolean":
 		var v BooleanAttributeContentV3
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -226,11 +227,9 @@ func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
 		dst.TimeAttributeContentV3 = &v
 		return nil
 	default:
-		return fmt.Errorf("BaseAttributeContentDtoV3: unknown contentType %q", probe.Disc)
+		return fmt.Errorf("BaseAttributeContentDtoV3: unknown contentType %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

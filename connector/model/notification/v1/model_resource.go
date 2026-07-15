@@ -3,7 +3,7 @@ Notification Provider API
 
 REST API for implementations of custom Notification Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -30,6 +30,7 @@ const (
 	RESOURCE_CONNECTORS Resource = "connectors"
 	RESOURCE_ATTRIBUTES Resource = "attributes"
 	RESOURCE_JOBS Resource = "jobs"
+	RESOURCE_PROXIES Resource = "proxies"
 	RESOURCE_USERS Resource = "users"
 	RESOURCE_ROLES Resource = "roles"
 	RESOURCE_ACME_ACCOUNTS Resource = "acmeAccounts"
@@ -75,9 +76,15 @@ const (
 	RESOURCE_CMP_TRANSACTIONS Resource = "cmpTransactions"
 	RESOURCE_END_ENTITY_PROFILES Resource = "endEntityProfiles"
 	RESOURCE_AUTHENTICATION_PROVIDERS Resource = "authenticationProviders"
+	RESOURCE_TRUSTED_CERTIFICATES Resource = "trustedCertificates"
 	RESOURCE_VAULTS Resource = "vaults"
 	RESOURCE_VAULT_PROFILES Resource = "vaultProfiles"
 	RESOURCE_SECRETS Resource = "secrets"
+	RESOURCE_SIGNING_PROFILES Resource = "signingProfiles"
+	RESOURCE_SIGNING_RECORDS Resource = "signingRecords"
+	RESOURCE_TIME_QUALITY_CONFIGURATIONS Resource = "timeQualityConfigurations"
+	RESOURCE_TSP_PROFILES Resource = "tspProfiles"
+	RESOURCE_TSP_PROFILE_BASIC_CREDENTIALS Resource = "tspProfileBasicCredentials"
 )
 
 // All allowed values of Resource enum
@@ -91,6 +98,7 @@ var AllowedResourceEnumValues = []Resource{
 	"connectors",
 	"attributes",
 	"jobs",
+	"proxies",
 	"users",
 	"roles",
 	"acmeAccounts",
@@ -136,9 +144,15 @@ var AllowedResourceEnumValues = []Resource{
 	"cmpTransactions",
 	"endEntityProfiles",
 	"authenticationProviders",
+	"trustedCertificates",
 	"vaults",
 	"vaultProfiles",
 	"secrets",
+	"signingProfiles",
+	"signingRecords",
+	"timeQualityConfigurations",
+	"tspProfiles",
+	"tspProfileBasicCredentials",
 }
 
 func (v *Resource) UnmarshalJSON(src []byte) error {

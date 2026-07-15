@@ -3,7 +3,7 @@ Notification Provider API
 
 REST API for implementations of custom Notification Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -14,7 +14,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // DataAttribute - Data Attribute
@@ -38,56 +37,43 @@ func DataAttributeV3AsDataAttribute(v *DataAttributeV3) DataAttribute {
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes DataAttribute by switching on the JSON "version" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *DataAttribute) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into DataAttributeV2
-	err = newStrictDecoder(data).Decode(&dst.DataAttributeV2)
-	if err == nil {
-		jsonDataAttributeV2, _ := json.Marshal(dst.DataAttributeV2)
-		if string(jsonDataAttributeV2) == "{}" { // empty struct
-			dst.DataAttributeV2 = nil
-		} else {
-			if err = validator.Validate(dst.DataAttributeV2); err != nil {
-				dst.DataAttributeV2 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.DataAttributeV2 = nil
+	var probe struct {
+		Disc json.Number `json:"version"`
 	}
-
-	// try to unmarshal data into DataAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.DataAttributeV3)
-	if err == nil {
-		jsonDataAttributeV3, _ := json.Marshal(dst.DataAttributeV3)
-		if string(jsonDataAttributeV3) == "{}" { // empty struct
-			dst.DataAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.DataAttributeV3); err != nil {
-				dst.DataAttributeV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.DataAttributeV3 = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("DataAttribute: probe version: %w", err)
 	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.DataAttributeV2 = nil
-		dst.DataAttributeV3 = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(DataAttribute)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(DataAttribute)")
+	disc := string(probe.Disc)
+	if disc == "" {
+		disc = "2" // absent version defaults to this per the Java wire contract
+	}
+	dst.DataAttributeV2 = nil
+	dst.DataAttributeV3 = nil
+	switch disc {
+	case "2":
+		var v DataAttributeV2
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("DataAttribute: decode DataAttributeV2: %w", err)
+		}
+		dst.DataAttributeV2 = &v
+		return nil
+	case "3":
+		var v DataAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("DataAttribute: decode DataAttributeV3: %w", err)
+		}
+		dst.DataAttributeV3 = &v
+		return nil
+	default:
+		return fmt.Errorf("DataAttribute: unknown version %q", disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src DataAttribute) MarshalJSON() ([]byte, error) {

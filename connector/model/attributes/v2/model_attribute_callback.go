@@ -1,7 +1,7 @@
 /*
 Connector Attributes v2 API
 
-The connector-global Attributes v2 API (the common NG connector-interface generation, alongside Info/Health/Metrics in connector.common.v2): a definition registry plus a dynamic-attribute callback surface. NOTE on version axes: the \"v2\" here is the common-interface/NG generation version, NOT attribute schema v2 — payloads carry the independent attribute-schema axis (v2/v3), and the callback response `content` arm is attribute schema v3 by design. Extracted from the authority-v3 spec (the common.v2 attributes subset) for cross-language parity with OmniTrustILM/interfaces#738; the schema set is the transitive closure of the three envelope DTOs.
+The connector-global Attributes v2 API (common NG connector-interface generation) — definition registry + dynamic-attribute callback surface. The \"v2\" is the common-interface/NG generation version, NOT attribute schema v2; payloads carry the independent attribute-schema axis (v2/v3), and the callback response content arm is attribute schema v3. Extracted (transitive closure of the three envelope DTOs) from authority-v3.json for cross-language parity with OmniTrustILM/interfaces.
 
 API version: 2.0.0
 */
@@ -26,7 +26,7 @@ type AttributeCallback struct {
 	CallbackMethod *string `json:"callbackMethod,omitempty"`
 	// Mappings for the callback method
 	Mappings []AttributeCallbackMapping `json:"mappings"`
-	// Names of the attributes this Attributes v2 callback consumes and is triggered by. Marks an NG (Attributes v2) callback; at most one of dependsOn / callbackContext may be set (neither = no callback). Forbidden on RESOURCE attributes. Enforced by Core.
+	// Names of the attributes, within this same form, whose values this Attributes v2 callback consumes and is triggered by. Providing this field — even as an empty list — marks the callback as an Attributes v2 callback; an empty list means the callback fires once when the form opens (it depends on no other field). At most one of dependsOn or callbackContext may be set; a callback with neither field set defines no callback. Not allowed on RESOURCE attributes. These rules are enforced by the platform.
 	DependsOn []string `json:"dependsOn,omitempty"`
 	AdditionalProperties map[string]interface{}
 }

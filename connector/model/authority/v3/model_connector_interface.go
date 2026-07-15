@@ -24,6 +24,7 @@ const (
 	CONNECTORINTERFACE_INFO ConnectorInterface = "info"
 	CONNECTORINTERFACE_HEALTH ConnectorInterface = "health"
 	CONNECTORINTERFACE_METRICS ConnectorInterface = "metrics"
+	CONNECTORINTERFACE_ATTRIBUTES ConnectorInterface = "attributes"
 	CONNECTORINTERFACE_AUTHORITY ConnectorInterface = "authority"
 	CONNECTORINTERFACE_DISCOVERY ConnectorInterface = "discovery"
 	CONNECTORINTERFACE_ENTITY ConnectorInterface = "entity"
@@ -40,6 +41,7 @@ var AllowedConnectorInterfaceEnumValues = []ConnectorInterface{
 	"info",
 	"health",
 	"metrics",
+	"attributes",
 	"authority",
 	"discovery",
 	"entity",
