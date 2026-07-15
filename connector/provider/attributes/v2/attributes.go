@@ -54,6 +54,53 @@ func inspect(def mdl.BaseAttributeDto) attrInfo {
 	}
 }
 
+// armCounts reports how many arms of a polymorphic BaseAttributeDto are
+// populated at the outer (schema-version) level and, for a single populated
+// outer arm, at the nested (attribute-kind) level. A well-formed definition
+// has exactly one at each level. buildRegistry rejects anything else, because
+// inspect and the generated MarshalJSON select arms in different orders
+// (inspect probes V3 first; MarshalJSON emits V2 first) — a multi-arm
+// definition would be indexed by one arm but served as another.
+func armCounts(def mdl.BaseAttributeDto) (outer, nested int) {
+	if def.BaseAttributeDtoV3 != nil {
+		outer++
+		nested = nestedArmsV3(def.BaseAttributeDtoV3)
+	}
+	if def.BaseAttributeDtoV2 != nil {
+		outer++
+		if def.BaseAttributeDtoV3 == nil {
+			nested = nestedArmsV2(def.BaseAttributeDtoV2)
+		}
+	}
+	return outer, nested
+}
+
+func nestedArmsV3(w *mdl.BaseAttributeDtoV3) int {
+	n := 0
+	for _, set := range []bool{
+		w.CustomAttributeV3 != nil, w.DataAttributeV3 != nil, w.GroupAttributeV3 != nil,
+		w.InfoAttributeV3 != nil, w.MetadataAttributeV3 != nil,
+	} {
+		if set {
+			n++
+		}
+	}
+	return n
+}
+
+func nestedArmsV2(w *mdl.BaseAttributeDtoV2) int {
+	n := 0
+	for _, set := range []bool{
+		w.CustomAttributeV2 != nil, w.DataAttributeV2 != nil, w.GroupAttributeV2 != nil,
+		w.InfoAttributeV2 != nil, w.MetadataAttributeV2 != nil,
+	} {
+		if set {
+			n++
+		}
+	}
+	return n
+}
+
 // DefinitionUUID returns the connector-global UUID of a polymorphic attribute
 // definition across every attribute kind and schema version, or "" when the
 // definition carries no concrete variant.

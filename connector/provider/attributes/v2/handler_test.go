@@ -14,6 +14,15 @@ import (
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
 
+// Registry keys must be valid UUIDs (enforced at startup), so tests use these.
+const (
+	uRegion = "f0000000-0000-4000-8000-000000000001"
+	uCity   = "f0000000-0000-4000-8000-000000000002"
+	uDup    = "f0000000-0000-4000-8000-000000000003"
+	uX      = "f0000000-0000-4000-8000-000000000004"
+	uY      = "f0000000-0000-4000-8000-000000000005"
+)
+
 // --- definition builders ---------------------------------------------------
 
 // dataAttr builds a static DATA attribute definition (no callback).
@@ -44,6 +53,23 @@ func okCallback(context.Context, *mdl.AttributeCallbackRequestDto) (*mdl.Attribu
 	return attributes.ContentResponse([]mdl.BaseAttributeContentDtoV3{opt}, nil), nil
 }
 
+// bothOuterArms builds a malformed definition with both schema-version arms
+// populated (V3 data + an empty V2 wrapper).
+func bothOuterArms(uuid, name string) mdl.BaseAttributeDto {
+	d := dataAttr(uuid, name) // V3 populated
+	d.BaseAttributeDtoV2 = &mdl.BaseAttributeDtoV2{}
+	return d
+}
+
+// twoNestedKinds builds a malformed definition whose V3 arm populates two
+// attribute-kind arms (data + info).
+func twoNestedKinds(uuid, name string) mdl.BaseAttributeDto {
+	dv3 := mdl.NewDataAttributeV3(uuid, name, 1, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
+		*mdl.NewDataAttributeProperties(name, true, false, false, false, false, false), mdl.ATTRIBUTEVERSION_V3)
+	w := mdl.BaseAttributeDtoV3{DataAttributeV3: dv3, InfoAttributeV3: &mdl.InfoAttributeV3{}}
+	return mdl.BaseAttributeDtoV3AsBaseAttributeDto(&w)
+}
+
 // --- registry self-validation ----------------------------------------------
 
 func TestValidate(t *testing.T) {
@@ -57,37 +83,47 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid: static + callback depending on a known attribute",
 			defs: []attributes.Definition{
-				{Attribute: dataAttr("u-region", "region")},
-				{Attribute: callbackAttr("u-city", "city", []string{"region"}), Callback: cb},
+				{Attribute: dataAttr(uRegion, "region")},
+				{Attribute: callbackAttr(uCity, "city", []string{"region"}), Callback: cb},
 			},
 		},
 		{
 			name: "duplicate uuid",
 			defs: []attributes.Definition{
-				{Attribute: dataAttr("dup", "a")},
-				{Attribute: dataAttr("dup", "b")},
+				{Attribute: dataAttr(uDup, "a")},
+				{Attribute: dataAttr(uDup, "b")},
 			},
 			wantErr: "duplicate definition uuid",
 		},
 		{
+			name:    "multiple outer schema-version arms",
+			defs:    []attributes.Definition{{Attribute: bothOuterArms(uX, "x")}},
+			wantErr: "exactly one schema-version arm",
+		},
+		{
+			name:    "multiple nested attribute-kind arms",
+			defs:    []attributes.Definition{{Attribute: twoNestedKinds(uY, "y")}},
+			wantErr: "exactly one",
+		},
+		{
 			name: "dependsOn callback without a Callback func",
 			defs: []attributes.Definition{
-				{Attribute: dataAttr("u-region", "region")},
-				{Attribute: callbackAttr("u-city", "city", []string{"region"})}, // no Callback
+				{Attribute: dataAttr(uRegion, "region")},
+				{Attribute: callbackAttr(uCity, "city", []string{"region"})}, // no Callback
 			},
 			wantErr: "no Callback func is registered",
 		},
 		{
 			name: "Callback func without a dependsOn trigger",
 			defs: []attributes.Definition{
-				{Attribute: dataAttr("u-region", "region"), Callback: cb}, // static attr + callback
+				{Attribute: dataAttr(uRegion, "region"), Callback: cb}, // static attr + callback
 			},
 			wantErr: "declares no dependsOn trigger",
 		},
 		{
 			name: "dependsOn references an unknown attribute",
 			defs: []attributes.Definition{
-				{Attribute: callbackAttr("u-city", "city", []string{"nope"}), Callback: cb},
+				{Attribute: callbackAttr(uCity, "city", []string{"nope"}), Callback: cb},
 			},
 			wantErr: "not a known attribute",
 		},
@@ -108,13 +144,30 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestNewHandlerRejectsBlankConnectorVersion(t *testing.T) {
+	for _, v := range []string{"", "   "} {
+		if _, err := attributes.NewHandler(v, standardDefs()); err == nil {
+			t.Errorf("NewHandler(%q, ...) = nil error, want blank-version rejection", v)
+		}
+	}
+}
+
 func TestNewHandlerFailsFastOnInvalidRegistry(t *testing.T) {
 	_, err := attributes.NewHandler("1.0.0", []attributes.Definition{
-		{Attribute: dataAttr("dup", "a")},
-		{Attribute: dataAttr("dup", "b")},
+		{Attribute: dataAttr(uDup, "a")},
+		{Attribute: dataAttr(uDup, "b")},
 	})
 	if err == nil {
 		t.Fatal("NewHandler with a duplicate uuid = nil error, want fail-fast")
+	}
+}
+
+func TestNewHandlerRejectsNonUUIDKey(t *testing.T) {
+	_, err := attributes.NewHandler("1.0.0", []attributes.Definition{
+		{Attribute: dataAttr("not-a-uuid", "x")},
+	})
+	if err == nil {
+		t.Error("NewHandler with a non-UUID definition key = nil error, want rejection")
 	}
 }
 
@@ -140,8 +193,8 @@ func newServer(t *testing.T, defs []attributes.Definition) *httptest.Server {
 
 func standardDefs() []attributes.Definition {
 	return []attributes.Definition{
-		{Attribute: dataAttr("u-region", "region")},
-		{Attribute: callbackAttr("u-city", "city", []string{"region"}), Callback: attributes.CallbackFunc(okCallback)},
+		{Attribute: dataAttr(uRegion, "region")},
+		{Attribute: callbackAttr(uCity, "city", []string{"region"}), Callback: attributes.CallbackFunc(okCallback)},
 	}
 }
 
@@ -180,7 +233,7 @@ func TestListDefinitions(t *testing.T) {
 func TestListDefinitionsUUIDsFilter(t *testing.T) {
 	srv := newServer(t, standardDefs())
 
-	resp := get(t, srv, "/v2/attributes?uuids=u-city")
+	resp := get(t, srv, "/v2/attributes?uuids="+uCity)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
@@ -198,7 +251,7 @@ func TestGetDefinition(t *testing.T) {
 	srv := newServer(t, standardDefs())
 
 	// Known uuid -> 200.
-	known := get(t, srv, "/v2/attributes/u-region")
+	known := get(t, srv, "/v2/attributes/"+uRegion)
 	known.Body.Close()
 	if known.StatusCode != http.StatusOK {
 		t.Errorf("GET known definition = %d, want 200", known.StatusCode)
@@ -222,7 +275,7 @@ func TestCallbackDispatch(t *testing.T) {
 	ok := post(t, srv, "/v2/attributes/callback", mdl.AttributeCallbackRequestDto{
 		ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY,
 		InterfaceVersion:   "v3",
-		AttributeUuid:      "u-city",
+		AttributeUuid:      uCity,
 		AttributeName:      "city",
 		ContextAttributes:  []mdl.ScopedAttributes{},
 		CurrentAttributes:  []mdl.RequestAttribute{},
@@ -238,7 +291,7 @@ func TestCallbackDispatch(t *testing.T) {
 	// Unregistered attribute uuid -> 404.
 	missing := post(t, srv, "/v2/attributes/callback", mdl.AttributeCallbackRequestDto{
 		ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
-		AttributeUuid: "u-region", AttributeName: "region", // static attr: no callback registered
+		AttributeUuid: uRegion, AttributeName: "region", // static attr: no callback registered
 		ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
 	})
 	mb, _ := readClose(missing)
@@ -252,12 +305,12 @@ func TestCallbackNilResponseIs500(t *testing.T) {
 		return nil, nil
 	})
 	srv := newServer(t, []attributes.Definition{
-		{Attribute: dataAttr("u-region", "region")},
-		{Attribute: callbackAttr("u-city", "city", []string{"region"}), Callback: nilCb},
+		{Attribute: dataAttr(uRegion, "region")},
+		{Attribute: callbackAttr(uCity, "city", []string{"region"}), Callback: nilCb},
 	})
 	resp := post(t, srv, "/v2/attributes/callback", mdl.AttributeCallbackRequestDto{
 		ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
-		AttributeUuid: "u-city", AttributeName: "city",
+		AttributeUuid: uCity, AttributeName: "city",
 		ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
 	})
 	resp.Body.Close()
@@ -298,12 +351,12 @@ func TestCallbackBothArmsIs500(t *testing.T) {
 		}, nil
 	})
 	srv := newServer(t, []attributes.Definition{
-		{Attribute: dataAttr("u-region", "region")},
-		{Attribute: callbackAttr("u-city", "city", []string{"region"}), Callback: bothArms},
+		{Attribute: dataAttr(uRegion, "region")},
+		{Attribute: callbackAttr(uCity, "city", []string{"region"}), Callback: bothArms},
 	})
 	resp := post(t, srv, "/v2/attributes/callback", mdl.AttributeCallbackRequestDto{
 		ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
-		AttributeUuid: "u-city", AttributeName: "city",
+		AttributeUuid: uCity, AttributeName: "city",
 		ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
 	})
 	resp.Body.Close()
@@ -313,6 +366,38 @@ func TestCallbackBothArmsIs500(t *testing.T) {
 }
 
 // --- helpers ---------------------------------------------------------------
+
+func TestCallbackValidationRejects422(t *testing.T) {
+	srv := newServer(t, standardDefs())
+	badPage := int32(0)
+	cases := map[string]mdl.AttributeCallbackRequestDto{
+		"blank attributeName": {
+			ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
+			AttributeUuid: uCity, AttributeName: "",
+			ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
+		},
+		"blank attributeUuid": {
+			ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
+			AttributeUuid: "", AttributeName: "city",
+			ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
+		},
+		"pageNumber < 1": {
+			ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
+			AttributeUuid: uCity, AttributeName: "city",
+			ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
+			Pagination: &mdl.PaginationRequestDto{PageNumber: &badPage},
+		},
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			resp := post(t, srv, "/v2/attributes/callback", body)
+			b, _ := readClose(resp)
+			if resp.StatusCode != http.StatusUnprocessableEntity {
+				t.Errorf("%s = %d, want 422: %s", name, resp.StatusCode, b)
+			}
+		})
+	}
+}
 
 func post(t *testing.T, srv *httptest.Server, path string, body any) *http.Response {
 	t.Helper()

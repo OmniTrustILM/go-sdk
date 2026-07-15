@@ -1,7 +1,9 @@
 package attributes
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
@@ -21,6 +23,9 @@ type Handler struct {
 // NewHandler fails fast — returning an error — on any inconsistency, so a
 // misconfigured connector never starts serving.
 func NewHandler(connectorVersion string, defs []Definition, opts ...Option) (*Handler, error) {
+	if strings.TrimSpace(connectorVersion) == "" {
+		return nil, errors.New("attributes: connectorVersion must not be blank (the registry response requires a build version for staleness detection)")
+	}
 	reg, err := buildRegistry(connectorVersion, defs)
 	if err != nil {
 		return nil, err

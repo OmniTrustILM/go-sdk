@@ -3,6 +3,8 @@ package attributes
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/attributes/v2"
 )
 
@@ -21,8 +23,8 @@ type registry struct {
 // reports the first inconsistency found (nil when the registry is sound). The
 // rules mirror the interfaces contract:
 //
-//   - every definition resolves to a concrete attribute variant with a
-//     non-empty UUID;
+//   - every definition resolves to a concrete attribute variant (exactly one
+//     schema-version arm and one attribute-kind arm) with a valid UUID;
 //   - definition UUIDs are unique across all attribute types;
 //   - an attribute that declares an NG callback (its AttributeCallback carries a
 //     non-nil dependsOn) has a registered Callback func, and an attribute that
@@ -66,6 +68,14 @@ func buildRegistry(connectorVersion string, defs []Definition) (*registry, error
 		}
 		if info.uuid == "" {
 			return nil, fmt.Errorf("attributes: definition %q (index %d) has an empty uuid", info.name, i)
+		}
+		// Definition identifiers are connector-global UUIDs per the contract
+		// (the callback dispatch key and the GET /{uuid} path segment).
+		if err := uuid.Validate(info.uuid); err != nil {
+			return nil, fmt.Errorf("attributes: definition %q (index %d) uuid %q is not a valid UUID: %w", info.name, i, info.uuid, err)
+		}
+		if outer, nested := armCounts(d.Attribute); outer != 1 || nested != 1 {
+			return nil, fmt.Errorf("attributes: definition %q (index %d) must populate exactly one schema-version arm and one attribute-kind arm, found outer=%d nested=%d", info.name, i, outer, nested)
 		}
 		if _, dup := r.byUUID[info.uuid]; dup {
 			return nil, fmt.Errorf("attributes: duplicate definition uuid %q (attribute %q)", info.uuid, info.name)

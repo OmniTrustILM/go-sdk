@@ -33,7 +33,13 @@
 //		{Attribute: regionDef, Callback: a.region},   // dynamic dropdown
 //	})
 //	// ...
-//	c, _ := shared.New(shared.Register(authorityHandler), shared.Register(h))
+//	c, _ := shared.New(shared.Register(entityHandler), shared.Register(h))
+//
+// Register at most one handler that serves /v2/attributes. Use THIS package OR
+// a connector that mounts those routes inline (authority/v3 does), never both:
+// http.ServeMux rejects duplicate patterns, so shared.New would panic at mount
+// time. This is why the example composes with a functional interface that does
+// not itself expose /v2/attributes.
 //
 // NewHandler self-validates the registry (see Validate) and fails fast on any
 // inconsistency, so a misconfigured connector never starts.
