@@ -63,6 +63,13 @@ type Connector struct {
 // ConnectorInterfaceInfo entry to /v2/info.
 type Registrable interface {
 	Mount(Router)
+	// Interface reports the provider's entry for the /v2/info interfaces list.
+	// A non-empty Code is required to be advertised there; returning an
+	// InterfaceInfo with an empty Code is a deliberate opt-out sentinel — the
+	// routes are still mounted, but the provider is not listed as a distinct
+	// interface (used by connector-global surfaces like the Attributes v2
+	// handler, which are part of the common baseline rather than a functional
+	// provider interface). Functional providers must set Code.
 	Interface() InterfaceInfo
 }
 

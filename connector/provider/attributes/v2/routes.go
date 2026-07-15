@@ -26,15 +26,20 @@ func (h *Handler) listDefinitions(w http.ResponseWriter, r *http.Request) {
 		Definitions:      []mdl.BaseAttributeDto{},
 	}
 	if want := r.URL.Query()["uuids"]; len(want) > 0 {
-		set := make(map[string]struct{}, len(want))
+		// Resolve each requested uuid via the byUUID index (O(len(want))),
+		// rather than scanning every definition. Preserves request order and
+		// de-duplicates repeated uuids.
+		seen := make(map[string]struct{}, len(want))
 		for _, u := range want {
-			if u != "" {
-				set[u] = struct{}{}
+			if u == "" {
+				continue
 			}
-		}
-		for _, def := range h.reg.defs {
-			if _, ok := set[DefinitionUUID(def)]; ok {
-				out.Definitions = append(out.Definitions, def)
+			if _, dup := seen[u]; dup {
+				continue
+			}
+			seen[u] = struct{}{}
+			if idx, ok := h.reg.byUUID[u]; ok {
+				out.Definitions = append(out.Definitions, h.reg.defs[idx])
 			}
 		}
 	} else {

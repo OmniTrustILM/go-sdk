@@ -370,23 +370,30 @@ func TestCallbackBothArmsIs500(t *testing.T) {
 func TestCallbackValidationRejects422(t *testing.T) {
 	srv := newServer(t, standardDefs())
 	badPage := int32(0)
-	cases := map[string]mdl.AttributeCallbackRequestDto{
-		"blank attributeName": {
-			ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
-			AttributeUuid: uCity, AttributeName: "",
-			ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
-		},
-		"blank attributeUuid": {
-			ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
-			AttributeUuid: "", AttributeName: "city",
-			ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
-		},
-		"pageNumber < 1": {
+	zeroItems := int32(0)
+	overItems := int32(1001)
+	base := func() mdl.AttributeCallbackRequestDto {
+		return mdl.AttributeCallbackRequestDto{
 			ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
 			AttributeUuid: uCity, AttributeName: "city",
 			ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
-			Pagination: &mdl.PaginationRequestDto{PageNumber: &badPage},
-		},
+		}
+	}
+	withPage := func(p mdl.PaginationRequestDto) mdl.AttributeCallbackRequestDto {
+		r := base()
+		r.Pagination = &p
+		return r
+	}
+	blankName := base()
+	blankName.AttributeName = ""
+	blankUUID := base()
+	blankUUID.AttributeUuid = ""
+	cases := map[string]mdl.AttributeCallbackRequestDto{
+		"blank attributeName": blankName,
+		"blank attributeUuid": blankUUID,
+		"pageNumber < 1":      withPage(mdl.PaginationRequestDto{PageNumber: &badPage}),
+		"itemsPerPage = 0":    withPage(mdl.PaginationRequestDto{ItemsPerPage: &zeroItems}),
+		"itemsPerPage = 1001": withPage(mdl.PaginationRequestDto{ItemsPerPage: &overItems}),
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -396,6 +403,38 @@ func TestCallbackValidationRejects422(t *testing.T) {
 				t.Errorf("%s = %d, want 422: %s", name, resp.StatusCode, b)
 			}
 		})
+	}
+}
+
+func TestCallbackAttributesArm(t *testing.T) {
+	attrsCb := attributes.CallbackFunc(func(context.Context, *mdl.AttributeCallbackRequestDto) (*mdl.AttributeCallbackResponseDto, error) {
+		return attributes.AttributesResponse([]mdl.BaseAttributeDto{dataAttr(uRegion, "child")}), nil
+	})
+	srv := newServer(t, []attributes.Definition{
+		{Attribute: dataAttr(uRegion, "region")},
+		{Attribute: callbackAttr(uCity, "city", []string{"region"}), Callback: attrsCb},
+	})
+	resp := post(t, srv, "/v2/attributes/callback", mdl.AttributeCallbackRequestDto{
+		ConnectorInterface: mdl.CONNECTORINTERFACE_AUTHORITY, InterfaceVersion: "v3",
+		AttributeUuid: uCity, AttributeName: "city",
+		ContextAttributes: []mdl.ScopedAttributes{}, CurrentAttributes: []mdl.RequestAttribute{},
+	})
+	body, _ := readClose(resp)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("attributes-arm callback = %d, want 200: %s", resp.StatusCode, body)
+	}
+	var cr struct {
+		Content    []json.RawMessage `json:"content"`
+		Attributes []json.RawMessage `json:"attributes"`
+	}
+	if err := json.Unmarshal([]byte(body), &cr); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if cr.Content != nil {
+		t.Errorf("content arm must be absent when the attributes arm is set: %s", body)
+	}
+	if len(cr.Attributes) != 1 {
+		t.Errorf("attributes arm = %d entries, want 1: %s", len(cr.Attributes), body)
 	}
 }
 

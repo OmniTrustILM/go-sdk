@@ -26,6 +26,8 @@ type registry struct {
 //   - every definition resolves to a concrete attribute variant (exactly one
 //     schema-version arm and one attribute-kind arm) with a valid UUID;
 //   - definition UUIDs are unique across all attribute types;
+//   - no attribute callback sets both dependsOn and callbackContext (the two
+//     trigger modes are at most one);
 //   - an attribute that declares an NG callback (its AttributeCallback carries a
 //     non-nil dependsOn) has a registered Callback func, and an attribute that
 //     declares no such trigger has none — so every NG callback is dispatchable;
@@ -79,6 +81,10 @@ func buildRegistry(connectorVersion string, defs []Definition) (*registry, error
 		}
 		if _, dup := r.byUUID[info.uuid]; dup {
 			return nil, fmt.Errorf("attributes: duplicate definition uuid %q (attribute %q)", info.uuid, info.name)
+		}
+
+		if cb := info.callback; cb != nil && cb.DependsOn != nil && cb.CallbackContext != nil {
+			return nil, fmt.Errorf("attributes: attribute %q (uuid %s) sets both dependsOn and callbackContext; at most one may be set", info.name, info.uuid)
 		}
 
 		ng := declaresNGCallback(info.callback)
