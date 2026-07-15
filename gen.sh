@@ -24,6 +24,7 @@ SPECS=(
     "entity.json:connector/model/entity/v1:v1"
     "notification.json:connector/model/notification/v1:v1"
     "secret.json:connector/model/secret/v1:v1"
+    "attributes-v2.json:connector/model/attributes/v2:v2"
 )
 
 OAPI_GEN_CLI_VER="v7.22.0"

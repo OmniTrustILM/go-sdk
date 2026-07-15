@@ -135,7 +135,13 @@ func v2InfoHandler(cfg *config) http.HandlerFunc {
 		ifaces = append(ifaces, InterfaceInfo{Code: InterfaceCodeMetrics, Version: VersionV1})
 	}
 	for _, reg := range cfg.registrables {
-		ifaces = append(ifaces, reg.Interface())
+		// A registrable may opt out of the /v2/info interfaces list by reporting
+		// an empty Code — used by connector-global surfaces that are part of the
+		// common baseline (like the Attributes v2 handler) rather than a distinct
+		// functional provider interface.
+		if info := reg.Interface(); info.Code != "" {
+			ifaces = append(ifaces, info)
+		}
 	}
 
 	resp := V2InfoResponse{
