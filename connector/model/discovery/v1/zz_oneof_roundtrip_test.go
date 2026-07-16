@@ -441,8 +441,6 @@ func TestOneOfBaseAttributeDto(t *testing.T) {
 }
 
 // 5. MetadataAttribute — NUMERIC `version` (2 → V2, 3 → V3, absent → V2).
-// Previously the generator's match-counting decoder (which could not tell V2
-// from V3); now patched by fixoneof to a discriminator-aware decoder.
 func TestOneOfMetadataAttribute(t *testing.T) {
 	cases := []oneOfCase{
 		{

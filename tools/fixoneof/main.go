@@ -232,8 +232,7 @@ var wrappers = []wrapper{
 // add a `discriminator` stanza in the corresponding spec schema, regenerate,
 // and add a matching wrappers entry above.
 var knownUnpatchable = map[string]string{
-	// Verified against the Java interfaces repo (source of truth): these two
-	// oneOfs have NO per-object wire discriminator, so no in-object field lets
+	// These two oneOfs have NO per-object wire discriminator, so no in-object field lets
 	// a decoder pick a variant — Java itself cannot either. They are inherently
 	// parent-context-only and cannot round-trip a standalone element.
 	"BaseAttributeContentDtoV2": "V2 attribute content carries NO per-object discriminator on the Java wire: BaseAttributeContentV2.getContentType() is @JsonIgnore, every variant serializes as bare {reference,data}, and Java's AttributeContentDeserializer decodes them all into the single base type (never a specific variant). The V2/V3 choice comes from the parent attribute's sibling contentType, and V2-variant selection is parent-context/data-shape only. Not fixable without a spec/wire discriminator on the V2 content object itself.",

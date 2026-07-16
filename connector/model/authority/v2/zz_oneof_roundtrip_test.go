@@ -398,7 +398,7 @@ func TestOneOfBaseAttributeDtoV2InfoBrokenByDesign(t *testing.T) {
 
 // 4. BaseAttributeDto — outer V2/V3 selector, discriminator NUMERIC `version`.
 //
-// Verified against tools/fixoneof and the Java wire: the discriminator is the
+// The discriminator is the
 // numeric `version` written by BaseAttributeSerializer (2 -> V2, 3 -> V3), NOT
 // the `schemaVersion` string. A missing version defaults to V2. The marshalled
 // form carries `version` as a JSON NUMBER (no quotes), so the round-trip
@@ -685,10 +685,7 @@ func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 }
 
 // 11. MetadataAttribute — outer V2/V3 selector, discriminator NUMERIC
-// `version` (2 -> V2, 3 -> V3); missing version defaults to V2. Previously
-// this wrapper used the generator's match-counting decoder and V3 was
-// un-decodable; it is now patched by tools/fixoneof (numeric `version`), so
-// both variants round-trip cleanly.
+// `version` (2 -> V2, 3 -> V3); missing version defaults to V2.
 func TestOneOfMetadataAttribute(t *testing.T) {
 	cases := []oneOfCase{
 		{

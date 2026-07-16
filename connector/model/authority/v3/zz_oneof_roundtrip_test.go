@@ -679,9 +679,8 @@ func TestOneOfSecretContent(t *testing.T) {
 }
 
 // 10. MetadataAttribute — outer V2/V3 selector on a NUMERIC `version` (2->V2,
-// 3->V3); a missing version defaults to V2. Previously an un-decodable
-// match-counting oneOf, now patched by tools/fixoneof. V2 carries no
-// schemaVersion; V3 requires schemaVersion "v3".
+// 3->V3); a missing version defaults to V2. V2 carries no schemaVersion;
+// V3 requires schemaVersion "v3".
 func TestOneOfMetadataAttribute(t *testing.T) {
 	cases := []oneOfCase{
 		{

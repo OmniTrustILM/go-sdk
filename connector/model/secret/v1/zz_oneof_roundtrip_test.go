@@ -51,8 +51,8 @@
 // that an absent discriminator routes to the default variant.
 //
 // The one genuinely un-decodable oneOf in this package is
-// BaseAttributeContentDtoV2: verified against the Java interfaces repo, V2
-// attribute content carries NO per-object wire discriminator (every variant
+// BaseAttributeContentDtoV2: V2 attribute content carries NO per-object
+// wire discriminator (every variant
 // serializes as bare {reference,data} and Java's AttributeContentDeserializer
 // decodes them all into the single base type), so no in-object field lets a
 // decoder pick a variant. Its cases are documented and skipped. See
@@ -448,9 +448,7 @@ func TestOneOfBaseAttributeDto(t *testing.T) {
 }
 
 // 5. MetadataAttribute — V2/V3 selector on a NUMERIC `version`, same Java-wire
-// contract as BaseAttributeDto (2 -> V2, 3 -> V3, missing -> V2). Previously
-// un-decodable via the generator's match-counting oneOf; now patched by
-// fixoneof.
+// contract as BaseAttributeDto (2 -> V2, 3 -> V3, missing -> V2).
 func TestOneOfMetadataAttribute(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -741,7 +739,7 @@ func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 // "data matches more than one schema in oneOf(BaseAttributeContentDtoV2)".
 //
 // This is exactly tools/fixoneof's knownUnpatchable[BaseAttributeContentDtoV2]
-// rationale (verified against the Java interfaces repo: V2 content has no
+// rationale (V2 content has no
 // per-object wire discriminator — getContentType() is @JsonIgnore and Java's
 // AttributeContentDeserializer decodes every variant into the base type). No
 // variant of this wrapper can round-trip through the generated decoder, so all
@@ -772,7 +770,7 @@ func TestOneOfBaseAttributeContentDtoV2(t *testing.T) {
 				"match-counting oneOf: all variants share the {reference?, data} shape and " +
 				"ObjectAttributeContentV2 types data as interface{}, so every payload matches " +
 				"at least two variants. See tools/fixoneof knownUnpatchable[BaseAttributeContentDtoV2]. " +
-				"Verified against Java: V2 content has no per-object wire discriminator. The V3 " +
+				"V2 content has no per-object wire discriminator. The V3 " +
 				"equivalent is fully covered by TestOneOfBaseAttributeContentDtoV3.")
 		})
 	}
