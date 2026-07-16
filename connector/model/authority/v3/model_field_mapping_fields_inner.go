@@ -56,10 +56,11 @@ func (dst *FieldMappingFieldsInner) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("FieldMappingFieldsInner: probe fieldType: %w", err)
 	}
+	disc := probe.Disc
 	dst.ExtensionMappedField = nil
 	dst.RdnMappedField = nil
 	dst.SanMappedField = nil
-	switch probe.Disc {
+	switch disc {
 	case "extension":
 		var v ExtensionMappedField
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -82,10 +83,9 @@ func (dst *FieldMappingFieldsInner) UnmarshalJSON(data []byte) error {
 		dst.SanMappedField = &v
 		return nil
 	default:
-		return fmt.Errorf("FieldMappingFieldsInner: unknown fieldType %q", probe.Disc)
+		return fmt.Errorf("FieldMappingFieldsInner: unknown fieldType %q", disc)
 	}
 }
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

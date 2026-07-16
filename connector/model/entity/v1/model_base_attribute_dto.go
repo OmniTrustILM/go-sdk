@@ -3,7 +3,7 @@ Entity Provider API
 
 REST API for implementations of custom Entity Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -37,28 +37,32 @@ func BaseAttributeDtoV3AsBaseAttributeDto(v *BaseAttributeDtoV3) BaseAttributeDt
 }
 
 
-// UnmarshalJSON decodes BaseAttributeDto by switching on the JSON "schemaVersion" field.
+// UnmarshalJSON decodes BaseAttributeDto by switching on the JSON "version" field.
 // Patched by tools/fixoneof — the generator's match-counting decoder
 // fails on this oneOf because multiple variants share the same Go struct
 // shape and pass strict decode simultaneously.
 func (dst *BaseAttributeDto) UnmarshalJSON(data []byte) error {
 	var probe struct {
-		Disc string `json:"schemaVersion"`
+		Disc json.Number `json:"version"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
-		return fmt.Errorf("BaseAttributeDto: probe schemaVersion: %w", err)
+		return fmt.Errorf("BaseAttributeDto: probe version: %w", err)
+	}
+	disc := string(probe.Disc)
+	if disc == "" {
+		disc = "2" // absent version defaults to this per the Java wire contract
 	}
 	dst.BaseAttributeDtoV2 = nil
 	dst.BaseAttributeDtoV3 = nil
-	switch probe.Disc {
-	case "v2":
+	switch disc {
+	case "2":
 		var v BaseAttributeDtoV2
 		if err := json.Unmarshal(data, &v); err != nil {
 			return fmt.Errorf("BaseAttributeDto: decode BaseAttributeDtoV2: %w", err)
 		}
 		dst.BaseAttributeDtoV2 = &v
 		return nil
-	case "v3":
+	case "3":
 		var v BaseAttributeDtoV3
 		if err := json.Unmarshal(data, &v); err != nil {
 			return fmt.Errorf("BaseAttributeDto: decode BaseAttributeDtoV3: %w", err)
@@ -66,11 +70,9 @@ func (dst *BaseAttributeDto) UnmarshalJSON(data []byte) error {
 		dst.BaseAttributeDtoV3 = &v
 		return nil
 	default:
-		return fmt.Errorf("BaseAttributeDto: unknown schemaVersion %q", probe.Disc)
+		return fmt.Errorf("BaseAttributeDto: unknown version %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

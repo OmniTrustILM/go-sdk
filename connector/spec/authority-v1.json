@@ -10,9 +10,9 @@
     },
     "license": {
       "name": "MIT License",
-      "url": "https://github.com/CZERTAINLY/CZERTAINLY/blob/develop/LICENSE.md"
+      "url": "https://github.com/OmniTrustILM/ilm/blob/main/LICENSE.md"
     },
-    "version": "2.17.0",
+    "version": "2.18.1-SNAPSHOT",
     "x-logo": {
       "url": "images/ilm-logo.svg"
     }
@@ -23,8 +23,8 @@
   },
   "servers": [
     {
-      "url": "https://demo.czertainly.online",
-      "description": "CZERTAINLY Demo server"
+      "url": "https://demo.otilm.com",
+      "description": "ILM Demo server"
     }
   ],
   "tags": [
@@ -137,13 +137,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -251,13 +251,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -325,13 +325,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -404,13 +404,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -486,13 +486,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -576,13 +576,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -652,13 +652,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -740,13 +740,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -834,13 +834,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -926,13 +926,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1026,13 +1026,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1127,13 +1127,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1218,13 +1218,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1312,13 +1312,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1413,13 +1413,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1506,13 +1506,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1599,13 +1599,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1674,13 +1674,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1768,13 +1768,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1839,13 +1839,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1924,13 +1924,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -2009,13 +2009,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -2104,13 +2104,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -2199,13 +2199,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -2274,13 +2274,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -2384,6 +2384,13 @@
               "$ref": "#/components/schemas/AttributeCallbackMapping"
             },
             "uniqueItems": true
+          },
+          "dependsOn": {
+            "type": "array",
+            "description": "Names of the attributes, within this same form, whose values this Attributes v2 callback consumes and is triggered by. Providing this field — even as an empty list — marks the callback as an Attributes v2 callback; an empty list means the callback fires once when the form opens (it depends on no other field). At most one of dependsOn or callbackContext may be set; a callback with neither field set defines no callback. Not allowed on RESOURCE attributes. These rules are enforced by the platform.",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -4537,6 +4544,14 @@
           "schemaVersion": {
             "$ref": "#/components/schemas/AttributeVersion",
             "description": "Schema version of the Attribute"
+          },
+          "fieldMapping": {
+            "$ref": "#/components/schemas/FieldMapping",
+            "description": "Declares which certificate (or other object) fields this attribute's value projects into; presence marks this attribute as a certificate request attribute"
+          },
+          "valueSource": {
+            "$ref": "#/components/schemas/ValueSource",
+            "description": "Declares how Core resolves the content of this attribute; orthogonal to fieldMapping"
           }
         },
         "required": [
@@ -4547,6 +4562,103 @@
           "type",
           "uuid",
           "version"
+        ]
+      },
+      "ExtensionMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extensionOid": {
+                "type": "string",
+                "description": "OID of the X.509 extension (dotted-decimal)",
+                "minLength": 1
+              },
+              "criticalOverridable": {
+                "type": "boolean",
+                "description": "Whether the requester may override the default criticality of the extension"
+              }
+            }
+          }
+        ],
+        "description": "Maps an attribute value to an X.509 extension",
+        "required": [
+          "extensionOid",
+          "fieldType"
+        ]
+      },
+      "ExtensionValueEncoding": {
+        "type": "string",
+        "enum": [
+          "UTF8String",
+          "IA5String",
+          "PrintableString",
+          "OctetString",
+          "BitString",
+          "DER"
+        ]
+      },
+      "FieldMapping": {
+        "type": "object",
+        "description": "Declares which certificate (or other object) fields an attribute value projects into",
+        "properties": {
+          "objectType": {
+            "$ref": "#/components/schemas/ObjectType",
+            "description": "Object type this mapping applies to"
+          },
+          "fields": {
+            "type": "array",
+            "description": "One or more target fields (supports 1-to-many, e.g. CN + dNSName from a single attribute)",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExtensionMappedField"
+                },
+                {
+                  "$ref": "#/components/schemas/RdnMappedField"
+                },
+                {
+                  "$ref": "#/components/schemas/SanMappedField"
+                }
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "fields",
+          "objectType"
+        ]
+      },
+      "FieldSource": {
+        "type": "string",
+        "enum": [
+          "csr",
+          "platform",
+          "csrThenPlatform"
+        ]
+      },
+      "FieldType": {
+        "type": "string",
+        "enum": [
+          "rdn",
+          "san",
+          "extension"
+        ]
+      },
+      "GeneralNameType": {
+        "type": "string",
+        "enum": [
+          "dns",
+          "email",
+          "ip",
+          "uri",
+          "otherName",
+          "directoryName",
+          "registeredId"
         ]
       },
       "GroupAttributeV2": {
@@ -4791,6 +4903,32 @@
           "uuid"
         ]
       },
+      "MappedField": {
+        "type": "object",
+        "description": "Describes a single target field within an object; concrete type is determined by fieldType",
+        "discriminator": {
+          "propertyName": "fieldType"
+        },
+        "properties": {
+          "fieldType": {
+            "$ref": "#/components/schemas/FieldType",
+            "description": "Field type, determines the concrete subtype"
+          },
+          "order": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordering index for fields of the same type (e.g. RDN components); ascending",
+            "minimum": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/FieldSource",
+            "description": "Provenance of the value when reconciling CSR vs platform-projected values"
+          }
+        },
+        "required": [
+          "fieldType"
+        ]
+      },
       "MetadataAttributeProperties": {
         "type": "object",
         "properties": {
@@ -4947,6 +5085,108 @@
           "version"
         ]
       },
+      "ObjectType": {
+        "type": "string",
+        "enum": [
+          "x509Certificate",
+          "sshCertificate",
+          "key",
+          "secret"
+        ]
+      },
+      "RdnMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "rdn": {
+                "type": "string",
+                "description": "RDN code (e.g. \"CN\") or dotted-decimal OID; resolved via the OID registry",
+                "minLength": 1
+              }
+            }
+          }
+        ],
+        "description": "Maps an attribute value to an X.509 RDN component",
+        "required": [
+          "fieldType",
+          "rdn"
+        ]
+      },
+      "SanMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generalNameType": {
+                "$ref": "#/components/schemas/GeneralNameType",
+                "description": "SAN type"
+              },
+              "otherNameOid": {
+                "type": "string",
+                "description": "OID of the otherName type; required when generalNameType is OTHER_NAME"
+              },
+              "otherNameValueEncoding": {
+                "$ref": "#/components/schemas/ExtensionValueEncoding",
+                "description": "ASN.1 encoding for the otherName value; required when generalNameType is OTHER_NAME because different OtherName OIDs carry differently-typed values (e.g. UPN → UTF8String)"
+              }
+            }
+          }
+        ],
+        "description": "Maps an attribute value to a Subject Alternative Name entry",
+        "required": [
+          "fieldType",
+          "generalNameType"
+        ]
+      },
+      "SourceParam": {
+        "type": "object",
+        "description": "Dependency filter that scopes a value source by another attribute's value",
+        "properties": {
+          "attributeUuid": {
+            "type": "string",
+            "description": "UUID of the attribute whose value is used as a filter parameter"
+          },
+          "attributeName": {
+            "type": "string",
+            "description": "Name of the attribute; used as fallback when attributeUuid is not matched"
+          }
+        }
+      },
+      "ValueSource": {
+        "type": "object",
+        "description": "Declares how Core resolves the content of an attribute; orthogonal to fieldMapping",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ValueSourceType",
+            "description": "How the attribute value is resolved"
+          },
+          "params": {
+            "type": "array",
+            "description": "Optional dependency filters that scope the source by other attributes' values",
+            "items": {
+              "$ref": "#/components/schemas/SourceParam"
+            }
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "ValueSourceType": {
+        "type": "string",
+        "enum": [
+          "none",
+          "connectorCallback",
+          "staticList"
+        ]
+      },
       "AddEndEntityRequestDto": {
         "type": "object",
         "properties": {
@@ -4989,6 +5229,14 @@
           "username"
         ]
       },
+      "AttributeSetMergeMode": {
+        "type": "string",
+        "enum": [
+          "staticOnly",
+          "connectorOnly",
+          "merge"
+        ]
+      },
       "EndEntityExtendedInfoDto": {
         "type": "object",
         "properties": {
@@ -4999,6 +5247,37 @@
             "type": "string"
           }
         }
+      },
+      "RaProfileCertificateRequestAttributesDto": {
+        "type": "object",
+        "description": "RA Profile static request-attribute definitions and the merge mode.",
+        "properties": {
+          "requestAttributes": {
+            "type": "array",
+            "description": "Ordered list of platform-owned request-attribute definitions for this RA Profile",
+            "items": {
+              "$ref": "#/components/schemas/BaseAttributeDto"
+            }
+          },
+          "mergeMode": {
+            "$ref": "#/components/schemas/AttributeSetMergeMode",
+            "description": "How the static set combines with a connector-supplied set; always the effective mode"
+          },
+          "valueSourceBindings": {
+            "type": "array",
+            "description": "Core-side value-source bindings attached onto connector-supplied (or static) definitions by reference",
+            "items": {
+              "$ref": "#/components/schemas/ValueSourceBindingDto"
+            }
+          },
+          "externalCsrValidationStrict": {
+            "type": "boolean",
+            "description": "Whether an external CSR violating the resolved set is rejected (true) or accepted with warnings (false); null inherits the platform default"
+          }
+        },
+        "required": [
+          "mergeMode"
+        ]
       },
       "RaProfileCertificateValidationSettingsDto": {
         "type": "object",
@@ -5082,12 +5361,48 @@
           "certificateValidationSettings": {
             "$ref": "#/components/schemas/RaProfileCertificateValidationSettingsDto",
             "description": "Settings for validation of certificates associated with the RA Profile"
+          },
+          "certificateRequestAttributes": {
+            "$ref": "#/components/schemas/RaProfileCertificateRequestAttributesDto",
+            "description": "Static certificate-request-attribute set configured for the RA Profile"
           }
         },
         "required": [
           "enabled",
           "name",
           "uuid"
+        ]
+      },
+      "ValueSourceBindingDto": {
+        "type": "object",
+        "description": "Core-side value-source binding onto a request-attribute definition; binds by attribute UUID (name fallback).",
+        "properties": {
+          "attributeUuid": {
+            "type": "string",
+            "description": "UUID of the target attribute definition; primary binding key"
+          },
+          "attributeName": {
+            "type": "string",
+            "description": "Name of the target attribute definition; fallback binding key when the UUID is absent or rotated"
+          },
+          "valueSourceType": {
+            "$ref": "#/components/schemas/ValueSourceType",
+            "description": "Value-source provider type to bind onto the target definition"
+          },
+          "collectionRef": {
+            "type": "string",
+            "description": "Reference to a registered collection/source; used by collection-style value sources"
+          },
+          "params": {
+            "type": "array",
+            "description": "Optional cascading dependency parameters (from other attributes)",
+            "items": {
+              "$ref": "#/components/schemas/SourceParam"
+            }
+          }
+        },
+        "required": [
+          "valueSourceType"
         ]
       },
       "EditEndEntityRequestDto": {
@@ -5281,7 +5596,7 @@
         "properties": {
           "certificateData": {
             "type": "string",
-            "description": "Base64 encoded Certificate content"
+            "description": "Base64 encoded Certificate content. Required for synchronous (HTTP 200) responses; absent for asynchronous (HTTP 202) responses, where the operation is still in flight and only optional metadata may be carried in the body."
           },
           "uuid": {
             "type": "string",
@@ -5299,10 +5614,7 @@
             "default": "X509",
             "description": "Type of the Certificate"
           }
-        },
-        "required": [
-          "certificateData"
-        ]
+        }
       },
       "MetadataAttribute": {
         "description": "Metadata Attribute definition",

@@ -200,7 +200,7 @@ func (defsProvider) Callback(context.Context, *mdl.AttributeCallbackRequestDto) 
 
 // dataDef builds a minimal DATA BaseAttributeDto carrying the given UUID.
 func dataDef(uuid string) mdl.BaseAttributeDto {
-	d := mdl.NewDataAttributeV3(uuid, "n-"+uuid, 1, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
+	d := mdl.NewDataAttributeV3(uuid, "n-"+uuid, 3, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING,
 		*mdl.NewDataAttributeProperties("L", true, true, false, false, false, false), mdl.ATTRIBUTEVERSION_V3)
 	w := mdl.DataAttributeV3AsBaseAttributeDtoV3(d)
 	return mdl.BaseAttributeDtoV3AsBaseAttributeDto(&w)

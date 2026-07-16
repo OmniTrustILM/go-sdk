@@ -3,7 +3,7 @@ Cryptography Provider API
 
 REST API for implementations of custom Cryptography Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -56,10 +56,14 @@ func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("BaseAttributeConstraint: probe type: %w", err)
 	}
+	disc := probe.Disc
+	if disc == "" {
+		disc = "regExp" // absent type defaults to this per the Java wire contract
+	}
 	dst.DateTimeAttributeConstraint = nil
 	dst.RangeAttributeConstraint = nil
 	dst.RegexpAttributeConstraint = nil
-	switch probe.Disc {
+	switch disc {
 	case "dateTime":
 		var v DateTimeAttributeConstraint
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -82,7 +86,7 @@ func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
 		dst.RegexpAttributeConstraint = &v
 		return nil
 	default:
-		return fmt.Errorf("BaseAttributeConstraint: unknown type %q", probe.Disc)
+		return fmt.Errorf("BaseAttributeConstraint: unknown type %q", disc)
 	}
 }
 

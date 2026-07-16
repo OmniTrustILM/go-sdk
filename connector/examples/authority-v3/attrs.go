@@ -48,7 +48,7 @@ func stringDataAttr(uuid, name, label, description string) mdl.BaseAttributeDto 
 	d := mdl.NewDataAttributeV3(
 		uuid,
 		name,
-		1,
+		3,
 		mdl.ATTRIBUTETYPE_DATA,
 		mdl.ATTRIBUTECONTENTTYPE_STRING,
 		*mdl.NewDataAttributeProperties(label, true, true, false, false, false, false),
@@ -63,7 +63,7 @@ func integerDataAttr(uuid, name, label, description string) mdl.BaseAttributeDto
 	d := mdl.NewDataAttributeV3(
 		uuid,
 		name,
-		1,
+		3,
 		mdl.ATTRIBUTETYPE_DATA,
 		mdl.ATTRIBUTECONTENTTYPE_INTEGER,
 		*mdl.NewDataAttributeProperties(label, true, true, false, false, false, false),
@@ -222,7 +222,7 @@ func newMetaString(uuid, name, label, value string) mdl.MetadataAttribute {
 	m := mdl.NewMetadataAttributeV3(
 		uuid,
 		name,
-		1,
+		3,
 		mdl.ATTRIBUTETYPE_META,
 		mdl.ATTRIBUTECONTENTTYPE_STRING,
 		*mdl.NewMetadataAttributeProperties(label, false),

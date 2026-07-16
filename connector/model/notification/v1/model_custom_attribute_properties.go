@@ -3,7 +3,7 @@ Notification Provider API
 
 REST API for implementations of custom Notification Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 

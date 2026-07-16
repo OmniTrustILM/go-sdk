@@ -3,7 +3,7 @@ Authority Provider Legacy API
 
 REST API for implementations of custom Legacy Authority Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -96,6 +96,7 @@ func (dst *SecretContent) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("SecretContent: probe type: %w", err)
 	}
+	disc := probe.Disc
 	dst.ApiKeySecretContent = nil
 	dst.BasicAuthSecretContent = nil
 	dst.GenericSecretContent = nil
@@ -104,7 +105,7 @@ func (dst *SecretContent) UnmarshalJSON(data []byte) error {
 	dst.KeyValueSecretContent = nil
 	dst.PrivateKeySecretContent = nil
 	dst.SecretKeySecretContent = nil
-	switch probe.Disc {
+	switch disc {
 	case "apiKey":
 		var v ApiKeySecretContent
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -162,7 +163,7 @@ func (dst *SecretContent) UnmarshalJSON(data []byte) error {
 		dst.SecretKeySecretContent = &v
 		return nil
 	default:
-		return fmt.Errorf("SecretContent: unknown type %q", probe.Disc)
+		return fmt.Errorf("SecretContent: unknown type %q", disc)
 	}
 }
 

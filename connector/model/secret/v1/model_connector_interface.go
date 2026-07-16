@@ -3,7 +3,7 @@ Secret Provider API
 
 REST API for implementations of custom Secret Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -24,6 +24,7 @@ const (
 	CONNECTORINTERFACE_INFO ConnectorInterface = "info"
 	CONNECTORINTERFACE_HEALTH ConnectorInterface = "health"
 	CONNECTORINTERFACE_METRICS ConnectorInterface = "metrics"
+	CONNECTORINTERFACE_ATTRIBUTES ConnectorInterface = "attributes"
 	CONNECTORINTERFACE_AUTHORITY ConnectorInterface = "authority"
 	CONNECTORINTERFACE_DISCOVERY ConnectorInterface = "discovery"
 	CONNECTORINTERFACE_ENTITY ConnectorInterface = "entity"
@@ -31,6 +32,8 @@ const (
 	CONNECTORINTERFACE_CRYPTOGRAPHY ConnectorInterface = "cryptography"
 	CONNECTORINTERFACE_NOTIFICATION ConnectorInterface = "notification"
 	CONNECTORINTERFACE_SECRET ConnectorInterface = "secret"
+	CONNECTORINTERFACE_SIGNATURE_FORMATTING ConnectorInterface = "signatureFormatting"
+	CONNECTORINTERFACE_SIGNING ConnectorInterface = "signing"
 )
 
 // All allowed values of ConnectorInterface enum
@@ -38,6 +41,7 @@ var AllowedConnectorInterfaceEnumValues = []ConnectorInterface{
 	"info",
 	"health",
 	"metrics",
+	"attributes",
 	"authority",
 	"discovery",
 	"entity",
@@ -45,6 +49,8 @@ var AllowedConnectorInterfaceEnumValues = []ConnectorInterface{
 	"cryptography",
 	"notification",
 	"secret",
+	"signatureFormatting",
+	"signing",
 }
 
 func (v *ConnectorInterface) UnmarshalJSON(src []byte) error {

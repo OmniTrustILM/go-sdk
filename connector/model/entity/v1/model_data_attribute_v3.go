@@ -3,7 +3,7 @@ Entity Provider API
 
 REST API for implementations of custom Entity Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -43,6 +43,10 @@ type DataAttributeV3 struct {
 	AttributeCallback *AttributeCallback `json:"attributeCallback,omitempty"`
 	// Schema version of the Attribute
 	SchemaVersion AttributeVersion `json:"schemaVersion"`
+	// Declares which certificate (or other object) fields this attribute's value projects into; presence marks this attribute as a certificate request attribute
+	FieldMapping *FieldMapping `json:"fieldMapping,omitempty"`
+	// Declares how Core resolves the content of this attribute; orthogonal to fieldMapping
+	ValueSource *ValueSource `json:"valueSource,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -368,6 +372,70 @@ func (o *DataAttributeV3) SetSchemaVersion(v AttributeVersion) {
 	o.SchemaVersion = v
 }
 
+// GetFieldMapping returns the FieldMapping field value if set, zero value otherwise.
+func (o *DataAttributeV3) GetFieldMapping() FieldMapping {
+	if o == nil || IsNil(o.FieldMapping) {
+		var ret FieldMapping
+		return ret
+	}
+	return *o.FieldMapping
+}
+
+// GetFieldMappingOk returns a tuple with the FieldMapping field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DataAttributeV3) GetFieldMappingOk() (*FieldMapping, bool) {
+	if o == nil || IsNil(o.FieldMapping) {
+		return nil, false
+	}
+	return o.FieldMapping, true
+}
+
+// HasFieldMapping returns a boolean if a field has been set.
+func (o *DataAttributeV3) HasFieldMapping() bool {
+	if o != nil && !IsNil(o.FieldMapping) {
+		return true
+	}
+
+	return false
+}
+
+// SetFieldMapping gets a reference to the given FieldMapping and assigns it to the FieldMapping field.
+func (o *DataAttributeV3) SetFieldMapping(v FieldMapping) {
+	o.FieldMapping = &v
+}
+
+// GetValueSource returns the ValueSource field value if set, zero value otherwise.
+func (o *DataAttributeV3) GetValueSource() ValueSource {
+	if o == nil || IsNil(o.ValueSource) {
+		var ret ValueSource
+		return ret
+	}
+	return *o.ValueSource
+}
+
+// GetValueSourceOk returns a tuple with the ValueSource field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DataAttributeV3) GetValueSourceOk() (*ValueSource, bool) {
+	if o == nil || IsNil(o.ValueSource) {
+		return nil, false
+	}
+	return o.ValueSource, true
+}
+
+// HasValueSource returns a boolean if a field has been set.
+func (o *DataAttributeV3) HasValueSource() bool {
+	if o != nil && !IsNil(o.ValueSource) {
+		return true
+	}
+
+	return false
+}
+
+// SetValueSource gets a reference to the given ValueSource and assigns it to the ValueSource field.
+func (o *DataAttributeV3) SetValueSource(v ValueSource) {
+	o.ValueSource = &v
+}
+
 func (o DataAttributeV3) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -397,6 +465,12 @@ func (o DataAttributeV3) ToMap() (map[string]interface{}, error) {
 		toSerialize["attributeCallback"] = o.AttributeCallback
 	}
 	toSerialize["schemaVersion"] = o.SchemaVersion
+	if !IsNil(o.FieldMapping) {
+		toSerialize["fieldMapping"] = o.FieldMapping
+	}
+	if !IsNil(o.ValueSource) {
+		toSerialize["valueSource"] = o.ValueSource
+	}
 
 	for key, value := range o.AdditionalProperties {
 		toSerialize[key] = value
@@ -457,6 +531,8 @@ func (o *DataAttributeV3) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "constraints")
 		delete(additionalProperties, "attributeCallback")
 		delete(additionalProperties, "schemaVersion")
+		delete(additionalProperties, "fieldMapping")
+		delete(additionalProperties, "valueSource")
 		o.AdditionalProperties = additionalProperties
 	}
 

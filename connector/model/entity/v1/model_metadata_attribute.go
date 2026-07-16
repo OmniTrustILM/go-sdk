@@ -3,7 +3,7 @@ Entity Provider API
 
 REST API for implementations of custom Entity Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -14,7 +14,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/validator.v2"
 )
 
 // MetadataAttribute - Metadata Attribute definition
@@ -38,56 +37,43 @@ func MetadataAttributeV3AsMetadataAttribute(v *MetadataAttributeV3) MetadataAttr
 }
 
 
-// Unmarshal JSON data into one of the pointers in the struct
+// UnmarshalJSON decodes MetadataAttribute by switching on the JSON "version" field.
+// Patched by tools/fixoneof — the generator's match-counting decoder
+// fails on this oneOf because multiple variants share the same Go struct
+// shape and pass strict decode simultaneously.
 func (dst *MetadataAttribute) UnmarshalJSON(data []byte) error {
-	var err error
-	match := 0
-	// try to unmarshal data into MetadataAttributeV2
-	err = newStrictDecoder(data).Decode(&dst.MetadataAttributeV2)
-	if err == nil {
-		jsonMetadataAttributeV2, _ := json.Marshal(dst.MetadataAttributeV2)
-		if string(jsonMetadataAttributeV2) == "{}" { // empty struct
-			dst.MetadataAttributeV2 = nil
-		} else {
-			if err = validator.Validate(dst.MetadataAttributeV2); err != nil {
-				dst.MetadataAttributeV2 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.MetadataAttributeV2 = nil
+	var probe struct {
+		Disc json.Number `json:"version"`
 	}
-
-	// try to unmarshal data into MetadataAttributeV3
-	err = newStrictDecoder(data).Decode(&dst.MetadataAttributeV3)
-	if err == nil {
-		jsonMetadataAttributeV3, _ := json.Marshal(dst.MetadataAttributeV3)
-		if string(jsonMetadataAttributeV3) == "{}" { // empty struct
-			dst.MetadataAttributeV3 = nil
-		} else {
-			if err = validator.Validate(dst.MetadataAttributeV3); err != nil {
-				dst.MetadataAttributeV3 = nil
-			} else {
-				match++
-			}
-		}
-	} else {
-		dst.MetadataAttributeV3 = nil
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return fmt.Errorf("MetadataAttribute: probe version: %w", err)
 	}
-
-	if match > 1 { // more than 1 match
-		// reset to nil
-		dst.MetadataAttributeV2 = nil
-		dst.MetadataAttributeV3 = nil
-
-		return fmt.Errorf("data matches more than one schema in oneOf(MetadataAttribute)")
-	} else if match == 1 {
-		return nil // exactly one match
-	} else { // no match
-		return fmt.Errorf("data failed to match schemas in oneOf(MetadataAttribute)")
+	disc := string(probe.Disc)
+	if disc == "" {
+		disc = "2" // absent version defaults to this per the Java wire contract
+	}
+	dst.MetadataAttributeV2 = nil
+	dst.MetadataAttributeV3 = nil
+	switch disc {
+	case "2":
+		var v MetadataAttributeV2
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("MetadataAttribute: decode MetadataAttributeV2: %w", err)
+		}
+		dst.MetadataAttributeV2 = &v
+		return nil
+	case "3":
+		var v MetadataAttributeV3
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("MetadataAttribute: decode MetadataAttributeV3: %w", err)
+		}
+		dst.MetadataAttributeV3 = &v
+		return nil
+	default:
+		return fmt.Errorf("MetadataAttribute: unknown version %q", disc)
 	}
 }
+
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src MetadataAttribute) MarshalJSON() ([]byte, error) {

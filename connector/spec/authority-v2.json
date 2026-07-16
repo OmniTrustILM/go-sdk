@@ -10,9 +10,9 @@
     },
     "license": {
       "name": "MIT License",
-      "url": "https://github.com/CZERTAINLY/CZERTAINLY/blob/develop/LICENSE.md"
+      "url": "https://github.com/OmniTrustILM/ilm/blob/main/LICENSE.md"
     },
-    "version": "2.17.0",
+    "version": "2.18.1-SNAPSHOT",
     "x-logo": {
       "url": "images/ilm-logo.svg"
     }
@@ -23,8 +23,8 @@
   },
   "servers": [
     {
-      "url": "https://demo.czertainly.online",
-      "description": "CZERTAINLY Demo server"
+      "url": "https://demo.otilm.com",
+      "description": "ILM Demo server"
     }
   ],
   "tags": [
@@ -56,6 +56,7 @@
           "Certificate Management"
         ],
         "summary": "Revoke Certificate",
+        "description": "Revoke a certificate. The Authority Provider may complete the operation synchronously or asynchronously.",
         "operationId": "revokeCertificate",
         "parameters": [
           {
@@ -80,7 +81,10 @@
         },
         "responses": {
           "200": {
-            "description": "Certificate revoked"
+            "description": "Certificate revoked synchronously."
+          },
+          "202": {
+            "description": "Revocation is asynchronous; the operation will complete asynchronously. The response body is empty for revocation — the platform tracks the operation by transactionId / certificate identity, not by connector-emitted metadata."
           },
           "400": {
             "description": "Bad Request",
@@ -138,13 +142,209 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/authorityProvider/authorities/{uuid}/certificates/revoke/status": {
+      "post": {
+        "tags": [
+          "Certificate Management"
+        ],
+        "summary": "Get Certificate Revocation Status",
+        "description": "Return the current status of an asynchronous certificate revocation.\n\nCalled for an asynchronous revocation that previously responded\n`202 Accepted`. For revocation, the `certificateData` field of the response\nis unused (revocation completion carries no payload).\n",
+        "operationId": "getRevokeCertificateStatus",
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "description": "Authority Instance UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateOperationStatusRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Status retrieved. Response carries one of `IN_PROGRESS`, `COMPLETED`, or `FAILED`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateOperationStatusResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationServiceExceptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
             "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/authorityProvider/authorities/{uuid}/certificates/revoke/cancel": {
+      "post": {
+        "tags": [
+          "Certificate Management"
+        ],
+        "summary": "Cancel Certificate Revocation",
+        "description": "Abort an in-flight certificate revocation.\n\nCalled for an asynchronous revocation that previously responded\n`202 Accepted`. The request body carries the RA profile attributes and the\nsame `MetadataAttribute` entries returned in the original `202 Accepted`\nresponse.\n",
+        "operationId": "cancelRevokeCertificate",
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "description": "Authority Instance UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateOperationCancelRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The operation has been aborted."
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationServiceExceptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Authority Provider tracks the operation but refuses to abort it (e.g., the revocation has already been submitted to a CRL).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "example": [
+                  "CA does not support cancellation",
+                  "Revocation already submitted to CRL"
+                ]
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -243,13 +443,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -263,6 +463,7 @@
           "Certificate Management"
         ],
         "summary": "Renew Certificate",
+        "description": "Renew a certificate. The Authority Provider may complete the operation synchronously or asynchronously.",
         "operationId": "renewCertificate",
         "parameters": [
           {
@@ -287,7 +488,17 @@
         },
         "responses": {
           "200": {
-            "description": "Certificate renewed",
+            "description": "Certificate renewed synchronously; response carries the new certificate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateDataResponseDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Renewal is asynchronous; the operation will complete asynchronously. The optional response body may carry `MetadataAttribute` entries — technology-specific state — that the platform will return on subsequent calls related to this operation.",
             "content": {
               "application/json": {
                 "schema": {
@@ -352,13 +563,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -372,6 +583,7 @@
           "Certificate Management"
         ],
         "summary": "Issue Certificate",
+        "description": "Issue a certificate. The Authority Provider may complete the operation synchronously or asynchronously.",
         "operationId": "issueCertificate",
         "parameters": [
           {
@@ -396,7 +608,17 @@
         },
         "responses": {
           "200": {
-            "description": "Certificate issued",
+            "description": "Certificate issued synchronously; response carries the issued certificate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateDataResponseDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Issuance is asynchronous; the operation will complete asynchronously. The optional response body may carry `MetadataAttribute` entries — technology-specific state — that the platform will return on subsequent calls related to this operation.",
             "content": {
               "application/json": {
                 "schema": {
@@ -461,13 +683,209 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/authorityProvider/authorities/{uuid}/certificates/issue/status": {
+      "post": {
+        "tags": [
+          "Certificate Management"
+        ],
+        "summary": "Get Certificate Issuance Status",
+        "description": "Return the current status of an asynchronous certificate issuance.\n\nCalled for an asynchronous issuance or renewal that previously responded\n`202 Accepted`. The request body carries the RA profile attributes and the\nsame `MetadataAttribute` entries returned in the original `202 Accepted`\nresponse, so the Authority Provider can resolve the operation.\n",
+        "operationId": "getIssueCertificateStatus",
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "description": "Authority Instance UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateOperationStatusRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Status retrieved. Response carries one of `IN_PROGRESS`, `COMPLETED`, or `FAILED`. When `COMPLETED`, the response includes the issued certificate (Base64) in `certificateData`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateOperationStatusResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationServiceExceptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
             "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/authorityProvider/authorities/{uuid}/certificates/issue/cancel": {
+      "post": {
+        "tags": [
+          "Certificate Management"
+        ],
+        "summary": "Cancel Certificate Issuance or Renewal",
+        "description": "Abort an in-flight certificate issuance or renewal.\n\nCalled for an asynchronous issuance, renewal, or rekey that previously\nresponded `202 Accepted`. The request body carries the RA profile\nattributes and the same `MetadataAttribute` entries returned in the\noriginal `202 Accepted` response, so the Authority Provider can resolve\nthe operation it must abort.\n",
+        "operationId": "cancelIssueCertificate",
+        "parameters": [
+          {
+            "name": "uuid",
+            "in": "path",
+            "description": "Authority Instance UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateOperationCancelRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The operation has been aborted."
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationServiceExceptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessageDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Authority Provider tracks the operation but refuses to abort it (e.g., the underlying CA does not support cancel, or the issuance is past a point of no return).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "example": [
+                  "CA does not support cancellation",
+                  "Issuance is past the point of no return"
+                ]
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -566,13 +984,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -675,13 +1093,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -789,13 +1207,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -863,13 +1281,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -942,13 +1360,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1024,13 +1442,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1114,13 +1532,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1190,13 +1608,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1278,13 +1696,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1371,13 +1789,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1464,13 +1882,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1566,13 +1984,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1651,13 +2069,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1726,13 +2144,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1820,13 +2238,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1891,13 +2309,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -1976,13 +2394,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -2051,13 +2469,13 @@
         },
         "security": [
           {
-            "NoAuth": []
+            "ConnectorAPIKeyAuth": []
           },
           {
             "CertificateTLSAuth": []
           },
           {
-            "ConnectorAPIKeyAuth": []
+            "NoAuth": []
           },
           {
             "BasicAuth": []
@@ -2109,6 +2527,13 @@
               "$ref": "#/components/schemas/AttributeCallbackMapping"
             },
             "uniqueItems": true
+          },
+          "dependsOn": {
+            "type": "array",
+            "description": "Names of the attributes, within this same form, whose values this Attributes v2 callback consumes and is triggered by. Providing this field — even as an empty list — marks the callback as an Attributes v2 callback; an empty list means the callback fires once when the form opens (it depends on no other field). At most one of dependsOn or callbackContext may be set; a callback with neither field set defines no callback. Not allowed on RESOURCE attributes. These rules are enforced by the platform.",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -3954,49 +4379,26 @@
           "statusCode"
         ]
       },
-      "CertificateRenewRequestDto": {
+      "CertificateOperationStatusRequestDto": {
         "type": "object",
         "properties": {
-          "request": {
-            "type": "string",
-            "description": "Certificate signing request encoded as Base64 string"
-          },
-          "format": {
-            "$ref": "#/components/schemas/CertificateRequestFormat",
-            "default": "pkcs10",
-            "description": "Certificate signing request format"
-          },
           "raProfileAttributes": {
             "type": "array",
-            "description": "List of RA Profiles attributes",
+            "description": "List of RA Profile attributes",
             "items": {
               "$ref": "#/components/schemas/RequestAttribute"
             }
           },
-          "certificate": {
-            "type": "string",
-            "description": "Base64 Certificate content. (Certificate to be renewed)"
-          },
           "meta": {
             "type": "array",
-            "description": "Metadata for the Certificate",
+            "description": "Technology-specific metadata that was returned by the Authority Provider in the original `202 Accepted` response, sent back here so the Authority Provider can resolve the in-flight operation and report its status.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
             }
           }
         },
         "required": [
-          "certificate",
-          "meta",
-          "raProfileAttributes",
-          "request"
-        ]
-      },
-      "CertificateRequestFormat": {
-        "type": "string",
-        "enum": [
-          "pkcs10",
-          "crmf"
+          "raProfileAttributes"
         ]
       },
       "MetadataAttribute": {
@@ -4166,12 +4568,114 @@
           "version"
         ]
       },
+      "CertificateOperationStatus": {
+        "type": "string",
+        "enum": [
+          "inProgress",
+          "completed",
+          "failed"
+        ]
+      },
+      "CertificateOperationStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CertificateOperationStatus",
+            "description": "Operation status as known to the Authority Provider"
+          },
+          "certificateData": {
+            "type": "string",
+            "description": "Base64-encoded certificate content. Present when status=COMPLETED for issue/renew. Unused for revoke status responses."
+          },
+          "meta": {
+            "type": "array",
+            "description": "Updated technology-specific metadata. The Authority Provider may report a refreshed value on each call.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "description": "Failure detail when `status` is `FAILED`."
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CertificateOperationCancelRequestDto": {
+        "type": "object",
+        "properties": {
+          "raProfileAttributes": {
+            "type": "array",
+            "description": "List of RA Profile attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "meta": {
+            "type": "array",
+            "description": "Technology-specific metadata that was returned by the Authority Provider in the original `202 Accepted` response, sent back here so the Authority Provider can identify the in-flight operation it must abort.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            }
+          }
+        },
+        "required": [
+          "raProfileAttributes"
+        ]
+      },
+      "CertificateRenewRequestDto": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "description": "Certificate signing request encoded as Base64 string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/CertificateRequestFormat",
+            "default": "pkcs10",
+            "description": "Certificate signing request format"
+          },
+          "raProfileAttributes": {
+            "type": "array",
+            "description": "List of RA Profiles attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "certificate": {
+            "type": "string",
+            "description": "Base64 Certificate content. (Certificate to be renewed)"
+          },
+          "meta": {
+            "type": "array",
+            "description": "Metadata for the Certificate",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            }
+          }
+        },
+        "required": [
+          "certificate",
+          "meta",
+          "raProfileAttributes",
+          "request"
+        ]
+      },
+      "CertificateRequestFormat": {
+        "type": "string",
+        "enum": [
+          "pkcs10",
+          "crmf"
+        ]
+      },
       "CertificateDataResponseDto": {
         "type": "object",
         "properties": {
           "certificateData": {
             "type": "string",
-            "description": "Base64 encoded Certificate content"
+            "description": "Base64 encoded Certificate content. Required for synchronous (HTTP 200) responses; absent for asynchronous (HTTP 202) responses, where the operation is still in flight and only optional metadata may be carried in the body."
           },
           "uuid": {
             "type": "string",
@@ -4189,10 +4693,7 @@
             "default": "X509",
             "description": "Type of the Certificate"
           }
-        },
-        "required": [
-          "certificateData"
-        ]
+        }
       },
       "CertificateSignRequestDto": {
         "type": "object",
@@ -4669,6 +5170,14 @@
           "schemaVersion": {
             "$ref": "#/components/schemas/AttributeVersion",
             "description": "Schema version of the Attribute"
+          },
+          "fieldMapping": {
+            "$ref": "#/components/schemas/FieldMapping",
+            "description": "Declares which certificate (or other object) fields this attribute's value projects into; presence marks this attribute as a certificate request attribute"
+          },
+          "valueSource": {
+            "$ref": "#/components/schemas/ValueSource",
+            "description": "Declares how Core resolves the content of this attribute; orthogonal to fieldMapping"
           }
         },
         "required": [
@@ -4679,6 +5188,103 @@
           "type",
           "uuid",
           "version"
+        ]
+      },
+      "ExtensionMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extensionOid": {
+                "type": "string",
+                "description": "OID of the X.509 extension (dotted-decimal)",
+                "minLength": 1
+              },
+              "criticalOverridable": {
+                "type": "boolean",
+                "description": "Whether the requester may override the default criticality of the extension"
+              }
+            }
+          }
+        ],
+        "description": "Maps an attribute value to an X.509 extension",
+        "required": [
+          "extensionOid",
+          "fieldType"
+        ]
+      },
+      "ExtensionValueEncoding": {
+        "type": "string",
+        "enum": [
+          "UTF8String",
+          "IA5String",
+          "PrintableString",
+          "OctetString",
+          "BitString",
+          "DER"
+        ]
+      },
+      "FieldMapping": {
+        "type": "object",
+        "description": "Declares which certificate (or other object) fields an attribute value projects into",
+        "properties": {
+          "objectType": {
+            "$ref": "#/components/schemas/ObjectType",
+            "description": "Object type this mapping applies to"
+          },
+          "fields": {
+            "type": "array",
+            "description": "One or more target fields (supports 1-to-many, e.g. CN + dNSName from a single attribute)",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExtensionMappedField"
+                },
+                {
+                  "$ref": "#/components/schemas/RdnMappedField"
+                },
+                {
+                  "$ref": "#/components/schemas/SanMappedField"
+                }
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "fields",
+          "objectType"
+        ]
+      },
+      "FieldSource": {
+        "type": "string",
+        "enum": [
+          "csr",
+          "platform",
+          "csrThenPlatform"
+        ]
+      },
+      "FieldType": {
+        "type": "string",
+        "enum": [
+          "rdn",
+          "san",
+          "extension"
+        ]
+      },
+      "GeneralNameType": {
+        "type": "string",
+        "enum": [
+          "dns",
+          "email",
+          "ip",
+          "uri",
+          "otherName",
+          "directoryName",
+          "registeredId"
         ]
       },
       "GroupAttributeV2": {
@@ -4921,6 +5527,134 @@
           "schemaVersion",
           "type",
           "uuid"
+        ]
+      },
+      "MappedField": {
+        "type": "object",
+        "description": "Describes a single target field within an object; concrete type is determined by fieldType",
+        "discriminator": {
+          "propertyName": "fieldType"
+        },
+        "properties": {
+          "fieldType": {
+            "$ref": "#/components/schemas/FieldType",
+            "description": "Field type, determines the concrete subtype"
+          },
+          "order": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordering index for fields of the same type (e.g. RDN components); ascending",
+            "minimum": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/FieldSource",
+            "description": "Provenance of the value when reconciling CSR vs platform-projected values"
+          }
+        },
+        "required": [
+          "fieldType"
+        ]
+      },
+      "ObjectType": {
+        "type": "string",
+        "enum": [
+          "x509Certificate",
+          "sshCertificate",
+          "key",
+          "secret"
+        ]
+      },
+      "RdnMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "rdn": {
+                "type": "string",
+                "description": "RDN code (e.g. \"CN\") or dotted-decimal OID; resolved via the OID registry",
+                "minLength": 1
+              }
+            }
+          }
+        ],
+        "description": "Maps an attribute value to an X.509 RDN component",
+        "required": [
+          "fieldType",
+          "rdn"
+        ]
+      },
+      "SanMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generalNameType": {
+                "$ref": "#/components/schemas/GeneralNameType",
+                "description": "SAN type"
+              },
+              "otherNameOid": {
+                "type": "string",
+                "description": "OID of the otherName type; required when generalNameType is OTHER_NAME"
+              },
+              "otherNameValueEncoding": {
+                "$ref": "#/components/schemas/ExtensionValueEncoding",
+                "description": "ASN.1 encoding for the otherName value; required when generalNameType is OTHER_NAME because different OtherName OIDs carry differently-typed values (e.g. UPN → UTF8String)"
+              }
+            }
+          }
+        ],
+        "description": "Maps an attribute value to a Subject Alternative Name entry",
+        "required": [
+          "fieldType",
+          "generalNameType"
+        ]
+      },
+      "SourceParam": {
+        "type": "object",
+        "description": "Dependency filter that scopes a value source by another attribute's value",
+        "properties": {
+          "attributeUuid": {
+            "type": "string",
+            "description": "UUID of the attribute whose value is used as a filter parameter"
+          },
+          "attributeName": {
+            "type": "string",
+            "description": "Name of the attribute; used as fallback when attributeUuid is not matched"
+          }
+        }
+      },
+      "ValueSource": {
+        "type": "object",
+        "description": "Declares how Core resolves the content of an attribute; orthogonal to fieldMapping",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ValueSourceType",
+            "description": "How the attribute value is resolved"
+          },
+          "params": {
+            "type": "array",
+            "description": "Optional dependency filters that scope the source by other attributes' values",
+            "items": {
+              "$ref": "#/components/schemas/SourceParam"
+            }
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "ValueSourceType": {
+        "type": "string",
+        "enum": [
+          "none",
+          "connectorCallback",
+          "staticList"
         ]
       },
       "CertificateRevocationListRequestDto": {

@@ -6,31 +6,57 @@
 // non-test build.
 //
 // Purpose: prove that the oneOf wrapper decoders in this package round-trip
-// every variant. The discriminator-aware UnmarshalJSON methods on nine of
-// these wrappers were patched in by tools/fixoneof (see that tool's
-// `wrappers` table). The generator's stock "try every variant, count strict
-// matches" decoder fails on those wrappers because multiple variants share
-// the same Go struct shape and all pass strict decode at once. These tests
-// lock in the patched behaviour so a future regen that forgets to re-run
-// fixoneof — or a fixoneof change that breaks a variant — fails loudly here.
+// every variant. Eleven of the twelve oneOf wrappers here have a
+// discriminator-aware UnmarshalJSON patched in by tools/fixoneof (see that
+// tool's `wrappers` table). The generator's stock "try every variant, count
+// strict matches" decoder fails on those wrappers because multiple variants
+// share the same Go struct shape and all pass strict decode at once. These
+// tests lock in the patched behaviour so a future regen that forgets to
+// re-run fixoneof — or a fixoneof change that breaks a variant — fails loudly
+// here.
 //
-// For every variant of every discriminator wrapper the table below asserts:
+// Several wrappers dispatch on a Java-wire discriminator that the OpenAPI
+// document does not spell out as a `discriminator` stanza; fixoneof encodes
+// the Java BaseAttributeSerializer/deserializer contract instead:
+//
+//   - BaseAttributeDto and MetadataAttribute switch on a NUMERIC `version`
+//     (2 -> V2, 3 -> V3) and default a missing version to V2. This is the
+//     integer `version`, NOT the `schemaVersion` string the spec declares —
+//     the number is what the canonical connector-definition wire carries, and
+//     it marshals back out as a JSON number.
+//   - RequestAttribute switches on a STRING `version` ("v2"/"v3") and defaults
+//     a missing version to RequestAttributeV2; ResponseAttribute switches on
+//     the same string field but has NO default (a missing version is an
+//     error).
+//   - BaseAttributeConstraint switches on `type` and defaults a missing type
+//     to RegexpAttributeConstraint.
+//
+// In every one of those default-bearing oneOfs the discriminator field is
+// itself a REQUIRED property of the default variant, so a payload that omits
+// the discriminator necessarily trips the default variant's required-property
+// check while decoding. assertDefaultRoutesTo (below) proves correct routing
+// regardless: the decode must reach the default variant (named in the error),
+// never the wrapper's "unknown <disc>" branch.
+//
+// For every variant of every discriminator wrapper the happy-path table
+// asserts:
 //   a. json.Unmarshal(payload) into the wrapper succeeds,
 //   b. GetActualInstance() returns the expected concrete variant type,
 //   c. json.Marshal(wrapper) succeeds and re-emits the discriminator
 //      key/value,
 //   d. json.Unmarshal of those marshalled bytes into a FRESH wrapper yields
 //      the same variant type (a full encode/decode round-trip).
-// Plus a negative test per wrapper: an unknown discriminator value must
-// error with a message mentioning "unknown".
+// Plus, per wrapper: a negative test that an unknown discriminator value
+// errors with "unknown", and — where the wrapper defines a default — a test
+// that an absent discriminator routes to the default variant.
 //
-// The two non-discriminator oneOfs that live in this package
-// (BaseAttributeContentDtoV2 and MetadataAttribute) still use the generator's
-// match-counting decoder. They are exercised too, but several of their cases
-// are provably un-decodable (documented inline with t.Skip) because the spec
-// defines no discriminator and the variants collide. See tools/fixoneof's
-// knownUnpatchable map for the per-wrapper rationale. (DataAttribute, also
-// listed in knownUnpatchable, has no generated wrapper file in this package.)
+// The one genuinely un-decodable oneOf in this package is
+// BaseAttributeContentDtoV2: V2 attribute content carries NO per-object
+// wire discriminator (every variant
+// serializes as bare {reference,data} and Java's AttributeContentDeserializer
+// decodes them all into the single base type), so no in-object field lets a
+// decoder pick a variant. Its cases are documented and skipped. See
+// tools/fixoneof's knownUnpatchable map for the rationale.
 
 package v1
 
@@ -129,6 +155,37 @@ func assertUnknownDiscriminator(t *testing.T, wrapperName string, w json.Unmarsh
 	}
 	if !strings.Contains(err.Error(), "unknown") {
 		t.Fatalf("%s: error %q does not mention \"unknown\"", wrapperName, err.Error())
+	}
+}
+
+// assertDefaultRoutesTo confirms that a payload with the discriminator ABSENT
+// routes to the wrapper's configured default variant.
+//
+// In every default-bearing oneOf here the discriminator field is itself a
+// REQUIRED property of the default variant, so an absent discriminator trips
+// that variant's required-property check while decoding. Correct routing is
+// therefore proven two ways: the decode either (a) succeeds and yields the
+// default variant, or (b) fails with an error that NAMES the default variant —
+// and in neither case is it the wrapper's "unknown <disc>" branch (which is
+// exactly what a MISSING default case would produce). wantType is a pointer to
+// the expected default variant.
+func assertDefaultRoutesTo(t *testing.T, wrapperName string, w oneOfWrapper, payload string, wantType interface{}) {
+	t.Helper()
+	variant := reflect.TypeOf(wantType).Elem().Name()
+	err := json.Unmarshal([]byte(payload), w)
+	if err != nil {
+		if strings.Contains(err.Error(), "unknown") {
+			t.Fatalf("%s: absent discriminator hit the unknown branch, not the %s default: %v",
+				wrapperName, variant, err)
+		}
+		if !strings.Contains(err.Error(), variant) {
+			t.Fatalf("%s: absent discriminator did not route to %s (err=%q)", wrapperName, variant, err)
+		}
+		return
+	}
+	got := w.GetActualInstance()
+	if gotT, wantT := reflect.TypeOf(got), reflect.TypeOf(wantType); gotT != wantT {
+		t.Fatalf("%s: absent discriminator decoded to %v, want default %v", wrapperName, gotT, wantT)
 	}
 }
 
@@ -237,18 +294,19 @@ func TestOneOfBaseAttributeContentDtoV3(t *testing.T) {
 }
 
 // 2. BaseAttributeDtoV3 — discriminator "type" (custom/data/group/info/meta).
+// V3 variants carry version 3 and a required schemaVersion "v3".
 func TestOneOfBaseAttributeDtoV3(t *testing.T) {
 	cases := []oneOfCase{
 		{
 			name:       "custom",
-			payload:    `{"type":"custom","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
+			payload:    `{"type":"custom","uuid":"u","name":"n","version":3,"contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
 			wantType:   &CustomAttributeV3{},
 			discSubstr: []string{`"type":"custom"`, `"schemaVersion":"v3"`},
 		},
 		{
 			name:       "data",
-			payload:    `{"type":"data","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
+			payload:    `{"type":"data","uuid":"u","name":"n","version":3,"contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
 			wantType:   &DataAttributeV3{},
 			discSubstr: []string{`"type":"data"`, `"schemaVersion":"v3"`},
@@ -269,7 +327,7 @@ func TestOneOfBaseAttributeDtoV3(t *testing.T) {
 		},
 		{
 			name:       "meta",
-			payload:    `{"type":"meta","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + infoMetaProps + `,"schemaVersion":"v3"}`,
+			payload:    `{"type":"meta","uuid":"u","name":"n","version":3,"contentType":"string","properties":` + infoMetaProps + `,"schemaVersion":"v3"}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV3{} },
 			wantType:   &MetadataAttributeV3{},
 			discSubstr: []string{`"type":"meta"`, `"schemaVersion":"v3"`},
@@ -282,26 +340,26 @@ func TestOneOfBaseAttributeDtoV3(t *testing.T) {
 }
 
 // 3. BaseAttributeDtoV2 — discriminator "type" (custom/data/group/info/meta).
-// V2 variants carry no schemaVersion field.
+// V2 variants carry version 2 and no schemaVersion field.
 func TestOneOfBaseAttributeDtoV2(t *testing.T) {
 	cases := []oneOfCase{
 		{
 			name:       "custom",
-			payload:    `{"type":"custom","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `}`,
+			payload:    `{"type":"custom","uuid":"u","name":"n","version":2,"contentType":"string","properties":` + fullProps + `}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &CustomAttributeV2{},
 			discSubstr: []string{`"type":"custom"`},
 		},
 		{
 			name:       "data",
-			payload:    `{"type":"data","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `}`,
+			payload:    `{"type":"data","uuid":"u","name":"n","version":2,"contentType":"string","properties":` + fullProps + `}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &DataAttributeV2{},
 			discSubstr: []string{`"type":"data"`},
 		},
 		{
 			name:       "group",
-			payload:    `{"type":"group","uuid":"u","name":"n","version":1}`,
+			payload:    `{"type":"group","uuid":"u","name":"n","version":2}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &GroupAttributeV2{},
 			discSubstr: []string{`"type":"group"`},
@@ -315,7 +373,7 @@ func TestOneOfBaseAttributeDtoV2(t *testing.T) {
 		// TestOneOfBaseAttributeDtoV2InfoBrokenByDesign below.
 		{
 			name:       "meta",
-			payload:    `{"type":"meta","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + infoMetaProps + `}`,
+			payload:    `{"type":"meta","uuid":"u","name":"n","version":2,"contentType":"string","properties":` + infoMetaProps + `}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDtoV2{} },
 			wantType:   &MetadataAttributeV2{},
 			discSubstr: []string{`"type":"meta"`},
@@ -324,7 +382,7 @@ func TestOneOfBaseAttributeDtoV2(t *testing.T) {
 	runDiscriminatorCases(t, "BaseAttributeDtoV2", cases)
 
 	assertUnknownDiscriminator(t, "BaseAttributeDtoV2",
-		&BaseAttributeDtoV2{}, `{"type":"bogus","uuid":"u","name":"n","version":1}`)
+		&BaseAttributeDtoV2{}, `{"type":"bogus","uuid":"u","name":"n","version":2}`)
 }
 
 // TestOneOfBaseAttributeDtoV2InfoBrokenByDesign pins the transitive breakage
@@ -335,10 +393,10 @@ func TestOneOfBaseAttributeDtoV2(t *testing.T) {
 // payload fails decoding deep inside the nested content oneOf with the
 // "matches more than one schema" error, regardless of the (correct) outer
 // type discriminator. This is collateral damage from
-// knownUnpatchable[BaseAttributeContentDtoV2]; fixing the V2 content oneOf
-// (spec discriminator) would also unblock this case.
+// knownUnpatchable[BaseAttributeContentDtoV2]; a per-object wire discriminator
+// on the V2 content object would also unblock this case.
 func TestOneOfBaseAttributeDtoV2InfoBrokenByDesign(t *testing.T) {
-	const infoV2 = `{"type":"info","uuid":"u","name":"n","version":1,"content":[{"data":"x"}],"contentType":"string","properties":` + infoMetaProps + `}`
+	const infoV2 = `{"type":"info","uuid":"u","name":"n","version":2,"content":[{"data":"x"}],"contentType":"string","properties":` + infoMetaProps + `}`
 	var w BaseAttributeDtoV2
 	err := json.Unmarshal([]byte(infoV2), &w)
 	if err == nil {
@@ -349,67 +407,79 @@ func TestOneOfBaseAttributeDtoV2InfoBrokenByDesign(t *testing.T) {
 	}
 	t.Skip("InfoAttributeV2 requires a content array of BaseAttributeContentDtoV2, " +
 		"the un-decodable match-counting oneOf (see TestOneOfBaseAttributeContentDtoV2). " +
-		"Fix the V2 content oneOf's spec discriminator to unblock.")
+		"A per-object wire discriminator on the V2 content object would unblock this.")
 }
 
-// 4. BaseAttributeDto — discriminator "schemaVersion" (v2/v3).
+// 4. BaseAttributeDto — outer V2/V3 selector on a NUMERIC `version`.
 //
-// IMPORTANT — verified against the generated decoder and the spec:
-//
-//   - The spec defines a *bare* oneOf with NO `discriminator` stanza.
-//     tools/fixoneof invented `schemaVersion` as the discriminator. That only
-//     works because BaseAttributeDtoV3 *requires* schemaVersion while
-//     BaseAttributeDtoV2 has no such field at all.
-//
-//   - Consequence: the patched decoder probes `schemaVersion`. A realistic V3
-//     payload carries `"schemaVersion":"v3"` and decodes fine. A realistic V2
-//     payload has NO schemaVersion key, so probe.Disc == "" falls through to
-//     the default branch and the decoder returns
-//     `BaseAttributeDto: unknown schemaVersion ""`.
-//
-// So only the v3 path is a working happy path here. The v2 path is exercised
-// by TestOneOfBaseAttributeDtoV2BrokenByDesign below, which asserts the
-// ACTUAL (broken-by-spec) behaviour rather than pretending it works.
+// fixoneof encodes the Java BaseAttributeSerializer contract: the wire
+// discriminator is the integer `version` (2 -> BaseAttributeDtoV2,
+// 3 -> BaseAttributeDtoV3), NOT the `schemaVersion` string the OpenAPI spec
+// declares. A missing version defaults to V2. Both branches round-trip: the
+// integer version marshals back out as a JSON number (discSubstr `"version":2`
+// / `"version":3`).
 func TestOneOfBaseAttributeDto(t *testing.T) {
 	cases := []oneOfCase{
 		{
+			name:       "v2",
+			payload:    `{"version":2,"type":"data","uuid":"u","name":"n","contentType":"string","properties":` + fullProps + `}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeDto{} },
+			wantType:   &BaseAttributeDtoV2{},
+			discSubstr: []string{`"version":2`},
+		},
+		{
 			name:       "v3",
-			payload:    `{"schemaVersion":"v3","type":"data","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `}`,
+			payload:    `{"version":3,"type":"data","uuid":"u","name":"n","contentType":"string","properties":` + fullProps + `,"schemaVersion":"v3"}`,
 			newWrapper: func() oneOfWrapper { return &BaseAttributeDto{} },
 			wantType:   &BaseAttributeDtoV3{},
-			discSubstr: []string{`"schemaVersion":"v3"`},
+			discSubstr: []string{`"version":3`, `"schemaVersion":"v3"`},
 		},
 	}
 	runDiscriminatorCases(t, "BaseAttributeDto", cases)
 
-	// Unknown schemaVersion value.
+	// A missing version defaults to V2 (routes to BaseAttributeDtoV2).
+	assertDefaultRoutesTo(t, "BaseAttributeDto", &BaseAttributeDto{},
+		`{"type":"data","uuid":"u","name":"n","contentType":"string","properties":`+fullProps+`}`,
+		&BaseAttributeDtoV2{})
+
+	// An unknown numeric version errors with "unknown version".
 	assertUnknownDiscriminator(t, "BaseAttributeDto",
-		&BaseAttributeDto{}, `{"schemaVersion":"v9","type":"data","uuid":"u","name":"n"}`)
+		&BaseAttributeDto{}, `{"version":9,"type":"data","uuid":"u","name":"n"}`)
 }
 
-// TestOneOfBaseAttributeDtoV2BrokenByDesign documents and pins the broken V2
-// path through the BaseAttributeDto wrapper. A spec-realistic V2 attribute
-// (no schemaVersion key) cannot be decoded through BaseAttributeDto because
-// fixoneof keys on schemaVersion, which V2 payloads do not carry. We assert
-// the actual error so a future fix (adding a real discriminator to the spec,
-// or having fixoneof key on something present in both shapes) trips this test
-// and prompts updating it to a happy-path case.
-func TestOneOfBaseAttributeDtoV2BrokenByDesign(t *testing.T) {
-	const v2payload = `{"type":"custom","uuid":"u","name":"n","version":1,"contentType":"string","properties":` + fullProps + `}`
-	var w BaseAttributeDto
-	err := json.Unmarshal([]byte(v2payload), &w)
-	if err == nil {
-		t.Fatalf("BaseAttributeDto: V2 payload unexpectedly decoded (got %T) — "+
-			"the spec/decoder may have gained a real discriminator; promote the v2 "+
-			"case in TestOneOfBaseAttributeDto to a happy path", w.GetActualInstance())
+// 5. MetadataAttribute — V2/V3 selector on a NUMERIC `version`, same Java-wire
+// contract as BaseAttributeDto (2 -> V2, 3 -> V3, missing -> V2).
+func TestOneOfMetadataAttribute(t *testing.T) {
+	cases := []oneOfCase{
+		{
+			name:       "v2",
+			payload:    `{"version":2,"type":"meta","uuid":"u","name":"n","contentType":"string","properties":` + infoMetaProps + `}`,
+			newWrapper: func() oneOfWrapper { return &MetadataAttribute{} },
+			wantType:   &MetadataAttributeV2{},
+			discSubstr: []string{`"version":2`, `"type":"meta"`},
+		},
+		{
+			name:       "v3",
+			payload:    `{"version":3,"type":"meta","uuid":"u","name":"n","contentType":"string","properties":` + infoMetaProps + `,"schemaVersion":"v3"}`,
+			newWrapper: func() oneOfWrapper { return &MetadataAttribute{} },
+			wantType:   &MetadataAttributeV3{},
+			discSubstr: []string{`"version":3`, `"schemaVersion":"v3"`, `"type":"meta"`},
+		},
 	}
-	// fixoneof emits `unknown schemaVersion ""` for a missing discriminator.
-	if !strings.Contains(err.Error(), "unknown schemaVersion") {
-		t.Fatalf("BaseAttributeDto: expected 'unknown schemaVersion' error for V2 payload, got %q", err.Error())
-	}
+	runDiscriminatorCases(t, "MetadataAttribute", cases)
+
+	// A missing version defaults to V2 (routes to MetadataAttributeV2).
+	assertDefaultRoutesTo(t, "MetadataAttribute", &MetadataAttribute{},
+		`{"type":"meta","uuid":"u","name":"n","contentType":"string","properties":`+infoMetaProps+`}`,
+		&MetadataAttributeV2{})
+
+	// An unknown numeric version errors with "unknown version".
+	assertUnknownDiscriminator(t, "MetadataAttribute",
+		&MetadataAttribute{}, `{"version":9,"type":"meta","uuid":"u","name":"n"}`)
 }
 
-// 5. RequestAttribute — discriminator "version" (v2/v3).
+// 6. RequestAttribute — discriminator STRING "version" (v2/v3); a missing
+// version defaults to RequestAttributeV2 (Java @JsonTypeInfo defaultImpl).
 func TestOneOfRequestAttribute(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -429,11 +499,16 @@ func TestOneOfRequestAttribute(t *testing.T) {
 	}
 	runDiscriminatorCases(t, "RequestAttribute", cases)
 
+	// A missing version defaults to V2 (routes to RequestAttributeV2).
+	assertDefaultRoutesTo(t, "RequestAttribute", &RequestAttribute{},
+		`{"uuid":"u","name":"n","contentType":"string"}`, &RequestAttributeV2{})
+
 	assertUnknownDiscriminator(t, "RequestAttribute",
 		&RequestAttribute{}, `{"version":"v9","uuid":"u","name":"n","contentType":"string"}`)
 }
 
-// 6. ResponseAttribute — discriminator "version" (v2/v3).
+// 7. ResponseAttribute — discriminator STRING "version" (v2/v3), with NO
+// default: unlike RequestAttribute, a missing version is an error.
 func TestOneOfResponseAttribute(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -455,9 +530,14 @@ func TestOneOfResponseAttribute(t *testing.T) {
 
 	assertUnknownDiscriminator(t, "ResponseAttribute",
 		&ResponseAttribute{}, `{"version":"v9","uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
+
+	// No default: a missing version also errors with "unknown version".
+	assertUnknownDiscriminator(t, "ResponseAttribute",
+		&ResponseAttribute{}, `{"uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
 }
 
-// 7. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp).
+// 8. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp);
+// a missing type defaults to RegexpAttributeConstraint (Java defaultImpl).
 func TestOneOfBaseAttributeConstraint(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -484,11 +564,15 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 	}
 	runDiscriminatorCases(t, "BaseAttributeConstraint", cases)
 
+	// A missing type defaults to RegexpAttributeConstraint.
+	assertDefaultRoutesTo(t, "BaseAttributeConstraint", &BaseAttributeConstraint{},
+		`{}`, &RegexpAttributeConstraint{})
+
 	assertUnknownDiscriminator(t, "BaseAttributeConstraint",
 		&BaseAttributeConstraint{}, `{"type":"bogus"}`)
 }
 
-// 8. ResourceObjectContentData — discriminator "resource".
+// 9. ResourceObjectContentData — discriminator "resource".
 // authorities/entities/locations/credentials -> ResourceSimpleContentData;
 // certificates -> ResourceCertificateContentData;
 // secrets -> ResourceSecretContentData.
@@ -543,7 +627,7 @@ func TestOneOfResourceObjectContentData(t *testing.T) {
 		&ResourceObjectContentData{}, `{"resource":"bogus","uuid":"u","name":"n"}`)
 }
 
-// 9. SecretContent — discriminator "type".
+// 10. SecretContent — discriminator "type".
 func TestOneOfSecretContent(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -609,74 +693,40 @@ func TestOneOfSecretContent(t *testing.T) {
 		&SecretContent{}, `{"type":"bogus","content":"c"}`)
 }
 
-// --- Non-discriminator oneOfs present in this package ------------------------
-//
-// Two of the generator's match-counting oneOf wrappers live here:
-// BaseAttributeContentDtoV2 and MetadataAttribute. (DataAttribute and
-// KeyDataValue, also listed in tools/fixoneof's knownUnpatchable, have no
-// generated files in this package.) These still use the "try every variant,
-// count strict matches" decoder, which only works when the candidate variants
-// are shape-distinct.
+// 11. FieldMappingFieldsInner — discriminator "fieldType"
+// (extension/rdn/san). The spec's discriminator sits on the MappedField allOf
+// base; each variant is allOf(MappedField + specifics).
+func TestOneOfFieldMappingFieldsInner(t *testing.T) {
+	cases := []oneOfCase{
+		{
+			name:       "extension",
+			payload:    `{"fieldType":"extension","extensionOid":"1.2.3.4"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &ExtensionMappedField{},
+			discSubstr: []string{`"fieldType":"extension"`},
+		},
+		{
+			name:       "rdn",
+			payload:    `{"fieldType":"rdn","rdn":"CN"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &RdnMappedField{},
+			discSubstr: []string{`"fieldType":"rdn"`},
+		},
+		{
+			name:       "san",
+			payload:    `{"fieldType":"san","generalNameType":"dns"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &SanMappedField{},
+			discSubstr: []string{`"fieldType":"san"`},
+		},
+	}
+	runDiscriminatorCases(t, "FieldMappingFieldsInner", cases)
 
-// TestOneOfMetadataAttribute exercises the match-counting MetadataAttribute
-// wrapper.
-//
-//   - V2 happy path: a payload with NO schemaVersion key matches only
-//     MetadataAttributeV2 (MetadataAttributeV3 requires schemaVersion and
-//     fails its required-property check), so match == 1 and decode succeeds.
-//     Full round-trip verified: the marshalled form still has no
-//     schemaVersion, so it re-decodes to V2.
-//
-//   - V3: provably un-decodable here and therefore skipped. MetadataAttributeV2
-//     and MetadataAttributeV3 are structurally identical except V3 adds a
-//     required schemaVersion; BOTH use a lenient json.Unmarshal that funnels
-//     unknown keys into AdditionalProperties rather than rejecting them. So a
-//     V3 payload (with schemaVersion) strict-decodes into V2 as well — match
-//     == 2 — and the decoder returns "data matches more than one schema". This
-//     is the exact ambiguity documented in tools/fixoneof's knownUnpatchable
-//     entry for MetadataAttribute. Fix requires a spec-level discriminator.
-func TestOneOfMetadataAttribute(t *testing.T) {
-	t.Run("v2", func(t *testing.T) {
-		payload := `{"uuid":"u","name":"n","version":1,"type":"meta","contentType":"string","properties":` + infoMetaProps + `}`
-		var w MetadataAttribute
-		if err := json.Unmarshal([]byte(payload), &w); err != nil {
-			t.Fatalf("MetadataAttribute v2: unmarshal failed: %v", err)
-		}
-		if got, want := reflect.TypeOf(w.GetActualInstance()), reflect.TypeOf(&MetadataAttributeV2{}); got != want {
-			t.Fatalf("MetadataAttribute v2: got %v, want %v", got, want)
-		}
-		b, err := json.Marshal(w)
-		if err != nil {
-			t.Fatalf("MetadataAttribute v2: marshal failed: %v", err)
-		}
-		if strings.Contains(string(b), "schemaVersion") {
-			t.Fatalf("MetadataAttribute v2: marshalled form unexpectedly carries schemaVersion: %s", b)
-		}
-		var w2 MetadataAttribute
-		if err := json.Unmarshal(b, &w2); err != nil {
-			t.Fatalf("MetadataAttribute v2: round-trip unmarshal failed: %v", err)
-		}
-		if got, want := reflect.TypeOf(w2.GetActualInstance()), reflect.TypeOf(&MetadataAttributeV2{}); got != want {
-			t.Fatalf("MetadataAttribute v2: round-trip got %v, want %v", got, want)
-		}
-	})
-
-	t.Run("v3", func(t *testing.T) {
-		// Document the actual behaviour, then skip: a V3 payload matches BOTH
-		// variants under the match-counting decoder.
-		payload := `{"uuid":"u","name":"n","version":1,"type":"meta","contentType":"string","properties":` + infoMetaProps + `,"schemaVersion":"v3"}`
-		var w MetadataAttribute
-		err := json.Unmarshal([]byte(payload), &w)
-		if err == nil || !strings.Contains(err.Error(), "matches more than one schema") {
-			t.Fatalf("MetadataAttribute v3: expected ambiguous-match error, got err=%v inst=%T", err, w.GetActualInstance())
-		}
-		t.Skip("MetadataAttribute V3 is un-decodable via the generator's match-counting " +
-			"oneOf: V2 and V3 share an identical lenient shape (V3 only adds required " +
-			"schemaVersion, which V2 absorbs into AdditionalProperties), so a V3 payload " +
-			"matches both variants. See tools/fixoneof knownUnpatchable[MetadataAttribute]. " +
-			"Fix: add a discriminator stanza to the spec.")
-	})
+	assertUnknownDiscriminator(t, "FieldMappingFieldsInner",
+		&FieldMappingFieldsInner{}, `{"fieldType":"bogus"}`)
 }
+
+// --- Genuinely un-decodable oneOf present in this package --------------------
 
 // TestOneOfBaseAttributeContentDtoV2 exercises the match-counting
 // BaseAttributeContentDtoV2 wrapper.
@@ -689,11 +739,12 @@ func TestOneOfMetadataAttribute(t *testing.T) {
 // "data matches more than one schema in oneOf(BaseAttributeContentDtoV2)".
 //
 // This is exactly tools/fixoneof's knownUnpatchable[BaseAttributeContentDtoV2]
-// rationale (spec defines no discriminator for the V2 content oneOf, unlike V3
-// which has discriminator.propertyName: contentType). No variant of this
-// wrapper can round-trip through the generated decoder, so all cases are
-// documented and skipped. The companion happy path is fully covered by
-// TestOneOfBaseAttributeContentDtoV3, which exercises the patched
+// rationale (V2 content has no
+// per-object wire discriminator — getContentType() is @JsonIgnore and Java's
+// AttributeContentDeserializer decodes every variant into the base type). No
+// variant of this wrapper can round-trip through the generated decoder, so all
+// cases are documented and skipped. The companion happy path is fully covered
+// by TestOneOfBaseAttributeContentDtoV3, which exercises the patched
 // discriminator-aware decoder for the V3 content oneOf.
 func TestOneOfBaseAttributeContentDtoV2(t *testing.T) {
 	// Representative payloads, one per distinct `data` Go type. Each is
@@ -719,8 +770,8 @@ func TestOneOfBaseAttributeContentDtoV2(t *testing.T) {
 				"match-counting oneOf: all variants share the {reference?, data} shape and " +
 				"ObjectAttributeContentV2 types data as interface{}, so every payload matches " +
 				"at least two variants. See tools/fixoneof knownUnpatchable[BaseAttributeContentDtoV2]. " +
-				"Fix: add discriminator.propertyName: contentType to the V2 content oneOf in the spec " +
-				"(as V3 already has). The V3 equivalent is fully covered by TestOneOfBaseAttributeContentDtoV3.")
+				"V2 content has no per-object wire discriminator. The V3 " +
+				"equivalent is fully covered by TestOneOfBaseAttributeContentDtoV3.")
 		})
 	}
 }

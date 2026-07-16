@@ -3,7 +3,7 @@ Compliance Provider v2 API
 
 REST API for implementations of custom v2 Compliance Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -48,9 +48,10 @@ func (dst *ResponseAttribute) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("ResponseAttribute: probe version: %w", err)
 	}
+	disc := probe.Disc
 	dst.ResponseAttributeV2 = nil
 	dst.ResponseAttributeV3 = nil
-	switch probe.Disc {
+	switch disc {
 	case "v2":
 		var v ResponseAttributeV2
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -66,11 +67,9 @@ func (dst *ResponseAttribute) UnmarshalJSON(data []byte) error {
 		dst.ResponseAttributeV3 = &v
 		return nil
 	default:
-		return fmt.Errorf("ResponseAttribute: unknown version %q", probe.Disc)
+		return fmt.Errorf("ResponseAttribute: unknown version %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

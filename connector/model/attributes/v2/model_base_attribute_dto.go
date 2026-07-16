@@ -1,7 +1,7 @@
 /*
 Connector Attributes v2 API
 
-The connector-global Attributes v2 API (the common NG connector-interface generation, alongside Info/Health/Metrics in connector.common.v2): a definition registry plus a dynamic-attribute callback surface. NOTE on version axes: the \"v2\" here is the common-interface/NG generation version, NOT attribute schema v2 — payloads carry the independent attribute-schema axis (v2/v3), and the callback response `content` arm is attribute schema v3 by design. Extracted from the authority-v3 spec (the common.v2 attributes subset) for cross-language parity with OmniTrustILM/interfaces#738; the schema set is the transitive closure of the three envelope DTOs.
+The connector-global Attributes v2 API (common NG connector-interface generation) — definition registry + dynamic-attribute callback surface. The \"v2\" is the common-interface/NG generation version, NOT attribute schema v2; payloads carry the independent attribute-schema axis (v2/v3), and the callback response content arm is attribute schema v3. Extracted (transitive closure of the three envelope DTOs) from authority-v3.json for cross-language parity with OmniTrustILM/interfaces.
 
 API version: 2.0.0
 */
@@ -36,28 +36,32 @@ func BaseAttributeDtoV3AsBaseAttributeDto(v *BaseAttributeDtoV3) BaseAttributeDt
 }
 
 
-// UnmarshalJSON decodes BaseAttributeDto by switching on the JSON "schemaVersion" field.
+// UnmarshalJSON decodes BaseAttributeDto by switching on the JSON "version" field.
 // Patched by tools/fixoneof — the generator's match-counting decoder
 // fails on this oneOf because multiple variants share the same Go struct
 // shape and pass strict decode simultaneously.
 func (dst *BaseAttributeDto) UnmarshalJSON(data []byte) error {
 	var probe struct {
-		Disc string `json:"schemaVersion"`
+		Disc json.Number `json:"version"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
-		return fmt.Errorf("BaseAttributeDto: probe schemaVersion: %w", err)
+		return fmt.Errorf("BaseAttributeDto: probe version: %w", err)
+	}
+	disc := string(probe.Disc)
+	if disc == "" {
+		disc = "2" // absent version defaults to this per the Java wire contract
 	}
 	dst.BaseAttributeDtoV2 = nil
 	dst.BaseAttributeDtoV3 = nil
-	switch probe.Disc {
-	case "v2":
+	switch disc {
+	case "2":
 		var v BaseAttributeDtoV2
 		if err := json.Unmarshal(data, &v); err != nil {
 			return fmt.Errorf("BaseAttributeDto: decode BaseAttributeDtoV2: %w", err)
 		}
 		dst.BaseAttributeDtoV2 = &v
 		return nil
-	case "v3":
+	case "3":
 		var v BaseAttributeDtoV3
 		if err := json.Unmarshal(data, &v); err != nil {
 			return fmt.Errorf("BaseAttributeDto: decode BaseAttributeDtoV3: %w", err)
@@ -65,11 +69,9 @@ func (dst *BaseAttributeDto) UnmarshalJSON(data []byte) error {
 		dst.BaseAttributeDtoV3 = &v
 		return nil
 	default:
-		return fmt.Errorf("BaseAttributeDto: unknown schemaVersion %q", probe.Disc)
+		return fmt.Errorf("BaseAttributeDto: unknown version %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

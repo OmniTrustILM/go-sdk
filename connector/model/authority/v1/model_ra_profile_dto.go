@@ -3,7 +3,7 @@ Authority Provider Legacy API
 
 REST API for implementations of custom Legacy Authority Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -43,6 +43,8 @@ type RaProfileDto struct {
 	EnabledProtocols []string `json:"enabledProtocols,omitempty"`
 	// Settings for validation of certificates associated with the RA Profile
 	CertificateValidationSettings *RaProfileCertificateValidationSettingsDto `json:"certificateValidationSettings,omitempty"`
+	// Static certificate-request-attribute set configured for the RA Profile
+	CertificateRequestAttributes *RaProfileCertificateRequestAttributesDto `json:"certificateRequestAttributes,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -396,6 +398,38 @@ func (o *RaProfileDto) SetCertificateValidationSettings(v RaProfileCertificateVa
 	o.CertificateValidationSettings = &v
 }
 
+// GetCertificateRequestAttributes returns the CertificateRequestAttributes field value if set, zero value otherwise.
+func (o *RaProfileDto) GetCertificateRequestAttributes() RaProfileCertificateRequestAttributesDto {
+	if o == nil || IsNil(o.CertificateRequestAttributes) {
+		var ret RaProfileCertificateRequestAttributesDto
+		return ret
+	}
+	return *o.CertificateRequestAttributes
+}
+
+// GetCertificateRequestAttributesOk returns a tuple with the CertificateRequestAttributes field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *RaProfileDto) GetCertificateRequestAttributesOk() (*RaProfileCertificateRequestAttributesDto, bool) {
+	if o == nil || IsNil(o.CertificateRequestAttributes) {
+		return nil, false
+	}
+	return o.CertificateRequestAttributes, true
+}
+
+// HasCertificateRequestAttributes returns a boolean if a field has been set.
+func (o *RaProfileDto) HasCertificateRequestAttributes() bool {
+	if o != nil && !IsNil(o.CertificateRequestAttributes) {
+		return true
+	}
+
+	return false
+}
+
+// SetCertificateRequestAttributes gets a reference to the given RaProfileCertificateRequestAttributesDto and assigns it to the CertificateRequestAttributes field.
+func (o *RaProfileDto) SetCertificateRequestAttributes(v RaProfileCertificateRequestAttributesDto) {
+	o.CertificateRequestAttributes = &v
+}
+
 func (o RaProfileDto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -432,6 +466,9 @@ func (o RaProfileDto) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.CertificateValidationSettings) {
 		toSerialize["certificateValidationSettings"] = o.CertificateValidationSettings
+	}
+	if !IsNil(o.CertificateRequestAttributes) {
+		toSerialize["certificateRequestAttributes"] = o.CertificateRequestAttributes
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -489,6 +526,7 @@ func (o *RaProfileDto) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "customAttributes")
 		delete(additionalProperties, "enabledProtocols")
 		delete(additionalProperties, "certificateValidationSettings")
+		delete(additionalProperties, "certificateRequestAttributes")
 		o.AdditionalProperties = additionalProperties
 	}
 

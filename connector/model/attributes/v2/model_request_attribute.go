@@ -1,7 +1,7 @@
 /*
 Connector Attributes v2 API
 
-The connector-global Attributes v2 API (the common NG connector-interface generation, alongside Info/Health/Metrics in connector.common.v2): a definition registry plus a dynamic-attribute callback surface. NOTE on version axes: the \"v2\" here is the common-interface/NG generation version, NOT attribute schema v2 — payloads carry the independent attribute-schema axis (v2/v3), and the callback response `content` arm is attribute schema v3 by design. Extracted from the authority-v3 spec (the common.v2 attributes subset) for cross-language parity with OmniTrustILM/interfaces#738; the schema set is the transitive closure of the three envelope DTOs.
+The connector-global Attributes v2 API (common NG connector-interface generation) — definition registry + dynamic-attribute callback surface. The \"v2\" is the common-interface/NG generation version, NOT attribute schema v2; payloads carry the independent attribute-schema axis (v2/v3), and the callback response content arm is attribute schema v3. Extracted (transitive closure of the three envelope DTOs) from authority-v3.json for cross-language parity with OmniTrustILM/interfaces.
 
 API version: 2.0.0
 */
@@ -47,9 +47,13 @@ func (dst *RequestAttribute) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("RequestAttribute: probe version: %w", err)
 	}
+	disc := probe.Disc
+	if disc == "" {
+		disc = "v2" // absent version defaults to this per the Java wire contract
+	}
 	dst.RequestAttributeV2 = nil
 	dst.RequestAttributeV3 = nil
-	switch probe.Disc {
+	switch disc {
 	case "v2":
 		var v RequestAttributeV2
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -65,11 +69,9 @@ func (dst *RequestAttribute) UnmarshalJSON(data []byte) error {
 		dst.RequestAttributeV3 = &v
 		return nil
 	default:
-		return fmt.Errorf("RequestAttribute: unknown version %q", probe.Disc)
+		return fmt.Errorf("RequestAttribute: unknown version %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

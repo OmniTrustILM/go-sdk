@@ -3,7 +3,7 @@ Cryptography Provider API
 
 REST API for implementations of custom Cryptography Provider
 
-API version: 2.17.0
+API version: 2.18.1-SNAPSHOT
 Contact: info@otilm.com
 */
 
@@ -72,12 +72,13 @@ func (dst *BaseAttributeDtoV2) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return fmt.Errorf("BaseAttributeDtoV2: probe type: %w", err)
 	}
+	disc := probe.Disc
 	dst.CustomAttributeV2 = nil
 	dst.DataAttributeV2 = nil
 	dst.GroupAttributeV2 = nil
 	dst.InfoAttributeV2 = nil
 	dst.MetadataAttributeV2 = nil
-	switch probe.Disc {
+	switch disc {
 	case "custom":
 		var v CustomAttributeV2
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -114,11 +115,9 @@ func (dst *BaseAttributeDtoV2) UnmarshalJSON(data []byte) error {
 		dst.MetadataAttributeV2 = &v
 		return nil
 	default:
-		return fmt.Errorf("BaseAttributeDtoV2: unknown type %q", probe.Disc)
+		return fmt.Errorf("BaseAttributeDtoV2: unknown type %q", disc)
 	}
 }
-
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON
