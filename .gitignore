@@ -1,8 +1,31 @@
+# Compiled example / tool binaries. `go build ./connector/examples/<name>`
+# (or `go build ./tools/fixoneof`) without -o drops a binary named after the
+# package dir at the repo root; these are build artifacts, never committed.
+/authority-v3
+/compliance-v1
+/compliance-v2
+/credential-v1
+/cryptography-v1
+/disco-v1
+/entity-v1
+/legacy-auth-v1
+/multi-v1
+/notification-v1
+/secret-v1
+/fixoneof
+
+# Go build/test artifacts
+*.exe
 *.test
+*.out
 coverage.out
+coverage.txt
 coverage.html
 .scannerwork/
+
+# Editor / OS
 .idea/
 *.iml
 .vscode/
 .DS_Store
+*.swp

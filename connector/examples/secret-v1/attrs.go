@@ -41,13 +41,13 @@ func (a *Attrs) VaultAttributes(ctx context.Context) ([]mdl.BaseAttributeDto, er
 			usernameAttrUUID,
 			"data_secrets_v1_example_username",
 			"Login username",
-			"Secrets v1 example username. ~~~TODO~~~",
+			"Login username; must match the connector's configured APP_USERNAME (validated on every request).",
 		),
 		buildStringDataAttr(
 			passwordAttrUUID,
 			"data_secrets_v1_example_password",
 			"Login password",
-			"Secrets v1 example password. ~~~TODO~~~",
+			"Login password; must match the connector's configured APP_PASSWORD (validated on every request).",
 		),
 	}, nil
 }
@@ -96,8 +96,8 @@ func buildInfoAttr() mdl.BaseAttributeDto {
 		"parameters (attributes) like for example Vault URL or Vault namespace " +
 		"don't really make sense with this particular connector. For " +
 		"demonstration purposes there are two mandatory input parameters:\n" +
-		"-  **Username** - ~~~TODO~~~\n" +
-		"-  **Password** - ~~~TODO~~~ "
+		"-  **Username** - the login username, checked against the connector's configured value on every request.\n" +
+		"-  **Password** - the login password, checked against the connector's configured value on every request."
 	version := int32(3)
 
 	text := &mdl.TextAttributeContentV3{
