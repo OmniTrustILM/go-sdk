@@ -9,16 +9,13 @@ import (
 
 // Connector event names emitted to connector_events_total{event,outcome}.
 const (
-	eventGetRules                = "get_rules"
-	eventGetGroups               = "get_groups"
-	eventGetGroupRules           = "get_group_rules"
-	eventCheckCompliance         = "check_compliance"
-	eventListKindAttributes      = "list_kind_attributes"
-	eventValidateKindAttributes  = "validate_kind_attributes"
+	eventGetRules               = "get_rules"
+	eventGetGroups              = "get_groups"
+	eventGetGroupRules          = "get_group_rules"
+	eventCheckCompliance        = "check_compliance"
+	eventListKindAttributes     = "list_kind_attributes"
+	eventValidateKindAttributes = "validate_kind_attributes"
 )
-
-
-
 
 // --- Compliance management routes ----------------------------------------
 

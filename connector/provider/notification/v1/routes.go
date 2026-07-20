@@ -19,9 +19,6 @@ const (
 	eventListMappingAttributes      = "list_mapping_attributes"
 )
 
-
-
-
 // --- Notification instance management ------------------------------------
 
 func (h *Handler) listNotificationInstances(w http.ResponseWriter, r *http.Request) {

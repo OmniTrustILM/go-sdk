@@ -34,7 +34,6 @@ type Handler struct {
 	createSecretKeyAttrs CreateSecretKeyAttributeProvider
 	createKeyPairAttrs   CreateKeyPairAttributeProvider
 	randomDataAttrs      RandomDataAttributeProvider
-
 }
 
 // NewHandler builds a Handler for the given Provider.

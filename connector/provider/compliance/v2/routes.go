@@ -9,18 +9,16 @@ import (
 
 // Connector event names emitted to connector_events_total{event,outcome}.
 const (
-	eventGetRules                = "get_rules"
-	eventGetRulesBatch           = "get_rules_batch"
-	eventGetRule                 = "get_rule"
-	eventGetGroups               = "get_groups"
-	eventGetGroup                = "get_group"
-	eventGetGroupRules           = "get_group_rules"
-	eventCheckCompliance         = "check_compliance"
-	eventListKindAttributes      = "list_kind_attributes"
-	eventValidateKindAttributes  = "validate_kind_attributes"
+	eventGetRules               = "get_rules"
+	eventGetRulesBatch          = "get_rules_batch"
+	eventGetRule                = "get_rule"
+	eventGetGroups              = "get_groups"
+	eventGetGroup               = "get_group"
+	eventGetGroupRules          = "get_group_rules"
+	eventCheckCompliance        = "check_compliance"
+	eventListKindAttributes     = "list_kind_attributes"
+	eventValidateKindAttributes = "validate_kind_attributes"
 )
-
-
 
 // requireKind extracts the {kind} path parameter and returns 400 when empty.
 

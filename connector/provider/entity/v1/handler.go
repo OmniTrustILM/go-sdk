@@ -32,7 +32,6 @@ type Handler struct {
 	locationAttrs LocationAttributeProvider
 	pushAttrs     PushCertificateAttributeProvider
 	csrAttrs      GenerateCsrAttributeProvider
-
 }
 
 // NewHandler builds a Handler for the given Provider.

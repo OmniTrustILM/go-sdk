@@ -16,7 +16,8 @@ import (
 // embedding or by pointer-receiving multiple methods on the same struct.
 
 // SecretAttributeProvider serves
-//   GET /v1/secretProvider/secrets/{secretType}/attributes
+//
+//	GET /v1/secretProvider/secrets/{secretType}/attributes
 //
 // The secretType path parameter is validated against the SecretType enum
 // before this method is called; implementations can assume t is one of the
@@ -26,13 +27,15 @@ type SecretAttributeProvider interface {
 }
 
 // VaultAttributeProvider serves
-//   GET /v1/secretProvider/vaults/attributes
+//
+//	GET /v1/secretProvider/vaults/attributes
 type VaultAttributeProvider interface {
 	VaultAttributes(ctx context.Context) ([]mdl.BaseAttributeDto, error)
 }
 
 // VaultProfileAttributeProvider serves
-//   POST /v1/secretProvider/vaultProfiles/attributes
+//
+//	POST /v1/secretProvider/vaultProfiles/attributes
 //
 // The request body carries previously-collected vault attributes that the
 // implementation can use to dynamically tailor the returned profile attribute
@@ -42,7 +45,8 @@ type VaultProfileAttributeProvider interface {
 }
 
 // RotateAttributeProvider serves
-//   GET /v1/secretProvider/secrets/rotate/attributes
+//
+//	GET /v1/secretProvider/secrets/rotate/attributes
 type RotateAttributeProvider interface {
 	RotateAttributes(ctx context.Context) ([]mdl.BaseAttributeDto, error)
 }

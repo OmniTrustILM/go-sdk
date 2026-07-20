@@ -29,7 +29,6 @@ type Handler struct {
 	provider     Provider
 	kindAttrs    KindAttributeProvider
 	mappingAttrs MappingAttributeProvider
-
 }
 
 // NewHandler builds a Handler for the given Provider.

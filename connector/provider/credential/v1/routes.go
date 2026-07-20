@@ -12,8 +12,6 @@ const (
 	eventValidateAttributes = "validate_attributes"
 )
 
-
-
 // GET /v1/credentialProvider/{kind}/attributes
 func (h *Handler) listAttributes(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")

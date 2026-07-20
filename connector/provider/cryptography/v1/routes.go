@@ -43,10 +43,6 @@ const (
 	eventValidateRandomDataAttributes    = "validate_random_data_attributes"
 )
 
-
-
-
-
 // --- Token instance management routes ------------------------------------
 
 func (h *Handler) listTokenInstances(w http.ResponseWriter, r *http.Request) {

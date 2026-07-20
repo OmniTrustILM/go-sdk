@@ -34,7 +34,6 @@ type Handler struct {
 
 	kindAttrs      KindAttributeProvider
 	raProfileAttrs RAProfileAttributeProvider
-
 }
 
 // NewHandler builds a Handler for the given Provider.

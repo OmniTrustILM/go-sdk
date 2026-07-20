@@ -16,7 +16,6 @@ const (
 	eventValidateAttributes  = "validate_attributes"
 )
 
-
 // --- Discovery routes ------------------------------------------------------
 
 // POST /v1/discoveryProvider/discover

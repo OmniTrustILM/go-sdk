@@ -10,27 +10,24 @@ import (
 )
 
 const (
-	eventListEntityInstances          = "list_entity_instances"
-	eventCreateEntityInstance         = "create_entity_instance"
-	eventGetEntityInstance            = "get_entity_instance"
-	eventUpdateEntityInstance         = "update_entity_instance"
-	eventRemoveEntityInstance         = "remove_entity_instance"
-	eventGetLocationDetail            = "get_location_detail"
-	eventPushCertificateToLocation    = "push_certificate_to_location"
-	eventRemoveCertificateFromLoc     = "remove_certificate_from_location"
-	eventGenerateCsrLocation          = "generate_csr_location"
-	eventListKindAttributes           = "list_kind_attributes"
-	eventValidateKindAttributes       = "validate_kind_attributes"
-	eventListLocationAttributes       = "list_location_attributes"
-	eventValidateLocationAttributes   = "validate_location_attributes"
-	eventListPushCertAttributes       = "list_push_certificate_attributes"
-	eventValidatePushCertAttributes   = "validate_push_certificate_attributes"
-	eventListGenerateCsrAttributes    = "list_generate_csr_attributes"
-	eventValidateGenerateCsrAttrs     = "validate_generate_csr_attributes"
+	eventListEntityInstances        = "list_entity_instances"
+	eventCreateEntityInstance       = "create_entity_instance"
+	eventGetEntityInstance          = "get_entity_instance"
+	eventUpdateEntityInstance       = "update_entity_instance"
+	eventRemoveEntityInstance       = "remove_entity_instance"
+	eventGetLocationDetail          = "get_location_detail"
+	eventPushCertificateToLocation  = "push_certificate_to_location"
+	eventRemoveCertificateFromLoc   = "remove_certificate_from_location"
+	eventGenerateCsrLocation        = "generate_csr_location"
+	eventListKindAttributes         = "list_kind_attributes"
+	eventValidateKindAttributes     = "validate_kind_attributes"
+	eventListLocationAttributes     = "list_location_attributes"
+	eventValidateLocationAttributes = "validate_location_attributes"
+	eventListPushCertAttributes     = "list_push_certificate_attributes"
+	eventValidatePushCertAttributes = "validate_push_certificate_attributes"
+	eventListGenerateCsrAttributes  = "list_generate_csr_attributes"
+	eventValidateGenerateCsrAttrs   = "validate_generate_csr_attributes"
 )
-
-
-
 
 // --- Entity instance management routes -----------------------------------
 
@@ -250,8 +247,6 @@ func (h *Handler) validateKindAttributesFor(w http.ResponseWriter, r *http.Reque
 }
 
 // --- Per-entity attribute helpers ----------------------------------------
-
-
 
 // Location attributes (singular path).
 func (h *Handler) listLocationAttributes(w http.ResponseWriter, r *http.Request) {
