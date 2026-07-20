@@ -9,28 +9,27 @@ import (
 
 // Connector event names emitted to connector_events_total{event,outcome}.
 const (
-	eventListAuthorityInstances             = "list_authority_instances"
-	eventCreateAuthorityInstance            = "create_authority_instance"
-	eventGetAuthorityInstance               = "get_authority_instance"
-	eventUpdateAuthorityInstance            = "update_authority_instance"
-	eventRemoveAuthorityInstance            = "remove_authority_instance"
-	eventGetConnection                      = "get_connection"
-	eventGetCaCertificates                  = "get_ca_certificates"
-	eventGetCrl                             = "get_crl"
-	eventIssueCertificate                   = "issue_certificate"
-	eventRenewCertificate                   = "renew_certificate"
-	eventRevokeCertificate                  = "revoke_certificate"
-	eventIdentifyCertificate                = "identify_certificate"
-	eventListKindAttributes                 = "list_kind_attributes"
-	eventValidateKindAttributes             = "validate_kind_attributes"
-	eventListRAProfileAttributes            = "list_ra_profile_attributes"
-	eventValidateRAProfileAttributes        = "validate_ra_profile_attributes"
-	eventListIssueCertificateAttributes     = "list_issue_certificate_attributes"
-	eventValidateIssueCertificateAttributes = "validate_issue_certificate_attributes"
-	eventListRevokeCertificateAttributes    = "list_revoke_certificate_attributes"
+	eventListAuthorityInstances              = "list_authority_instances"
+	eventCreateAuthorityInstance             = "create_authority_instance"
+	eventGetAuthorityInstance                = "get_authority_instance"
+	eventUpdateAuthorityInstance             = "update_authority_instance"
+	eventRemoveAuthorityInstance             = "remove_authority_instance"
+	eventGetConnection                       = "get_connection"
+	eventGetCaCertificates                   = "get_ca_certificates"
+	eventGetCrl                              = "get_crl"
+	eventIssueCertificate                    = "issue_certificate"
+	eventRenewCertificate                    = "renew_certificate"
+	eventRevokeCertificate                   = "revoke_certificate"
+	eventIdentifyCertificate                 = "identify_certificate"
+	eventListKindAttributes                  = "list_kind_attributes"
+	eventValidateKindAttributes              = "validate_kind_attributes"
+	eventListRAProfileAttributes             = "list_ra_profile_attributes"
+	eventValidateRAProfileAttributes         = "validate_ra_profile_attributes"
+	eventListIssueCertificateAttributes      = "list_issue_certificate_attributes"
+	eventValidateIssueCertificateAttributes  = "validate_issue_certificate_attributes"
+	eventListRevokeCertificateAttributes     = "list_revoke_certificate_attributes"
 	eventValidateRevokeCertificateAttributes = "validate_revoke_certificate_attributes"
 )
-
 
 // ensureSlice converts a nil slice into an empty one so JSON encoders emit
 // "[]" instead of "null". Spec response bodies are array-typed; clients hate

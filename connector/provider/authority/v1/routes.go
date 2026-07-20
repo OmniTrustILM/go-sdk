@@ -34,16 +34,6 @@ const (
 	eventValidateRAProfileAttributes = "validate_ra_profile_attributes"
 )
 
-
-
-// requireUUID extracts the {uuid} path parameter and returns 400 when empty.
-
-// requireProfileName extracts the {endEntityProfileName} path parameter.
-
-// requireProfileID extracts and parses the {endEntityProfileId} int path parameter.
-
-// requireEndEntityName extracts the {endEntityName} path parameter.
-
 // --- Authority management routes -----------------------------------------
 
 func (h *Handler) listAuthorityInstances(w http.ResponseWriter, r *http.Request) {

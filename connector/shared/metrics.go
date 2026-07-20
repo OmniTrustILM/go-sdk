@@ -156,11 +156,11 @@ func MetricsFromContext(ctx context.Context) MetricsCollector {
 // supplied.
 type noopMetrics struct{}
 
-func (noopMetrics) Handler() http.Handler                                 { return http.NotFoundHandler() }
-func (noopMetrics) ObserveRequest(string, string, int, time.Duration)     {}
-func (noopMetrics) InFlightInc(string)                                    {}
-func (noopMetrics) InFlightDec(string)                                    {}
-func (noopMetrics) IncConnectorEvent(string, string)                      {}
+func (noopMetrics) Handler() http.Handler                             { return http.NotFoundHandler() }
+func (noopMetrics) ObserveRequest(string, string, int, time.Duration) {}
+func (noopMetrics) InFlightInc(string)                                {}
+func (noopMetrics) InFlightDec(string)                                {}
+func (noopMetrics) IncConnectorEvent(string, string)                  {}
 
 // withMetrics measures every served request. Requires the wrapped mux so it
 // can resolve the matched route pattern (avoiding cardinality blow-up from

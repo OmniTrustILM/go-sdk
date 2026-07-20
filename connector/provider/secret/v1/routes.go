@@ -10,18 +10,17 @@ import (
 // Connector event names emitted to connector_events_total{event,outcome}.
 // Outcome is "ok" on success and "error" on any handler failure path.
 const (
-	eventCreateSecret              = "create_secret"
-	eventUpdateSecret              = "update_secret"
-	eventDeleteSecret              = "delete_secret"
-	eventRotateSecret              = "rotate_secret"
-	eventGetSecretContent          = "get_secret_content"
-	eventVaultCheck                = "vault_check"
-	eventListVaultAttributes       = "list_vault_attributes"
+	eventCreateSecret               = "create_secret"
+	eventUpdateSecret               = "update_secret"
+	eventDeleteSecret               = "delete_secret"
+	eventRotateSecret               = "rotate_secret"
+	eventGetSecretContent           = "get_secret_content"
+	eventVaultCheck                 = "vault_check"
+	eventListVaultAttributes        = "list_vault_attributes"
 	eventListVaultProfileAttributes = "list_vault_profile_attributes"
-	eventListRotateAttributes      = "list_rotate_attributes"
-	eventListSecretAttributes      = "list_secret_attributes"
+	eventListRotateAttributes       = "list_rotate_attributes"
+	eventListSecretAttributes       = "list_secret_attributes"
 )
-
 
 // --- Secret Management -----------------------------------------------------
 

@@ -1,0 +1,66 @@
+name: Build
+
+# Runs on pull requests as well as push-to-main: the main branch ruleset
+# requires the "build" status context on every PR, so the pull_request
+# trigger must stay even though check_pr.yml runs an overlapping suite.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: gofmt
+        # connector/model/** is OpenAPI-generated (gen.sh) and is not
+        # gofmt-clean as generated; only hand-written code is format-gated.
+        # gofmt runs alone first so its own failure fails the step rather
+        # than being masked inside a pipeline.
+        run: |
+          unformatted=$(gofmt -l .)
+          unformatted=$(printf '%s\n' "$unformatted" | grep -v '^connector/model/' || true)
+          if [ -n "$unformatted" ]; then
+            echo "files not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: govulncheck
+        # Version is lock-file enforced: the tool directive in go.mod pins
+        # govulncheck and go.sum verifies it.
+        run: go tool govulncheck ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        # -vet=off: the dedicated go vet step above already ran the full vet
+        # suite; go test's implicit vet subset would only repeat it.
+        run: go test -race -vet=off -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: coverage.out
+          if-no-files-found: ignore
