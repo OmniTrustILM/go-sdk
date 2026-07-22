@@ -17,7 +17,7 @@ Requires **Go 1.26+**.
 go get github.com/OmniTrustILM/go-sdk@vX.Y.Z
 ```
 
-Pin an explicit released tag (see [Versioning & releases](#versioning--releases)). This records a `require github.com/OmniTrustILM/go-sdk vX.Y.Z` line in your `go.mod`.
+Replace `vX.Y.Z` with a published release tag (see [Versioning & releases](#versioning--releases)) — always pin an explicit version rather than `@latest` or a branch. This records a `require github.com/OmniTrustILM/go-sdk vX.Y.Z` line in your `go.mod`.
 
 ## Quickstart
 
