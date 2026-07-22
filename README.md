@@ -35,7 +35,8 @@ import (
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
 
-// store implements secret.Provider (CreateSecret, GetSecretContent, … ).
+// store is your connector's backend. It must implement secret.Provider
+// (CreateSecret, GetSecretContent, …); those methods are elided here.
 type store struct{ /* ... */ }
 
 func main() {
@@ -61,7 +62,7 @@ func main() {
 }
 ```
 
-The connector now serves `/v2/info`, `/v2/health`, and the secret-provider routes under `/v1/secretProvider`.
+This is a skeleton, not a copy-paste-runnable program: it compiles once `store` implements the `secret.Provider` methods — see the runnable [`secret-v1` example](connector/examples/secret-v1) for a complete version. Once it does, the connector serves `/v2/info`, `/v2/health`, and the secret-provider routes under `/v1/secretProvider`.
 
 ## Examples
 
