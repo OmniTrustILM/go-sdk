@@ -1,6 +1,6 @@
 // Package shared provides the HTTP server, request lifecycle, and cross-cutting
 // concerns (logging, tracing, correlation, error handling, health) used by
-// every CZERTAINLY connector spec. Provider-specific handlers (secret,
+// every ILM connector spec. Provider-specific handlers (secret,
 // authority, compliance, ...) plug in via Registrable and Mount onto the
 // Connector.
 //

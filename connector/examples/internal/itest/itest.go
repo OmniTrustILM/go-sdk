@@ -1,8 +1,8 @@
 // Package itest is the shared integration-test harness for the connector
 // example services under connector/examples/. It builds an example into a
 // container and runs it as a black box, so an example's tests can drive the
-// real compiled connector over its public HTTP interface — the same path a
-// CZERTAINLY/OmniTrust core takes — and catch any drift between the OpenAPI
+// real compiled connector over its public HTTP interface — the same path an
+// ILM/OmniTrust core takes — and catch any drift between the OpenAPI
 // spec, the generated models, and the shared/provider runtime.
 //
 // It is an internal package: only the example test packages import it.

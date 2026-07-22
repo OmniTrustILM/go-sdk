@@ -86,9 +86,8 @@ func (h *Handler) attributeCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// Semantic validation beyond the decoder's key-presence/type checks:
 	// reject blank identifiers and out-of-bounds pagination before dispatch,
-	// as 422 rather than a downstream 404/500. (Full JSR-380-equivalent
-	// validation of the nested DTO graph is a broader SDK gap, tracked
-	// separately.)
+	// as 422 rather than a downstream 404/500. This is not full
+	// JSR-380-equivalent validation of the nested DTO graph.
 	if err := validateCallbackRequest(&in); err != nil {
 		shared.EmitEvent(r.Context(), eventAttributeCallback, err)
 		shared.RenderError(w, r, err)
