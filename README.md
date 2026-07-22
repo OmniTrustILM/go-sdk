@@ -5,7 +5,7 @@ Go SDK for building ILM / OmniTrust **connectors**.
 It provides the two things a connector author would otherwise hand-roll:
 
 - **Contract types** — Go DTOs for every connector interface, generated from the platform's OpenAPI specs (`connector/model/<interface>/<version>`) and patched for correct polymorphic (`oneOf`) JSON round-tripping.
-- **Server scaffolding** — `connector/shared` gives you the HTTP server, `/v2/info` + `/v2/health` + metrics, RFC 9457 problem responses, structured `connector.log` logging with W3C trace/correlation context, and a small router. `connector/provider/<interface>/<version>` turns your business logic (a `Provider` interface you implement) into the interface's routes.
+- **Server scaffolding** — `connector/shared` gives you the HTTP server, `/v2/info` + `/v2/health`, RFC 9457 problem responses, structured `connector.log` logging with W3C trace/correlation context, a small router, and an optional Prometheus `/v1/metrics` endpoint (enabled with `WithMetrics`). `connector/provider/<interface>/<version>` turns your business logic (a `Provider` interface you implement) into the interface's routes.
 
 Supported provider interfaces: `authority`, `compliance`, `credential`, `cryptography`, `discovery`, `entity`, `notification`, `secret`, plus the connector-global Attributes v2 surface (`attributes`). One connector process can register several.
 
