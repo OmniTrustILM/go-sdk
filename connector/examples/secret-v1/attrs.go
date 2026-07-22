@@ -8,7 +8,7 @@ import (
 
 // Hard-coded UUIDs for the vault-attribute definitions returned by this
 // example connector. Match the JSON in the README / spec example used by
-// CZERTAINLY core when rendering the credential-form for this connector.
+// ILM core when rendering the credential-form for this connector.
 const (
 	infoAttrUUID     = "07ec149a-c376-4523-9ba9-968ac59ef917"
 	usernameAttrUUID = "fc70ce69-ca60-4919-bd97-9461fc3cf892"

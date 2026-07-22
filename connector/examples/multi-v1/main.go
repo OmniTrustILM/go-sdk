@@ -81,7 +81,7 @@ func main() {
 		shared.Register(authHandler),
 		// Info-only entries so /v1 info lists the shared endpoints under
 		// each function group, matching the convention from example 1 in
-		// the CZERTAINLY docs.
+		// the ILM docs.
 		shared.WithExtraEndpoints(
 			shared.ExtraEndpoint{FunctionGroupCode: discovery.FunctionGroupCode, Method: http.MethodGet, Context: "/v1/health", Name: "checkHealth"},
 			shared.ExtraEndpoint{FunctionGroupCode: discovery.FunctionGroupCode, Method: http.MethodGet, Context: "/v1", Name: "listSupportedFunctions"},

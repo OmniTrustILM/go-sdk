@@ -1,6 +1,6 @@
 # go-sdk
 
-Go SDK for building [CZERTAINLY](https://www.czertainly.com/) / OmniTrust **connectors**.
+Go SDK for building ILM / OmniTrust **connectors**.
 
 It provides the two things a connector author would otherwise hand-roll:
 
