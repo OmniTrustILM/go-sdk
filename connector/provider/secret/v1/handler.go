@@ -51,10 +51,7 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // Interface satisfies shared.Registrable. Reports "secret" interface code
 // with version 1.
 func (h *Handler) Interface() shared.InterfaceInfo {
-	return shared.InterfaceInfo{
-		Code:    shared.InterfaceCodeSecret,
-		Version: InterfaceVersion,
-	}
+	return h.InterfaceInfo(shared.InterfaceCodeSecret, InterfaceVersion)
 }
 
 // Mount attaches every Secret Provider v1 route onto r. Routes that depend on

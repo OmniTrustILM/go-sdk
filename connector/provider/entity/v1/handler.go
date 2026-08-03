@@ -51,10 +51,7 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 
 // Interface satisfies shared.Registrable.
 func (h *Handler) Interface() shared.InterfaceInfo {
-	return shared.InterfaceInfo{
-		Code:    shared.InterfaceCodeEntity,
-		Version: InterfaceVersion,
-	}
+	return h.InterfaceInfo(shared.InterfaceCodeEntity, InterfaceVersion)
 }
 
 // FunctionGroup implements shared.V1Reporter. Endpoints mirror the routes

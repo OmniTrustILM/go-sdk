@@ -51,10 +51,7 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // Interface satisfies shared.Registrable. Reports the "authority" interface
 // at version v3.
 func (h *Handler) Interface() shared.InterfaceInfo {
-	return shared.InterfaceInfo{
-		Code:    shared.InterfaceCodeAuthority,
-		Version: InterfaceVersion,
-	}
+	return h.InterfaceInfo(shared.InterfaceCodeAuthority, InterfaceVersion)
 }
 
 // Mount attaches every Authority Provider v3 route onto r. All paths are
