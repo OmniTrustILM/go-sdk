@@ -64,11 +64,7 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // Interface satisfies shared.Registrable. Reports the "authority" interface
 // at version v2.
 func (h *Handler) Interface() shared.InterfaceInfo {
-	return shared.InterfaceInfo{
-		Code:     shared.InterfaceCodeAuthority,
-		Version:  InterfaceVersion,
-		Features: h.AdvertisedFeatures(),
-	}
+	return h.InterfaceInfo(shared.InterfaceCodeAuthority, InterfaceVersion)
 }
 
 // FunctionGroup implements shared.V1Reporter. Endpoints listed mirror the

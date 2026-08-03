@@ -96,3 +96,44 @@ func TestWithFeaturesCopiesCallerSlice(t *testing.T) {
 		t.Errorf("Features = %v after caller mutation, want %v", cfg.Features, want)
 	}
 }
+
+func TestInterfaceInfoCarriesCodeVersionAndFeatures(t *testing.T) {
+	cfg := handlerbase.NewConfig("/v3/authorityProvider")
+	if err := handlerbase.WithFeatures("stateless", "certificateRegistration")(&cfg); err != nil {
+		t.Fatalf("WithFeatures: %v", err)
+	}
+
+	got := cfg.InterfaceInfo("authority", "v3")
+
+	if got.Code != "authority" {
+		t.Errorf("Code = %q, want %q", got.Code, "authority")
+	}
+	if got.Version != "v3" {
+		t.Errorf("Version = %q, want %q", got.Version, "v3")
+	}
+	want := []string{"stateless", "certificateRegistration"}
+	if !slices.Equal(got.Features, want) {
+		t.Errorf("Features = %v, want %v", got.Features, want)
+	}
+}
+
+func TestInterfaceInfoWithoutFeaturesIsNil(t *testing.T) {
+	cfg := handlerbase.NewConfig("/v1/secretProvider")
+
+	if got := cfg.InterfaceInfo("secret", "v1").Features; got != nil {
+		t.Errorf("Features = %v, want nil", got)
+	}
+}
+
+func TestInterfaceInfoCopiesFeatures(t *testing.T) {
+	cfg := handlerbase.NewConfig("/v3/authorityProvider")
+	if err := handlerbase.WithFeatures("stateless")(&cfg); err != nil {
+		t.Fatalf("WithFeatures: %v", err)
+	}
+
+	cfg.InterfaceInfo("authority", "v3").Features[0] = "tampered"
+
+	if got := cfg.InterfaceInfo("authority", "v3").Features; !slices.Equal(got, []string{"stateless"}) {
+		t.Errorf("Features = %v after mutating an earlier result, want [stateless]", got)
+	}
+}

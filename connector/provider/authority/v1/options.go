@@ -11,8 +11,7 @@ import (
 type Option func(*Handler) error
 
 // Base lifts shared handlerbase options (base path, max bytes, strict decode,
-// logger override, advertised feature flags) into the legacy authority
-// provider's Option type.
+// logger override) into the legacy authority provider's Option type.
 func Base(opts ...handlerbase.Option) Option {
 	return func(h *Handler) error {
 		for _, opt := range opts {

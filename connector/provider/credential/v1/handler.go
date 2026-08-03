@@ -52,11 +52,7 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // report under "credential" so a /v2/info-only deployment can still surface
 // the provider when one is configured.
 func (h *Handler) Interface() shared.InterfaceInfo {
-	return shared.InterfaceInfo{
-		Code:     "credential",
-		Version:  InterfaceVersion,
-		Features: h.AdvertisedFeatures(),
-	}
+	return h.InterfaceInfo("credential", InterfaceVersion)
 }
 
 // FunctionGroup implements shared.V1Reporter. Endpoints mirror the routes

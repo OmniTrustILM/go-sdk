@@ -132,10 +132,14 @@ type Config struct {
 	Features []string
 }
 
-// AdvertisedFeatures returns a copy of the configured capability flags, or nil
-// when none were set.
-func (c *Config) AdvertisedFeatures() []string {
-	return slices.Clone(c.Features)
+// InterfaceInfo builds the /v2/info entry for a provider interface: the code
+// and version the provider reports, plus the configured capability flags.
+func (c *Config) InterfaceInfo(code, version string) shared.InterfaceInfo {
+	return shared.InterfaceInfo{
+		Code:     code,
+		Version:  version,
+		Features: slices.Clone(c.Features),
+	}
 }
 
 // ValidateKind returns nil when k is acceptable as a literal URL segment.
