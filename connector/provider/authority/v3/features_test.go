@@ -17,8 +17,7 @@ import (
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
-// structuredFlags are the authority/v3 capability flags Core gates structured
-// requestContent on — the first real consumer of handlerbase.WithFeatures.
+// structuredFlags are the authority/v3 capability flags.
 var structuredFlags = []string{
 	string(mdl.FEATUREFLAG_CERTIFICATE_REQUEST_STRUCTURED),
 	string(mdl.FEATUREFLAG_CERTIFICATE_IDENTITY_OVERRIDE),

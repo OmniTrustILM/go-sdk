@@ -12,8 +12,8 @@ type Option func(*Handler) error
 // handlerbase.WithFeatures is accepted but does nothing here. This handler's
 // Interface() returns an empty Code, which tells /v2/info to leave it out of
 // the interfaces list (see connector/shared/info.go), and feature flags are
-// a field on that list entry. Advertise them instead on the functional interface —
-// authority, secret...
+// a field on that list entry. Advertise them instead on a functional
+// interface such as authority or secret.
 func Base(opts ...handlerbase.Option) Option {
 	return func(h *Handler) error {
 		for _, opt := range opts {

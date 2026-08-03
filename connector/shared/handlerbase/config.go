@@ -127,8 +127,9 @@ type Config struct {
 	Kinds []string
 
 	// Features declares the capability flags the interface advertises in
-	// shared.InterfaceInfo.Features on /v2/info. Values are validated by
-	// WithFeatures before being stored; nil means advertise nothing.
+	// shared.InterfaceInfo.Features on /v2/info. WithFeatures rejects an
+	// empty flag but does not check values against the FeatureFlag
+	// vocabulary; nil means advertise nothing.
 	Features []string
 }
 
@@ -228,9 +229,10 @@ func WithStrictDecode(b bool) Option {
 // provider Handler.Interface() reports as shared.InterfaceInfo.Features on
 // "/v2/info".
 //
-// Accepted values are the FeatureFlag wire values from the generated model
-// packages. The vocabulary is shared across interfaces rather than per-interface
-// — so pass whichever package's constants you have imported, converted to string:
+// The intended values are the FeatureFlag wire values from the generated
+// model packages. The vocabulary is shared across interfaces rather than
+// per-interface — so pass whichever package's constants you have imported,
+// converted to string:
 //
 //	authority.NewHandler(p,
 //	    authority.Base(handlerbase.WithFeatures(
@@ -238,6 +240,11 @@ func WithStrictDecode(b bool) Option {
 //	        string(mdl.FEATUREFLAG_CERTIFICATE_REGISTRATION),
 //	    )),
 //	)
+//
+// Values are not checked against that vocabulary — only an empty flag is
+// rejected. That is deliberate: it lets a connector advertise a flag the
+// platform already knows but this SDK's generated model does not yet carry.
+// Prefer the generated constants over string literals.
 func WithFeatures(features ...string) Option {
 	return func(c *Config) error {
 		if slices.Contains(features, "") {

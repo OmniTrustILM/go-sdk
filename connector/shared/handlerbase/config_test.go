@@ -53,13 +53,6 @@ func TestWithFeaturesAppendsAcrossCalls(t *testing.T) {
 	}
 }
 
-func TestWithFeaturesRejectsEmptyFlag(t *testing.T) {
-	got, err := applyFeatures(t, "stateless", "")
-	if err == nil {
-		t.Fatalf("WithFeatures(\"stateless\", \"\") = nil error, want rejection (Features %v)", got)
-	}
-}
-
 func TestWithFeaturesRejectsEmptyFlagWithoutPartialWrite(t *testing.T) {
 	got, err := applyFeatures(t, "stateless", "")
 	if err == nil {

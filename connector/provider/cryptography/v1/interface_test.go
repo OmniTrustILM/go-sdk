@@ -10,7 +10,7 @@ import (
 )
 
 func TestInterfaceAdvertisesConfiguredFeatures(t *testing.T) {
-	want := []string{"contentSigning"}
+	want := []string{"stateless"}
 	h := &cryptography.Handler{Config: handlerbase.Config{Features: want}}
 
 	got := h.Interface()
