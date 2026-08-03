@@ -128,8 +128,8 @@ type Config struct {
 
 	// Features declares the capability flags the interface advertises in
 	// shared.InterfaceInfo.Features on /v2/info. WithFeatures rejects an
-	// empty flag but does not check values against the FeatureFlag
-	// vocabulary; nil means advertise nothing.
+	// empty flag and skips duplicates, but does not check values against
+	// the FeatureFlag vocabulary; nil means advertise nothing.
 	Features []string
 }
 
@@ -250,7 +250,11 @@ func WithFeatures(features ...string) Option {
 		if slices.Contains(features, "") {
 			return errors.New("feature flag must not be empty")
 		}
-		c.Features = append(c.Features, features...)
+		for _, f := range features {
+			if !slices.Contains(c.Features, f) {
+				c.Features = append(c.Features, f)
+			}
+		}
 		return nil
 	}
 }

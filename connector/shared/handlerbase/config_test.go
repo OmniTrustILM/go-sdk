@@ -53,6 +53,33 @@ func TestWithFeaturesAppendsAcrossCalls(t *testing.T) {
 	}
 }
 
+func TestWithFeaturesSkipsDuplicatesInOneCall(t *testing.T) {
+	got, err := applyFeatures(t, "stateless", "certificateRegistration", "stateless")
+	if err != nil {
+		t.Fatalf("WithFeatures: %v", err)
+	}
+
+	want := []string{"stateless", "certificateRegistration"}
+	if !slices.Equal(got, want) {
+		t.Errorf("Features = %v, want %v", got, want)
+	}
+}
+
+func TestWithFeaturesSkipsDuplicatesAcrossCalls(t *testing.T) {
+	cfg := handlerbase.NewConfig("/v3/authorityProvider")
+
+	for _, f := range []string{"stateless", "certificateRegistration", "stateless"} {
+		if err := handlerbase.WithFeatures(f)(&cfg); err != nil {
+			t.Fatalf("WithFeatures(%q): %v", f, err)
+		}
+	}
+
+	want := []string{"stateless", "certificateRegistration"}
+	if !slices.Equal(cfg.Features, want) {
+		t.Errorf("Features = %v, want %v", cfg.Features, want)
+	}
+}
+
 func TestWithFeaturesRejectsEmptyFlagWithoutPartialWrite(t *testing.T) {
 	got, err := applyFeatures(t, "stateless", "")
 	if err == nil {
