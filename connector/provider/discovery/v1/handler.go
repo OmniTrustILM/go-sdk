@@ -55,8 +55,9 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // interface — the Version field captures the spec generation.
 func (h *Handler) Interface() shared.InterfaceInfo {
 	return shared.InterfaceInfo{
-		Code:    shared.InterfaceCodeDiscovery,
-		Version: InterfaceVersion,
+		Code:     shared.InterfaceCodeDiscovery,
+		Version:  InterfaceVersion,
+		Features: h.AdvertisedFeatures(),
 	}
 }
 

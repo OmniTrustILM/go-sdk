@@ -52,8 +52,9 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // Interface satisfies shared.Registrable.
 func (h *Handler) Interface() shared.InterfaceInfo {
 	return shared.InterfaceInfo{
-		Code:    shared.InterfaceCodeEntity,
-		Version: InterfaceVersion,
+		Code:     shared.InterfaceCodeEntity,
+		Version:  InterfaceVersion,
+		Features: h.AdvertisedFeatures(),
 	}
 }
 

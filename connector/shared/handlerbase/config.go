@@ -1,9 +1,9 @@
 // Package handlerbase provides the shared configuration and option helpers
 // every provider Handler embeds. Every provider sub-package (secret v1,
 // discovery v1, authority v1/v2, ...) needs the same knobs — base path,
-// request-body size limit, strict-decode flag, logger override — and the
-// option boilerplate to set them. Hoisting those into one place keeps each
-// provider package focused on its spec-specific surface.
+// request-body size limit, strict-decode flag, logger override, advertised
+// feature flags — and the option boilerplate to set them. Hoisting those into
+// one place keeps each provider package focused on its spec-specific surface.
 //
 // Provider packages embed Config in their Handler and expose a Base option
 // that lifts handlerbase.Option into the provider's own Option type:
@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
@@ -124,6 +125,17 @@ type Config struct {
 	// per-literal-kind attribute routes (see MountPerKindAttributes).
 	// Values are validated by WithKinds before being stored.
 	Kinds []string
+
+	// Features declares the capability flags the interface advertises in
+	// shared.InterfaceInfo.Features on /v2/info. Values are validated by
+	// WithFeatures before being stored; nil means advertise nothing.
+	Features []string
+}
+
+// AdvertisedFeatures returns a copy of the configured capability flags, or nil
+// when none were set.
+func (c *Config) AdvertisedFeatures() []string {
+	return slices.Clone(c.Features)
 }
 
 // ValidateKind returns nil when k is acceptable as a literal URL segment.
@@ -206,6 +218,30 @@ func WithMaxRequestBytes(n int64) Option {
 // Default false.
 func WithStrictDecode(b bool) Option {
 	return func(c *Config) error { c.Strict = b; return nil }
+}
+
+// WithFeatures appends capability flags to Config.Features, which every
+// provider Handler.Interface() reports as shared.InterfaceInfo.Features on
+// "/v2/info".
+//
+// Accepted values are the FeatureFlag wire values from the generated model
+// packages. The vocabulary is shared across interfaces rather than per-interface
+// — so pass whichever package's constants you have imported, converted to string:
+//
+//	authority.NewHandler(p,
+//	    authority.Base(handlerbase.WithFeatures(
+//	        string(mdl.FEATUREFLAG_CERTIFICATE_REQUEST_STRUCTURED),
+//	        string(mdl.FEATUREFLAG_CERTIFICATE_REGISTRATION),
+//	    )),
+//	)
+func WithFeatures(features ...string) Option {
+	return func(c *Config) error {
+		if slices.Contains(features, "") {
+			return errors.New("feature flag must not be empty")
+		}
+		c.Features = append(c.Features, features...)
+		return nil
+	}
 }
 
 // WithLogger overrides the per-handler base logger. When unset, handlers use

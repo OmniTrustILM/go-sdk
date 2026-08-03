@@ -53,8 +53,9 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // the provider when one is configured.
 func (h *Handler) Interface() shared.InterfaceInfo {
 	return shared.InterfaceInfo{
-		Code:    "credential",
-		Version: InterfaceVersion,
+		Code:     "credential",
+		Version:  InterfaceVersion,
+		Features: h.AdvertisedFeatures(),
 	}
 }
 

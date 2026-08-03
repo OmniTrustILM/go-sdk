@@ -65,8 +65,9 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // at version v2.
 func (h *Handler) Interface() shared.InterfaceInfo {
 	return shared.InterfaceInfo{
-		Code:    shared.InterfaceCodeAuthority,
-		Version: InterfaceVersion,
+		Code:     shared.InterfaceCodeAuthority,
+		Version:  InterfaceVersion,
+		Features: h.AdvertisedFeatures(),
 	}
 }
 
