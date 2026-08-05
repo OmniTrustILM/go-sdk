@@ -54,10 +54,7 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 // spec but the /v2/info wire shape still expects an entry per implemented
 // interface — the Version field captures the spec generation.
 func (h *Handler) Interface() shared.InterfaceInfo {
-	return shared.InterfaceInfo{
-		Code:    shared.InterfaceCodeDiscovery,
-		Version: InterfaceVersion,
-	}
+	return h.InterfaceInfo(shared.InterfaceCodeDiscovery, InterfaceVersion)
 }
 
 // FunctionGroup implements shared.V1Reporter. Endpoints listed mirror the
