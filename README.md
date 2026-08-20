@@ -9,7 +9,7 @@ It provides the two things a connector author would otherwise hand-roll:
 
 Supported provider interfaces: `authority`, `compliance`, `credential`, `cryptography`, `discovery`, `entity`, `notification`, `secret`, plus the connector-global Attributes v2 surface (`attributes`). One connector process can register several.
 
-Requires **Go 1.26+**.
+Requires **Go 1.26.5+** — build with **1.26.6+**, since earlier 1.26 patches ship standard-library vulnerabilities that `govulncheck` reports for anything built with them. The `toolchain` directive in `go.mod` requests Go 1.26.6 by default (unless overridden via `GOTOOLCHAIN`).
 
 ## Install
 
