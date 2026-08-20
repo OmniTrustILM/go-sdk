@@ -218,6 +218,28 @@ var wrappers = []wrapper{
 			"san":       "SanMappedField",
 		},
 	},
+	{
+		// KeyCreationResponseV2Dto's OpenAPI face. The Java wire
+		// discriminator is `keyRequestType` (@JsonTypeInfo EXISTING_PROPERTY);
+		// OpenAPI declares it but the Go generator ignores the stanza.
+		fileSuffix:    "model_key_creation_response_interface.go",
+		typeName:      "KeyCreationResponseInterface",
+		discriminator: "keyRequestType",
+		cases: map[string]string{
+			"secret":  "SecretKeyDataResponseV2Dto",
+			"keyPair": "KeyPairDataResponseV2Dto",
+		},
+	},
+	{
+		// Same discriminator, status-response hierarchy.
+		fileSuffix:    "model_key_creation_status_response_interface.go",
+		typeName:      "KeyCreationStatusResponseInterface",
+		discriminator: "keyRequestType",
+		cases: map[string]string{
+			"secret":  "SecretKeyOperationStatusResponseV2Dto",
+			"keyPair": "KeyPairOperationStatusResponseV2Dto",
+		},
+	},
 }
 
 // knownUnpatchable lists oneOf wrappers the generator emits but for which

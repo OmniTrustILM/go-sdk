@@ -20,6 +20,7 @@ SPECS=(
     "compliance-v2.json:connector/model/compliance/v2:v2"
     "credential.json:connector/model/credential/v1:v1"
     "cryptography.json:connector/model/cryptography/v1:v1"
+    "cryptography-v2.json:connector/model/cryptography/v2:v2"
     "discovery.json:connector/model/discovery/v1:v1"
     "entity.json:connector/model/entity/v1:v1"
     "notification.json:connector/model/notification/v1:v1"
