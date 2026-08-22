@@ -22,9 +22,9 @@ var _ MappedNullable = &SecretKeyDataResponseV2Dto{}
 
 // SecretKeyDataResponseV2Dto struct for SecretKeyDataResponseV2Dto
 type SecretKeyDataResponseV2Dto struct {
-	// Connector-defined operation tracking metadata. Required and non-empty in the initial response when ASYNCHRONOUS executionMode was requested in CreateKeyRequestV2Dto. Absent from the initial response when SYNCHRONOUS executionMode was requested and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.
+	// Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.
 	OperationMeta []MetadataAttribute `json:"operationMeta,omitempty"`
-	// Created secret-key descriptor. Null on an asynchronous 202 response.
+	// Created secret-key descriptor. Absent on an asynchronous 202 response.
 	KeyData *SecretKeyDataV2Dto `json:"keyData,omitempty"`
 	// Connector-defined key handle. Present on a synchronous 200 response. Metadata must identify the key durably—it must remain valid across connector restarts and sessions; ephemeral handles must not be used.
 	KeyMeta []MetadataAttribute `json:"keyMeta,omitempty"`
@@ -38,9 +38,9 @@ type _SecretKeyDataResponseV2Dto SecretKeyDataResponseV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewSecretKeyDataResponseV2Dto(keyRequestType KeyRequestType) *SecretKeyDataResponseV2Dto {
+func NewSecretKeyDataResponseV2Dto() *SecretKeyDataResponseV2Dto {
 	this := SecretKeyDataResponseV2Dto{}
-	this.KeyRequestType = keyRequestType
+	this.KeyRequestType = KEYREQUESTTYPE_SECRET
 	return &this
 }
 
@@ -49,6 +49,7 @@ func NewSecretKeyDataResponseV2Dto(keyRequestType KeyRequestType) *SecretKeyData
 // but it doesn't guarantee that properties required by API are set
 func NewSecretKeyDataResponseV2DtoWithDefaults() *SecretKeyDataResponseV2Dto {
 	this := SecretKeyDataResponseV2Dto{}
+	this.KeyRequestType = KEYREQUESTTYPE_SECRET
 	return &this
 }
 
@@ -181,6 +182,10 @@ func (o SecretKeyDataResponseV2Dto) MarshalJSON() ([]byte, error) {
 }
 
 func (o SecretKeyDataResponseV2Dto) ToMap() (map[string]interface{}, error) {
+	// fixoneof: pinned by the spec to "secret": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_SECRET {
+		return nil, fmt.Errorf("keyRequestType must be %q for SecretKeyDataResponseV2Dto, got %q", KEYREQUESTTYPE_SECRET, o.KeyRequestType)
+	}
 	toSerialize := map[string]interface{}{}
 	if !IsNil(o.OperationMeta) {
 		toSerialize["operationMeta"] = o.OperationMeta
@@ -228,6 +233,10 @@ func (o *SecretKeyDataResponseV2Dto) UnmarshalJSON(data []byte) (err error) {
 	}
 
 	*o = SecretKeyDataResponseV2Dto(varSecretKeyDataResponseV2Dto)
+	// fixoneof: pinned by the spec to "secret": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_SECRET {
+		return fmt.Errorf("keyRequestType must be %q for SecretKeyDataResponseV2Dto, got %q", KEYREQUESTTYPE_SECRET, o.KeyRequestType)
+	}
 
 	return err
 }

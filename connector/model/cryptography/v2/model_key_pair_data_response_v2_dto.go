@@ -22,11 +22,11 @@ var _ MappedNullable = &KeyPairDataResponseV2Dto{}
 
 // KeyPairDataResponseV2Dto struct for KeyPairDataResponseV2Dto
 type KeyPairDataResponseV2Dto struct {
-	// Connector-defined operation tracking metadata. Required and non-empty in the initial response when ASYNCHRONOUS executionMode was requested in CreateKeyRequestV2Dto. Absent from the initial response when SYNCHRONOUS executionMode was requested and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.
+	// Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.
 	OperationMeta []MetadataAttribute `json:"operationMeta,omitempty"`
-	// Data of the public key. Populated on sync 200; null on async 202.
+	// Data of the public key. Populated on sync 200; absent on async 202.
 	PublicKeyData *PublicKeyDataResponseV2Dto `json:"publicKeyData,omitempty"`
-	// Data of the private key. Populated on sync 200; null on async 202.
+	// Data of the private key. Populated on sync 200; absent on async 202.
 	PrivateKeyData *PrivateKeyDataResponseV2Dto `json:"privateKeyData,omitempty"`
 	// Connector-defined metadata for the pair as a whole. Required on a synchronous 200 and in a completed asynchronous creation-status result; absent from the initial asynchronous 202.
 	KeyPairMeta []MetadataAttribute `json:"keyPairMeta,omitempty"`
@@ -40,9 +40,9 @@ type _KeyPairDataResponseV2Dto KeyPairDataResponseV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewKeyPairDataResponseV2Dto(keyRequestType KeyRequestType) *KeyPairDataResponseV2Dto {
+func NewKeyPairDataResponseV2Dto() *KeyPairDataResponseV2Dto {
 	this := KeyPairDataResponseV2Dto{}
-	this.KeyRequestType = keyRequestType
+	this.KeyRequestType = KEYREQUESTTYPE_KEY_PAIR
 	return &this
 }
 
@@ -51,6 +51,7 @@ func NewKeyPairDataResponseV2Dto(keyRequestType KeyRequestType) *KeyPairDataResp
 // but it doesn't guarantee that properties required by API are set
 func NewKeyPairDataResponseV2DtoWithDefaults() *KeyPairDataResponseV2Dto {
 	this := KeyPairDataResponseV2Dto{}
+	this.KeyRequestType = KEYREQUESTTYPE_KEY_PAIR
 	return &this
 }
 
@@ -215,6 +216,10 @@ func (o KeyPairDataResponseV2Dto) MarshalJSON() ([]byte, error) {
 }
 
 func (o KeyPairDataResponseV2Dto) ToMap() (map[string]interface{}, error) {
+	// fixoneof: pinned by the spec to "keyPair": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_KEY_PAIR {
+		return nil, fmt.Errorf("keyRequestType must be %q for KeyPairDataResponseV2Dto, got %q", KEYREQUESTTYPE_KEY_PAIR, o.KeyRequestType)
+	}
 	toSerialize := map[string]interface{}{}
 	if !IsNil(o.OperationMeta) {
 		toSerialize["operationMeta"] = o.OperationMeta
@@ -265,6 +270,10 @@ func (o *KeyPairDataResponseV2Dto) UnmarshalJSON(data []byte) (err error) {
 	}
 
 	*o = KeyPairDataResponseV2Dto(varKeyPairDataResponseV2Dto)
+	// fixoneof: pinned by the spec to "keyPair": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_KEY_PAIR {
+		return fmt.Errorf("keyRequestType must be %q for KeyPairDataResponseV2Dto, got %q", KEYREQUESTTYPE_KEY_PAIR, o.KeyRequestType)
+	}
 
 	return err
 }

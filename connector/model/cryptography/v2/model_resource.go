@@ -53,6 +53,7 @@ const (
 	RESOURCE_KEYS Resource = "keys"
 	RESOURCE_APPROVAL_PROFILES Resource = "approvalProfiles"
 	RESOURCE_APPROVALS Resource = "approvals"
+	RESOURCE_COMMENTS Resource = "comments"
 	RESOURCE_NOTIFICATION_PROFILES Resource = "notificationProfiles"
 	RESOURCE_NOTIFICATION_INSTANCES Resource = "notificationInstances"
 	RESOURCE_RULES Resource = "rules"
@@ -121,6 +122,7 @@ var AllowedResourceEnumValues = []Resource{
 	"keys",
 	"approvalProfiles",
 	"approvals",
+	"comments",
 	"notificationProfiles",
 	"notificationInstances",
 	"rules",

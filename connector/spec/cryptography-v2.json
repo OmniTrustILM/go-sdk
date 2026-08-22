@@ -17,91 +17,92 @@
       "url": "images/ilm-logo.svg"
     },
     "x-metrics-profile": {
+      "version": 1,
       "required": [
         {
+          "unit": "1",
+          "name": "app_build_info",
           "type": "gauge",
           "labels": [
             "version",
             "commit",
             "runtime"
-          ],
-          "unit": "1",
-          "name": "app_build_info"
+          ]
         },
         {
-          "type": "gauge",
-          "labels": [],
           "unit": "seconds",
-          "name": "process_start_time_seconds"
+          "name": "process_start_time_seconds",
+          "type": "gauge",
+          "labels": []
         },
         {
+          "unit": "seconds",
+          "name": "process_cpu_seconds_total",
           "type": "counter",
-          "labels": [],
-          "unit": "seconds",
-          "name": "process_cpu_seconds_total"
+          "labels": []
         },
         {
-          "type": "gauge",
-          "labels": [],
           "unit": "bytes",
-          "name": "process_resident_memory_bytes"
+          "name": "process_resident_memory_bytes",
+          "type": "gauge",
+          "labels": []
         },
         {
+          "unit": "requests",
+          "name": "http_requests_total",
           "type": "counter",
           "labels": [
             "method",
             "route",
             "status"
-          ],
-          "unit": "requests",
-          "name": "http_requests_total"
+          ]
         },
         {
+          "buckets_ref": "http_server_latency_buckets_seconds",
           "labels": [
             "method",
             "route"
           ],
           "type": "histogram",
           "unit": "seconds",
-          "name": "http_request_duration_seconds",
-          "buckets_ref": "http_server_latency_buckets_seconds"
+          "name": "http_request_duration_seconds"
         },
         {
+          "unit": "requests",
+          "name": "http_server_in_flight_requests",
           "type": "gauge",
           "labels": [
             "route"
-          ],
-          "unit": "requests",
-          "name": "http_server_in_flight_requests"
+          ]
         },
         {
+          "unit": "requests",
+          "name": "http_client_requests_total",
           "type": "counter",
           "labels": [
             "method",
             "target",
             "status"
-          ],
-          "unit": "requests",
-          "name": "http_client_requests_total"
+          ]
         },
         {
+          "buckets_ref": "http_client_latency_buckets_seconds",
           "labels": [
             "method",
             "target"
           ],
           "type": "histogram",
           "unit": "seconds",
-          "name": "http_client_request_duration_seconds",
-          "buckets_ref": "http_client_latency_buckets_seconds"
+          "name": "http_client_request_duration_seconds"
         },
         {
+          "unit": "events",
+          "name": "connector_events_total",
           "type": "counter",
           "labels": [
             "event",
             "outcome"
-          ],
-          "unit": "events",
-          "name": "connector_events_total"
+          ]
         }
       ],
       "histograms": {
@@ -130,8 +131,7 @@
           5.0,
           10.0
         ]
-      },
-      "version": 1
+      }
     }
   },
   "externalDocs": {
@@ -1602,7 +1602,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KeyCreationResponseInterface"
+                  "$ref": "#/components/schemas/KeyCreationResponse"
                 }
               }
             }
@@ -1612,7 +1612,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KeyCreationResponseInterface"
+                  "$ref": "#/components/schemas/KeyCreationResponse"
                 }
               }
             }
@@ -1620,9 +1620,9 @@
           "409": {
             "description": "keyCreationId reused with a non-equivalent request (RESOURCE_ALREADY_EXISTS)",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KeyCreationResponseInterface"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -1969,7 +1969,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KeyCreationStatusResponseInterface"
+                  "$ref": "#/components/schemas/KeyCreationStatusResponse"
                 }
               }
             }
@@ -4645,6 +4645,10 @@
           "OPERATION_PAST_POINT_OF_NO_RETURN",
           "OPERATION_NOT_TRACKED",
           "ATTRIBUTE_DEFINITION_NOT_FOUND",
+          "DOCUMENT_MALFORMED",
+          "DOCUMENT_TOO_LARGE",
+          "SIGNATURE_NOT_FOUND",
+          "PARAMETER_UNSUPPORTED",
           "CSR_MALFORMED",
           "REVOCATION_NOT_ALLOWED",
           "REGISTRATION_NOT_FOUND",
@@ -6054,17 +6058,19 @@
         "properties": {
           "signatures": {
             "type": "array",
-            "description": "Signatures, correlated to the request items by identifier. Populated on sync 200; null on async 202.",
+            "description": "Signatures, correlated to the request items by identifier. Populated on sync 200; absent on async 202.",
             "items": {
               "$ref": "#/components/schemas/SignatureDataV2Dto"
-            }
+            },
+            "minItems": 1
           },
           "operationMeta": {
             "type": "array",
             "description": "Connector-defined signing operation metadata. Present on async 202 as the tracking handle for the whole batch. Supply it by itself to /operations/sign/status and /operations/sign/cancel. It must remain valid for the operation's entire tracking lifetime.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
-            }
+            },
+            "minItems": 1
           }
         }
       },
@@ -6131,11 +6137,11 @@
           "signature": {
             "type": "string",
             "format": "byte",
-            "description": "Signature over the item's data. Populated when status=COMPLETED."
+            "description": "Signature over the item's data. Populated when status=`completed`."
           },
           "reason": {
             "type": "string",
-            "description": "Failure or cancellation detail when status=FAILED or CANCELLED — curated message text (no raw exception messages)"
+            "description": "Failure or cancellation detail when status=`failed` or `cancelled` — curated message text (no raw exception messages)"
           }
         },
         "required": [
@@ -6174,7 +6180,8 @@
             "type": "integer",
             "format": "int32",
             "description": "Number of random bytes to generate, capped at 1 MiB",
-            "maximum": 1048576
+            "maximum": 1048576,
+            "minimum": 1
           },
           "operationAttributes": {
             "type": "array",
@@ -6364,7 +6371,7 @@
             "type": "string",
             "description": "Identifier of a key creation operation. Replays must use the same keyRequestType, executionMode,\ntokenAttributes, tokenProfileAttributes, keyUsages, and createKeyAttributes. An asynchronous replay\nreturns HTTP 202 with the original operationMeta. A synchronous replay returns HTTP 200 with the\noriginal result. Non-equivalent reuse returns RESOURCE_ALREADY_EXISTS (HTTP 409).\n",
             "maxLength": 256,
-            "minLength": 0
+            "minLength": 1
           },
           "createKeyAttributes": {
             "type": "array",
@@ -6398,9 +6405,8 @@
           "Unknown"
         ]
       },
-      "KeyCreationResponseInterface": {
+      "KeyCreationResponse": {
         "type": "object",
-        "additionalProperties": false,
         "description": "Key-creation response selected by key request type",
         "discriminator": {
           "propertyName": "keyRequestType",
@@ -6418,14 +6424,16 @@
           }
         ],
         "properties": {
+          "operationMeta": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            }
+          },
           "keyRequestType": {
-            "$ref": "#/components/schemas/KeyRequestType",
-            "description": "Type of key requested and returned"
+            "$ref": "#/components/schemas/KeyRequestType"
           }
-        },
-        "required": [
-          "keyRequestType"
-        ]
+        }
       },
       "KeyPairDataResponseV2Dto": {
         "type": "object",
@@ -6433,25 +6441,27 @@
         "properties": {
           "operationMeta": {
             "type": "array",
-            "description": "Connector-defined operation tracking metadata. Required and non-empty in the initial response when ASYNCHRONOUS executionMode was requested in CreateKeyRequestV2Dto. Absent from the initial response when SYNCHRONOUS executionMode was requested and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.",
+            "description": "Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
-            }
+            },
+            "minItems": 1
           },
           "publicKeyData": {
             "$ref": "#/components/schemas/PublicKeyDataResponseV2Dto",
-            "description": "Data of the public key. Populated on sync 200; null on async 202."
+            "description": "Data of the public key. Populated on sync 200; absent on async 202."
           },
           "privateKeyData": {
             "$ref": "#/components/schemas/PrivateKeyDataResponseV2Dto",
-            "description": "Data of the private key. Populated on sync 200; null on async 202."
+            "description": "Data of the private key. Populated on sync 200; absent on async 202."
           },
           "keyPairMeta": {
             "type": "array",
             "description": "Connector-defined metadata for the pair as a whole. Required on a synchronous 200 and in a completed asynchronous creation-status result; absent from the initial asynchronous 202.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
-            }
+            },
+            "minItems": 1
           },
           "keyRequestType": {
             "$ref": "#/components/schemas/KeyRequestType",
@@ -6507,7 +6517,8 @@
           "length": {
             "type": "integer",
             "format": "int32",
-            "description": "Bit length of the key"
+            "description": "Bit length of the key",
+            "minimum": 1
           },
           "metadata": {
             "type": "array",
@@ -6565,7 +6576,8 @@
           "length": {
             "type": "integer",
             "format": "int32",
-            "description": "Bit length of the key"
+            "description": "Bit length of the key",
+            "minimum": 1
           },
           "metadata": {
             "type": "array",
@@ -6593,21 +6605,23 @@
         "properties": {
           "operationMeta": {
             "type": "array",
-            "description": "Connector-defined operation tracking metadata. Required and non-empty in the initial response when ASYNCHRONOUS executionMode was requested in CreateKeyRequestV2Dto. Absent from the initial response when SYNCHRONOUS executionMode was requested and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.",
+            "description": "Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
-            }
+            },
+            "minItems": 1
           },
           "keyData": {
             "$ref": "#/components/schemas/SecretKeyDataV2Dto",
-            "description": "Created secret-key descriptor. Null on an asynchronous 202 response."
+            "description": "Created secret-key descriptor. Absent on an asynchronous 202 response."
           },
           "keyMeta": {
             "type": "array",
             "description": "Connector-defined key handle. Present on a synchronous 200 response. Metadata must identify the key durably—it must remain valid across connector restarts and sessions; ephemeral handles must not be used.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
-            }
+            },
+            "minItems": 1
           },
           "keyRequestType": {
             "$ref": "#/components/schemas/KeyRequestType",
@@ -6641,7 +6655,8 @@
           "length": {
             "type": "integer",
             "format": "int32",
-            "description": "Bit length of the key"
+            "description": "Bit length of the key",
+            "minimum": 1
           },
           "metadata": {
             "type": "array",
@@ -6711,10 +6726,11 @@
         "properties": {
           "operationMeta": {
             "type": "array",
-            "description": "Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous creation response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.",
+            "description": "Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
-            }
+            },
+            "minItems": 1
           }
         }
       },
@@ -6728,16 +6744,15 @@
           },
           "reason": {
             "type": "string",
-            "description": "Failure or cancellation detail when status is FAILED or CANCELLED"
+            "description": "Failure or cancellation detail when status is `failed` or `cancelled`"
           }
         },
         "required": [
           "status"
         ]
       },
-      "KeyCreationStatusResponseInterface": {
+      "KeyCreationStatusResponse": {
         "type": "object",
-        "additionalProperties": false,
         "description": "Status of an asynchronous key-creation operation selected by key request type",
         "discriminator": {
           "propertyName": "keyRequestType",
@@ -6756,18 +6771,18 @@
         ],
         "properties": {
           "keyRequestType": {
-            "$ref": "#/components/schemas/KeyRequestType",
-            "description": "Type of key requested by the original CreateKeyRequestV2Dto"
+            "$ref": "#/components/schemas/KeyRequestType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OperationStatus"
+          },
+          "reason": {
+            "type": "string"
           },
           "result": {
-            "$ref": "#/components/schemas/KeyCreationResponseInterface",
-            "description": "Created key result. Present only when status is COMPLETED."
+            "$ref": "#/components/schemas/KeyCreationResponse"
           }
-        },
-        "required": [
-          "keyRequestType",
-          "status"
-        ]
+        }
       },
       "KeyPairOperationStatusResponseV2Dto": {
         "type": "object",
@@ -6779,11 +6794,11 @@
           },
           "reason": {
             "type": "string",
-            "description": "Failure or cancellation detail when status is FAILED or CANCELLED"
+            "description": "Failure or cancellation detail when status is `failed` or `cancelled`"
           },
           "result": {
             "$ref": "#/components/schemas/KeyPairDataResponseV2Dto",
-            "description": "Created key result. Present only when status is COMPLETED."
+            "description": "Created key-pair result. Present only when status is `completed`."
           },
           "keyRequestType": {
             "$ref": "#/components/schemas/KeyRequestType",
@@ -6808,11 +6823,11 @@
           },
           "reason": {
             "type": "string",
-            "description": "Failure or cancellation detail when status is FAILED or CANCELLED"
+            "description": "Failure or cancellation detail when status is `failed` or `cancelled`"
           },
           "result": {
             "$ref": "#/components/schemas/SecretKeyDataResponseV2Dto",
-            "description": "Created key result. Present only when status is COMPLETED."
+            "description": "Created secret-key result. Present only when status is `completed`."
           },
           "keyRequestType": {
             "$ref": "#/components/schemas/KeyRequestType",
@@ -6931,7 +6946,10 @@
           "notification",
           "secret",
           "signatureFormatting",
-          "signing"
+          "cadesFormatting",
+          "jadesFormatting",
+          "padesFormatting",
+          "xadesFormatting"
         ]
       },
       "PaginationRequestDto": {
@@ -6987,6 +7005,7 @@
           "keys",
           "approvalProfiles",
           "approvals",
+          "comments",
           "notificationProfiles",
           "notificationInstances",
           "rules",
@@ -7134,6 +7153,9 @@
           "secretVersioning",
           "secretRotation",
           "contentSigning",
+          "levelTimestamped",
+          "levelLongTerm",
+          "levelArchival",
           "timestamping",
           "certificateRegistration",
           "certificateStatusPolling",

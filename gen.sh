@@ -3,13 +3,12 @@
 #
 # For each entry below, runs the official openapi-generator docker image
 # to produce Go DTOs under connector/model/<provider>/<version>/, then
-# runs tools/fixoneof against the whole tree to replace the generator's
+# runs tools/fixoneof against the whole tree: it replaces the generator's
 # broken oneOf UnmarshalJSON methods with discriminator-aware decoders
-# (see tools/fixoneof/main.go for the rationale).
+# (see tools/fixoneof/main.go) and enforces the properties the specs pin
+# to a single value (see tools/fixoneof/pins.go).
 #
-# Each table row is "spec_file:target_dir:package_name". Versioned specs
-# (authority-v1, authority-v2, compliance-v1, compliance-v2) embed the
-# spec generation in the file name; the rest default to v1.
+# Each table row is "spec_file:target_dir:package_name".
 set -euo pipefail
 
 SPECS=(

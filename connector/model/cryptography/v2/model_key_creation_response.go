@@ -16,37 +16,37 @@ import (
 	"fmt"
 )
 
-// KeyCreationResponseInterface - Key-creation response selected by key request type
-type KeyCreationResponseInterface struct {
+// KeyCreationResponse - Key-creation response selected by key request type
+type KeyCreationResponse struct {
 	KeyPairDataResponseV2Dto *KeyPairDataResponseV2Dto
 	SecretKeyDataResponseV2Dto *SecretKeyDataResponseV2Dto
 }
 
-// KeyPairDataResponseV2DtoAsKeyCreationResponseInterface is a convenience function that returns KeyPairDataResponseV2Dto wrapped in KeyCreationResponseInterface
-func KeyPairDataResponseV2DtoAsKeyCreationResponseInterface(v *KeyPairDataResponseV2Dto) KeyCreationResponseInterface {
-	return KeyCreationResponseInterface{
+// KeyPairDataResponseV2DtoAsKeyCreationResponse is a convenience function that returns KeyPairDataResponseV2Dto wrapped in KeyCreationResponse
+func KeyPairDataResponseV2DtoAsKeyCreationResponse(v *KeyPairDataResponseV2Dto) KeyCreationResponse {
+	return KeyCreationResponse{
 		KeyPairDataResponseV2Dto: v,
 	}
 }
 
-// SecretKeyDataResponseV2DtoAsKeyCreationResponseInterface is a convenience function that returns SecretKeyDataResponseV2Dto wrapped in KeyCreationResponseInterface
-func SecretKeyDataResponseV2DtoAsKeyCreationResponseInterface(v *SecretKeyDataResponseV2Dto) KeyCreationResponseInterface {
-	return KeyCreationResponseInterface{
+// SecretKeyDataResponseV2DtoAsKeyCreationResponse is a convenience function that returns SecretKeyDataResponseV2Dto wrapped in KeyCreationResponse
+func SecretKeyDataResponseV2DtoAsKeyCreationResponse(v *SecretKeyDataResponseV2Dto) KeyCreationResponse {
+	return KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: v,
 	}
 }
 
 
-// UnmarshalJSON decodes KeyCreationResponseInterface by switching on the JSON "keyRequestType" field.
+// UnmarshalJSON decodes KeyCreationResponse by switching on the JSON "keyRequestType" field.
 // Patched by tools/fixoneof — the generator's match-counting decoder
 // fails on this oneOf because multiple variants share the same Go struct
 // shape and pass strict decode simultaneously.
-func (dst *KeyCreationResponseInterface) UnmarshalJSON(data []byte) error {
+func (dst *KeyCreationResponse) UnmarshalJSON(data []byte) error {
 	var probe struct {
 		Disc string `json:"keyRequestType"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
-		return fmt.Errorf("KeyCreationResponseInterface: probe keyRequestType: %w", err)
+		return fmt.Errorf("KeyCreationResponse: probe keyRequestType: %w", err)
 	}
 	disc := probe.Disc
 	dst.KeyPairDataResponseV2Dto = nil
@@ -55,25 +55,25 @@ func (dst *KeyCreationResponseInterface) UnmarshalJSON(data []byte) error {
 	case "keyPair":
 		var v KeyPairDataResponseV2Dto
 		if err := json.Unmarshal(data, &v); err != nil {
-			return fmt.Errorf("KeyCreationResponseInterface: decode KeyPairDataResponseV2Dto: %w", err)
+			return fmt.Errorf("KeyCreationResponse: decode KeyPairDataResponseV2Dto: %w", err)
 		}
 		dst.KeyPairDataResponseV2Dto = &v
 		return nil
 	case "secret":
 		var v SecretKeyDataResponseV2Dto
 		if err := json.Unmarshal(data, &v); err != nil {
-			return fmt.Errorf("KeyCreationResponseInterface: decode SecretKeyDataResponseV2Dto: %w", err)
+			return fmt.Errorf("KeyCreationResponse: decode SecretKeyDataResponseV2Dto: %w", err)
 		}
 		dst.SecretKeyDataResponseV2Dto = &v
 		return nil
 	default:
-		return fmt.Errorf("KeyCreationResponseInterface: unknown keyRequestType %q", disc)
+		return fmt.Errorf("KeyCreationResponse: unknown keyRequestType %q", disc)
 	}
 }
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON
-func (src KeyCreationResponseInterface) MarshalJSON() ([]byte, error) {
+func (src KeyCreationResponse) MarshalJSON() ([]byte, error) {
 	if src.KeyPairDataResponseV2Dto != nil {
 		return json.Marshal(&src.KeyPairDataResponseV2Dto)
 	}
@@ -86,7 +86,7 @@ func (src KeyCreationResponseInterface) MarshalJSON() ([]byte, error) {
 }
 
 // Get the actual instance
-func (obj *KeyCreationResponseInterface) GetActualInstance() (interface{}) {
+func (obj *KeyCreationResponse) GetActualInstance() (interface{}) {
 	if obj == nil {
 		return nil
 	}
@@ -103,7 +103,7 @@ func (obj *KeyCreationResponseInterface) GetActualInstance() (interface{}) {
 }
 
 // Get the actual instance value
-func (obj KeyCreationResponseInterface) GetActualInstanceValue() (interface{}) {
+func (obj KeyCreationResponse) GetActualInstanceValue() (interface{}) {
 	if obj.KeyPairDataResponseV2Dto != nil {
 		return *obj.KeyPairDataResponseV2Dto
 	}
@@ -116,38 +116,38 @@ func (obj KeyCreationResponseInterface) GetActualInstanceValue() (interface{}) {
 	return nil
 }
 
-type NullableKeyCreationResponseInterface struct {
-	value *KeyCreationResponseInterface
+type NullableKeyCreationResponse struct {
+	value *KeyCreationResponse
 	isSet bool
 }
 
-func (v NullableKeyCreationResponseInterface) Get() *KeyCreationResponseInterface {
+func (v NullableKeyCreationResponse) Get() *KeyCreationResponse {
 	return v.value
 }
 
-func (v *NullableKeyCreationResponseInterface) Set(val *KeyCreationResponseInterface) {
+func (v *NullableKeyCreationResponse) Set(val *KeyCreationResponse) {
 	v.value = val
 	v.isSet = true
 }
 
-func (v NullableKeyCreationResponseInterface) IsSet() bool {
+func (v NullableKeyCreationResponse) IsSet() bool {
 	return v.isSet
 }
 
-func (v *NullableKeyCreationResponseInterface) Unset() {
+func (v *NullableKeyCreationResponse) Unset() {
 	v.value = nil
 	v.isSet = false
 }
 
-func NewNullableKeyCreationResponseInterface(val *KeyCreationResponseInterface) *NullableKeyCreationResponseInterface {
-	return &NullableKeyCreationResponseInterface{value: val, isSet: true}
+func NewNullableKeyCreationResponse(val *KeyCreationResponse) *NullableKeyCreationResponse {
+	return &NullableKeyCreationResponse{value: val, isSet: true}
 }
 
-func (v NullableKeyCreationResponseInterface) MarshalJSON() ([]byte, error) {
+func (v NullableKeyCreationResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v.value)
 }
 
-func (v *NullableKeyCreationResponseInterface) UnmarshalJSON(src []byte) error {
+func (v *NullableKeyCreationResponse) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }

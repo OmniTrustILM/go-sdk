@@ -38,9 +38,9 @@ type _SecretKeyDataV2Dto SecretKeyDataV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewSecretKeyDataV2Dto(type_ string, algorithm KeyAlgorithm, length int32) *SecretKeyDataV2Dto {
+func NewSecretKeyDataV2Dto(algorithm KeyAlgorithm, length int32) *SecretKeyDataV2Dto {
 	this := SecretKeyDataV2Dto{}
-	this.Type = type_
+	this.Type = "Secret"
 	this.Algorithm = algorithm
 	this.Length = length
 	return &this
@@ -51,6 +51,7 @@ func NewSecretKeyDataV2Dto(type_ string, algorithm KeyAlgorithm, length int32) *
 // but it doesn't guarantee that properties required by API are set
 func NewSecretKeyDataV2DtoWithDefaults() *SecretKeyDataV2Dto {
 	this := SecretKeyDataV2Dto{}
+	this.Type = "Secret"
 	return &this
 }
 
@@ -167,6 +168,10 @@ func (o SecretKeyDataV2Dto) MarshalJSON() ([]byte, error) {
 }
 
 func (o SecretKeyDataV2Dto) ToMap() (map[string]interface{}, error) {
+	// fixoneof: pinned by the spec to "Secret": any other value would not round-trip.
+	if o.Type != "Secret" {
+		return nil, fmt.Errorf("type must be %q for SecretKeyDataV2Dto, got %q", "Secret", o.Type)
+	}
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["algorithm"] = o.Algorithm
@@ -212,6 +217,10 @@ func (o *SecretKeyDataV2Dto) UnmarshalJSON(data []byte) (err error) {
 	}
 
 	*o = SecretKeyDataV2Dto(varSecretKeyDataV2Dto)
+	// fixoneof: pinned by the spec to "Secret": any other value would not round-trip.
+	if o.Type != "Secret" {
+		return fmt.Errorf("type must be %q for SecretKeyDataV2Dto, got %q", "Secret", o.Type)
+	}
 
 	return err
 }

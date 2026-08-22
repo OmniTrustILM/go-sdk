@@ -26,9 +26,9 @@ type SignatureResultItemV2Dto struct {
 	Identifier string `json:"identifier"`
 	// Status of this item
 	Status OperationStatus `json:"status"`
-	// Signature over the item's data. Populated when status=COMPLETED.
+	// Signature over the item's data. Populated when status=`completed`.
 	Signature *string `json:"signature,omitempty"`
-	// Failure or cancellation detail when status=FAILED or CANCELLED — curated message text (no raw exception messages)
+	// Failure or cancellation detail when status=`failed` or `cancelled` — curated message text (no raw exception messages)
 	Reason *string `json:"reason,omitempty"`
 }
 

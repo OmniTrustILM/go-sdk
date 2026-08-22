@@ -24,9 +24,9 @@ var _ MappedNullable = &KeyPairOperationStatusResponseV2Dto{}
 type KeyPairOperationStatusResponseV2Dto struct {
 	// Operation status as known to the connector
 	Status OperationStatus `json:"status"`
-	// Failure or cancellation detail when status is FAILED or CANCELLED
+	// Failure or cancellation detail when status is `failed` or `cancelled`
 	Reason *string `json:"reason,omitempty"`
-	// Created key result. Present only when status is COMPLETED.
+	// Created key-pair result. Present only when status is `completed`.
 	Result *KeyPairDataResponseV2Dto `json:"result,omitempty"`
 	// Type of key requested
 	KeyRequestType KeyRequestType `json:"keyRequestType"`
@@ -38,10 +38,10 @@ type _KeyPairOperationStatusResponseV2Dto KeyPairOperationStatusResponseV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewKeyPairOperationStatusResponseV2Dto(status OperationStatus, keyRequestType KeyRequestType) *KeyPairOperationStatusResponseV2Dto {
+func NewKeyPairOperationStatusResponseV2Dto(status OperationStatus) *KeyPairOperationStatusResponseV2Dto {
 	this := KeyPairOperationStatusResponseV2Dto{}
 	this.Status = status
-	this.KeyRequestType = keyRequestType
+	this.KeyRequestType = KEYREQUESTTYPE_KEY_PAIR
 	return &this
 }
 
@@ -50,6 +50,7 @@ func NewKeyPairOperationStatusResponseV2Dto(status OperationStatus, keyRequestTy
 // but it doesn't guarantee that properties required by API are set
 func NewKeyPairOperationStatusResponseV2DtoWithDefaults() *KeyPairOperationStatusResponseV2Dto {
 	this := KeyPairOperationStatusResponseV2Dto{}
+	this.KeyRequestType = KEYREQUESTTYPE_KEY_PAIR
 	return &this
 }
 
@@ -174,6 +175,10 @@ func (o KeyPairOperationStatusResponseV2Dto) MarshalJSON() ([]byte, error) {
 }
 
 func (o KeyPairOperationStatusResponseV2Dto) ToMap() (map[string]interface{}, error) {
+	// fixoneof: pinned by the spec to "keyPair": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_KEY_PAIR {
+		return nil, fmt.Errorf("keyRequestType must be %q for KeyPairOperationStatusResponseV2Dto, got %q", KEYREQUESTTYPE_KEY_PAIR, o.KeyRequestType)
+	}
 	toSerialize := map[string]interface{}{}
 	toSerialize["status"] = o.Status
 	if !IsNil(o.Reason) {
@@ -220,6 +225,10 @@ func (o *KeyPairOperationStatusResponseV2Dto) UnmarshalJSON(data []byte) (err er
 	}
 
 	*o = KeyPairOperationStatusResponseV2Dto(varKeyPairOperationStatusResponseV2Dto)
+	// fixoneof: pinned by the spec to "keyPair": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_KEY_PAIR {
+		return fmt.Errorf("keyRequestType must be %q for KeyPairOperationStatusResponseV2Dto, got %q", KEYREQUESTTYPE_KEY_PAIR, o.KeyRequestType)
+	}
 
 	return err
 }

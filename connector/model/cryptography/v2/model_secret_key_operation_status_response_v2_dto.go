@@ -24,9 +24,9 @@ var _ MappedNullable = &SecretKeyOperationStatusResponseV2Dto{}
 type SecretKeyOperationStatusResponseV2Dto struct {
 	// Operation status as known to the connector
 	Status OperationStatus `json:"status"`
-	// Failure or cancellation detail when status is FAILED or CANCELLED
+	// Failure or cancellation detail when status is `failed` or `cancelled`
 	Reason *string `json:"reason,omitempty"`
-	// Created key result. Present only when status is COMPLETED.
+	// Created secret-key result. Present only when status is `completed`.
 	Result *SecretKeyDataResponseV2Dto `json:"result,omitempty"`
 	// Type of key requested
 	KeyRequestType KeyRequestType `json:"keyRequestType"`
@@ -38,10 +38,10 @@ type _SecretKeyOperationStatusResponseV2Dto SecretKeyOperationStatusResponseV2Dt
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewSecretKeyOperationStatusResponseV2Dto(status OperationStatus, keyRequestType KeyRequestType) *SecretKeyOperationStatusResponseV2Dto {
+func NewSecretKeyOperationStatusResponseV2Dto(status OperationStatus) *SecretKeyOperationStatusResponseV2Dto {
 	this := SecretKeyOperationStatusResponseV2Dto{}
 	this.Status = status
-	this.KeyRequestType = keyRequestType
+	this.KeyRequestType = KEYREQUESTTYPE_SECRET
 	return &this
 }
 
@@ -50,6 +50,7 @@ func NewSecretKeyOperationStatusResponseV2Dto(status OperationStatus, keyRequest
 // but it doesn't guarantee that properties required by API are set
 func NewSecretKeyOperationStatusResponseV2DtoWithDefaults() *SecretKeyOperationStatusResponseV2Dto {
 	this := SecretKeyOperationStatusResponseV2Dto{}
+	this.KeyRequestType = KEYREQUESTTYPE_SECRET
 	return &this
 }
 
@@ -174,6 +175,10 @@ func (o SecretKeyOperationStatusResponseV2Dto) MarshalJSON() ([]byte, error) {
 }
 
 func (o SecretKeyOperationStatusResponseV2Dto) ToMap() (map[string]interface{}, error) {
+	// fixoneof: pinned by the spec to "secret": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_SECRET {
+		return nil, fmt.Errorf("keyRequestType must be %q for SecretKeyOperationStatusResponseV2Dto, got %q", KEYREQUESTTYPE_SECRET, o.KeyRequestType)
+	}
 	toSerialize := map[string]interface{}{}
 	toSerialize["status"] = o.Status
 	if !IsNil(o.Reason) {
@@ -220,6 +225,10 @@ func (o *SecretKeyOperationStatusResponseV2Dto) UnmarshalJSON(data []byte) (err 
 	}
 
 	*o = SecretKeyOperationStatusResponseV2Dto(varSecretKeyOperationStatusResponseV2Dto)
+	// fixoneof: pinned by the spec to "secret": any other value would not round-trip.
+	if o.KeyRequestType != KEYREQUESTTYPE_SECRET {
+		return fmt.Errorf("keyRequestType must be %q for SecretKeyOperationStatusResponseV2Dto, got %q", KEYREQUESTTYPE_SECRET, o.KeyRequestType)
+	}
 
 	return err
 }

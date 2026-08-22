@@ -24,7 +24,7 @@ var _ MappedNullable = &KeyDestructionStatusResponseV2Dto{}
 type KeyDestructionStatusResponseV2Dto struct {
 	// Operation status as known to the connector
 	Status OperationStatus `json:"status"`
-	// Failure or cancellation detail when status is FAILED or CANCELLED
+	// Failure or cancellation detail when status is `failed` or `cancelled`
 	Reason *string `json:"reason,omitempty"`
 }
 

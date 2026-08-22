@@ -20,7 +20,7 @@ var _ MappedNullable = &SignDataResponseV2Dto{}
 
 // SignDataResponseV2Dto struct for SignDataResponseV2Dto
 type SignDataResponseV2Dto struct {
-	// Signatures, correlated to the request items by identifier. Populated on sync 200; null on async 202.
+	// Signatures, correlated to the request items by identifier. Populated on sync 200; absent on async 202.
 	Signatures []SignatureDataV2Dto `json:"signatures,omitempty"`
 	// Connector-defined signing operation metadata. Present on async 202 as the tracking handle for the whole batch. Supply it by itself to /operations/sign/status and /operations/sign/cancel. It must remain valid for the operation's entire tracking lifetime.
 	OperationMeta []MetadataAttribute `json:"operationMeta,omitempty"`

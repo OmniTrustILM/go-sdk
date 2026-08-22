@@ -27,6 +27,9 @@ const (
 	FEATUREFLAG_SECRET_VERSIONING FeatureFlag = "secretVersioning"
 	FEATUREFLAG_SECRET_ROTATION FeatureFlag = "secretRotation"
 	FEATUREFLAG_CONTENT_SIGNING FeatureFlag = "contentSigning"
+	FEATUREFLAG_LEVEL_TIMESTAMPED FeatureFlag = "levelTimestamped"
+	FEATUREFLAG_LEVEL_LONG_TERM FeatureFlag = "levelLongTerm"
+	FEATUREFLAG_LEVEL_ARCHIVAL FeatureFlag = "levelArchival"
 	FEATUREFLAG_TIMESTAMPING FeatureFlag = "timestamping"
 	FEATUREFLAG_CERTIFICATE_REGISTRATION FeatureFlag = "certificateRegistration"
 	FEATUREFLAG_CERTIFICATE_STATUS_POLLING FeatureFlag = "certificateStatusPolling"
@@ -44,6 +47,9 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"secretVersioning",
 	"secretRotation",
 	"contentSigning",
+	"levelTimestamped",
+	"levelLongTerm",
+	"levelArchival",
 	"timestamping",
 	"certificateRegistration",
 	"certificateStatusPolling",

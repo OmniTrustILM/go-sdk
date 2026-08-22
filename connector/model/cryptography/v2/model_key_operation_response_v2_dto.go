@@ -20,7 +20,7 @@ var _ MappedNullable = &KeyOperationResponseV2Dto{}
 
 // KeyOperationResponseV2Dto struct for KeyOperationResponseV2Dto
 type KeyOperationResponseV2Dto struct {
-	// Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous creation response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.
+	// Connector-defined operation tracking metadata. Required and non-empty in the initial response accepting asynchronous execution. Absent from a synchronous response and from a completed result nested in a status response. This handle must remain valid for the operation's entire tracking lifetime.
 	OperationMeta []MetadataAttribute `json:"operationMeta,omitempty"`
 }
 

@@ -53,7 +53,21 @@ type wrapper struct {
 	// defaultImpl (e.g. BaseAttribute/RequestAttribute default a missing
 	// version to V2).
 	defaultDisc string
+	// specSchema names the schema whose `discriminator` stanza this entry is
+	// verified against, for the cases where it is not typeName: the generator
+	// names an inline array-item wrapper after the property
+	// (FieldMappingFieldsInner) rather than after the schema (MappedField).
+	//
+	// The sentinel noSpecStanza records that no spec publishes a discriminator
+	// for this wrapper at all, because the Java wire contract diverges from the
+	// published one. Verification then asserts the stanza is still absent, so
+	// an upstream fix surfaces here rather than leaving a hand-written table
+	// silently authoritative. See verifyWrappersAgainstSpecs in pins.go.
+	specSchema string
 }
+
+// noSpecStanza marks a wrapper for which no spec declares a discriminator.
+const noSpecStanza = "-"
 
 var wrappers = []wrapper{
 	{
@@ -108,6 +122,7 @@ var wrappers = []wrapper{
 		// defaults to 2 (V2), matching BaseAttributeDeserializer.
 		fileSuffix:    "model_base_attribute_dto.go",
 		typeName:      "BaseAttributeDto",
+		specSchema:    noSpecStanza,
 		discriminator: "version",
 		numeric:       true,
 		defaultDisc:   "2",
@@ -120,6 +135,7 @@ var wrappers = []wrapper{
 		// DataAttribute (V2/V3), same numeric `version` selector as BaseAttribute.
 		fileSuffix:    "model_data_attribute.go",
 		typeName:      "DataAttribute",
+		specSchema:    noSpecStanza,
 		discriminator: "version",
 		numeric:       true,
 		defaultDisc:   "2",
@@ -132,6 +148,7 @@ var wrappers = []wrapper{
 		// MetadataAttribute (V2/V3), same numeric `version` selector.
 		fileSuffix:    "model_metadata_attribute.go",
 		typeName:      "MetadataAttribute",
+		specSchema:    noSpecStanza,
 		discriminator: "version",
 		numeric:       true,
 		defaultDisc:   "2",
@@ -211,6 +228,7 @@ var wrappers = []wrapper{
 		// by shape).
 		fileSuffix:    "model_field_mapping_fields_inner.go",
 		typeName:      "FieldMappingFieldsInner",
+		specSchema:    "MappedField",
 		discriminator: "fieldType",
 		cases: map[string]string{
 			"extension": "ExtensionMappedField",
@@ -222,8 +240,8 @@ var wrappers = []wrapper{
 		// KeyCreationResponseV2Dto's OpenAPI face. The Java wire
 		// discriminator is `keyRequestType` (@JsonTypeInfo EXISTING_PROPERTY);
 		// OpenAPI declares it but the Go generator ignores the stanza.
-		fileSuffix:    "model_key_creation_response_interface.go",
-		typeName:      "KeyCreationResponseInterface",
+		fileSuffix:    "model_key_creation_response.go",
+		typeName:      "KeyCreationResponse",
 		discriminator: "keyRequestType",
 		cases: map[string]string{
 			"secret":  "SecretKeyDataResponseV2Dto",
@@ -232,8 +250,8 @@ var wrappers = []wrapper{
 	},
 	{
 		// Same discriminator, status-response hierarchy.
-		fileSuffix:    "model_key_creation_status_response_interface.go",
-		typeName:      "KeyCreationStatusResponseInterface",
+		fileSuffix:    "model_key_creation_status_response.go",
+		typeName:      "KeyCreationStatusResponse",
 		discriminator: "keyRequestType",
 		cases: map[string]string{
 			"secret":  "SecretKeyOperationStatusResponseV2Dto",
@@ -621,6 +639,12 @@ func main() {
 	if len(os.Args) > 1 {
 		root = os.Args[1]
 	}
+	// The pin pass reads the specs the models were generated from; both
+	// default to their repo-root locations.
+	specDir := "connector/spec"
+	if len(os.Args) > 2 {
+		specDir = os.Args[2]
+	}
 
 	// Pre-pass: every oneOf wrapper the generator emitted must have a
 	// wrappers entry. Catches new wrapper types introduced by spec changes
@@ -631,6 +655,14 @@ func main() {
 		os.Exit(1)
 	}
 	if err := ensureAllWrappersKnown(found); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	// Pre-pass: every hand-written wrappers entry must still agree with the
+	// discriminator the specs publish, so a typo or an upstream rename cannot
+	// leave the table quietly authoritative.
+	if err := verifyWrappersAgainstSpecs(specDir); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -667,4 +699,13 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("\n%d patched, %d skipped\n", patched, skipped)
+
+	// Second pass: enforce the properties the specs pin to a single value.
+	// See pins.go for why the generator's output cannot be trusted here.
+	applied, already, err := applyPins(root, specDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("%d pinned, %d already pinned\n", applied, already)
 }
