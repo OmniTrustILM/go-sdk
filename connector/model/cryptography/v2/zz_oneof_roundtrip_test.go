@@ -6,10 +6,10 @@
 // non-test build.
 //
 // Purpose: prove that every oneOf wrapper decoder in this package round-trips
-// every variant. The package ships fourteen wrappers — the twelve platform
-// attribute unions shared with every other connector spec, plus the two
-// key-creation unions specific to Cryptography Provider v2. Twelve of them
-// have a discriminator-aware UnmarshalJSON patched in by tools/fixoneof (see
+// every variant. The package ships the platform attribute unions shared with
+// every other connector spec, plus the two key-creation unions specific to
+// Cryptography Provider v2. All but one of them have a discriminator-aware
+// UnmarshalJSON patched in by tools/fixoneof (see
 // that tool's `wrappers` table); the generator's stock "try every variant,
 // count strict matches" decoder fails on those because multiple variants
 // share the same Go struct shape and all pass strict decode at once. These
@@ -62,7 +62,7 @@
 //   - BaseAttributeContentDtoV2 — every variant shares {reference?, data} and
 //     ObjectAttributeContentV2 types data as interface{}, so all cases collide.
 //
-// The final section covers the seven properties the spec pins to a single
+// The final section covers the properties the spec pins to a single
 // value, whose enforcement tools/fixoneof writes into the generated code
 // (see tools/fixoneof/pins.go). The generator drops both spellings of a pin
 // — a `$ref` with a sibling one-element `enum`, and a bare `const` — so
@@ -477,7 +477,6 @@ func TestOneOfBaseAttributeDtoDefaultVersion(t *testing.T) {
 // Same numeric-version selector as BaseAttributeDto (Java BaseAttributeSerializer);
 // a missing version defaults to V2. The concrete types carry `version` as a
 // required int32, so it marshals back as a JSON number for the round-trip.
-// (MetadataAttribute has a generated wrapper only in cryptography/v1.)
 func TestOneOfMetadataAttribute(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -763,10 +762,10 @@ func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 
 // --- Non-discriminator oneOfs present in this package ------------------------
 //
-// Two match-counting oneOf wrappers live here: BaseAttributeContentDtoV2 and
-// KeyDataValue. Both are tools/fixoneof knownUnpatchable entries (the spec
-// defines no discriminator), and both are provably un-decodable standalone, so
-// every case is documented and skipped.
+// One match-counting oneOf wrapper lives here: BaseAttributeContentDtoV2. It is
+// a tools/fixoneof knownUnpatchable entry (the spec defines no discriminator)
+// and is provably un-decodable standalone, so every case is documented and
+// skipped.
 
 // TestOneOfBaseAttributeContentDtoV2 exercises the match-counting
 // BaseAttributeContentDtoV2 wrapper.
@@ -929,11 +928,11 @@ func TestOneOfKeyCreationStatusResponseUnknownKeyRequestType(t *testing.T) {
 
 // --- Pinned properties -------------------------------------------------------
 //
-// Seven properties in cryptography-v2.json admit exactly one value: the
-// `keyRequestType` discriminator on each of the four key-creation variants
-// (published as a $ref with a sibling one-element enum) and the `type` role
-// tag on each of the three key-data descriptors (published as a const). The Go
-// generator drops both spellings, so tools/fixoneof writes the enforcement in.
+// Some properties in cryptography-v2.json admit exactly one value: the
+// `keyRequestType` discriminator on each key-creation variant (published as a
+// $ref with a sibling one-element enum) and the `type` role tag on each
+// key-data descriptor (published as a const). The Go generator drops both
+// spellings, so tools/fixoneof writes the enforcement in.
 //
 // The three tests below cover the three places it writes: the constructor
 // (correct by construction), ToMap (cannot emit a value it would refuse to
