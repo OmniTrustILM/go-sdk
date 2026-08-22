@@ -76,9 +76,14 @@ const (
 	CategoryConnector ProblemCategory = "connector"
 )
 
-// ifaceAuthority is the type-URI interface segment for the authority
-// provider surface, e.g. https://docs.otilm.com/problems/connector/authority/CSR_MALFORMED.
-const ifaceAuthority = "authority"
+// Type-URI interface segments for the connector surfaces that scope an error
+// code, e.g. https://docs.otilm.com/problems/connector/authority/CSR_MALFORMED.
+// Each mirrors ConnectorInterface.getCode() upstream, which is the segment the
+// platform's own renderer uses.
+const (
+	ifaceAuthority = "authority"
+	ifaceDiscovery = "discovery"
+)
 
 // Known extension property keys conditionally promoted to top-level
 // ProblemDetail fields by WriteProblem (see promoteProblemExtensions for
@@ -148,6 +153,13 @@ var (
 		"OPERATION_NOT_TRACKED":             {category: CategoryConnector, retryable: false},
 		"ATTRIBUTE_DEFINITION_NOT_FOUND":    {category: CategoryConnector, retryable: false},
 
+		// Document handling, raised by the content-signing formatting
+		// contract. Cross-interface upstream, so no iface segment.
+		"DOCUMENT_MALFORMED":    {category: CategoryConnector, retryable: false},
+		"DOCUMENT_TOO_LARGE":    {category: CategoryConnector, retryable: false},
+		"SIGNATURE_NOT_FOUND":   {category: CategoryConnector, retryable: false},
+		"PARAMETER_UNSUPPORTED": {category: CategoryConnector, retryable: false},
+
 		// connector/authority, non-retryable
 		"CSR_MALFORMED":            {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
 		"REVOCATION_NOT_ALLOWED":   {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
@@ -155,6 +167,10 @@ var (
 		"RENEWAL_SOURCE_NOT_FOUND": {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
 		"CSR_SUBJECT_MISMATCH":     {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
 		"CERTIFICATE_MISMATCH":     {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
+
+		// connector/discovery, non-retryable: a lost checkpoint cannot be
+		// resumed, so the caller restarts the run rather than retrying.
+		"CHECKPOINT_LOST": {category: CategoryConnector, iface: ifaceDiscovery, retryable: false},
 	}
 )
 
