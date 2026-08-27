@@ -72,7 +72,7 @@ Runnable reference connectors live under [`connector/examples/`](connector/examp
 go run ./connector/examples/secret-v1
 ```
 
-`authority-v3`, `legacy-auth-v1` (legacy v1 authority interface), `compliance-v1`/`v2`, `credential-v1`, `cryptography-v1`, `disco-v1`, `entity-v1`, `notification-v1`, `secret-v1`, `multi-v1`. They double as the SDK's integration-test suite (see `connector/examples/internal/itest`).
+They double as the SDK's integration-test suite (see `connector/examples/internal/itest`).
 
 ## Versioning & releases
 
