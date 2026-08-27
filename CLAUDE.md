@@ -15,7 +15,7 @@ this module, so its exported API is a compatibility surface.
 | Path                              | Purpose                                                                     |
 |-----------------------------------|-----------------------------------------------------------------------------|
 | `connector/shared`                | The server framework: router and route helpers, request codec and body limits, health/info endpoints, structured log handler, metrics, tracing, correlation, RFC 9457 problem rendering (`problem.go`, `v1errors.go`), middleware. |
-| `connector/provider/<iface>/<vN>` | Hand-written provider handler packages, one per connector interface and version (authority v1/v2/v3, attributes, compliance, credential, cryptography, discovery, entity, notification, secret). Each defines the Provider interface a connector implements and mounts its routes. |
+| `connector/provider/<iface>/<vN>` | Hand-written provider handler packages, one per connector interface and version. Each defines the Provider interface a connector implements and mounts its routes. |
 | `connector/model/<iface>/<vN>`    | **Generated** DTO packages — produced by `gen.sh` from `connector/spec`, then post-processed by `tools/fixoneof`. Never hand-edit (see Conventions). |
 | `connector/spec`                  | The OpenAPI specifications the model packages are generated from.           |
 | `connector/examples`              | Runnable example connectors per interface plus `internal/itest`, a testcontainers harness their integration tests use (Docker required). |
