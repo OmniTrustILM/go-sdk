@@ -17,6 +17,7 @@ package cryptography
 // the point of having unexported access in the first place.
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -27,6 +28,13 @@ import (
 // strPtr returns a pointer to s, so a table case can distinguish an absent
 // optional field from one present but empty.
 func strPtr(s string) *string { return &s }
+
+// metaAttr is a MetadataAttribute with exactly one arm populated, so a fixture
+// passes validateMetadataElements; see TestValidateMetadataElements for the
+// zero-value element the guard rejects.
+func metaAttr() mdl.MetadataAttribute {
+	return mdl.MetadataAttribute{MetadataAttributeV2: &mdl.MetadataAttributeV2{}}
+}
 
 // wantNoError fails t if err is non-nil.
 func wantNoError(t *testing.T, err error) {
@@ -79,7 +87,6 @@ func TestValidateExecutionMode(t *testing.T) {
 		{"synchronous", mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, ""},
 		{"asynchronous", mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS, ""},
 		{"empty", "", "executionMode is required"},
-		{"unknown", mdl.OperationExecutionMode("eventually"), "executionMode must be synchronous or asynchronous"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,6 +97,11 @@ func TestValidateExecutionMode(t *testing.T) {
 			}
 			wantValidationFailed(t, err, tc.wantDetail)
 		})
+	}
+	se, ok := validateExecutionMode(mdl.OperationExecutionMode("eventually")).(*shared.Error)
+	if !ok || se.Status != http.StatusBadRequest || se.ErrorCode != "BAD_REQUEST" ||
+		se.Detail != "executionMode must be synchronous or asynchronous" {
+		t.Errorf("unknown mode: got %+v, want 400 BAD_REQUEST", se)
 	}
 }
 
@@ -205,6 +217,12 @@ func TestValidateIdentifiersMatch(t *testing.T) {
 			wantValidationFailed(t, err, "signatures identifiers must match the request data identifiers")
 		})
 	}
+	// Same size and every got element present in want, yet not the same set:
+	// exact on its own, without relying on a preceding uniqueness guard.
+	wantValidationFailed(t, validateIdentifiersMatch([]string{"a", "b"}, []string{"a", "a"}, "signatures"),
+		"signatures identifiers must match the request data identifiers")
+	wantValidationFailed(t, validateIdentifiersMatch([]string{"a", "a"}, []string{"a", "b"}, "signatures"),
+		"signatures identifiers must match the request data identifiers")
 }
 
 func TestValidateRandomDataLength(t *testing.T) {
@@ -457,10 +475,8 @@ func TestValidateKeyCreationStatusShape(t *testing.T) {
 			Status:         mdl.OPERATIONSTATUS_FAILED, // no reason
 		},
 	}), "reason is required when status is failed or cancelled")
-	// Neither arm populated: no discriminator to check, and the empty status
-	// falls through to validateStatusShape's default case.
 	wantResponseShapeError(t, validateKeyCreationStatusShape(&mdl.KeyCreationStatusResponse{}),
-		"unknown operation status")
+		"exactly one key status variant must be populated")
 }
 
 func TestValidateStatusShape(t *testing.T) {
@@ -546,7 +562,7 @@ func TestKeyCreationHasPayload(t *testing.T) {
 		t.Error("secret arm with KeyData only: want true (OR)")
 	}
 	if !keyCreationHasPayload(&mdl.KeyCreationResponse{
-		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{KeyMeta: []mdl.MetadataAttribute{{}}},
+		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{KeyMeta: []mdl.MetadataAttribute{metaAttr()}},
 	}) {
 		t.Error("secret arm with KeyMeta only: want true (OR)")
 	}
@@ -566,7 +582,7 @@ func TestKeyCreationHasPayload(t *testing.T) {
 		t.Error("key-pair arm with PrivateKeyData only: want true (OR)")
 	}
 	if !keyCreationHasPayload(&mdl.KeyCreationResponse{
-		KeyPairDataResponseV2Dto: &mdl.KeyPairDataResponseV2Dto{KeyPairMeta: []mdl.MetadataAttribute{{}}},
+		KeyPairDataResponseV2Dto: &mdl.KeyPairDataResponseV2Dto{KeyPairMeta: []mdl.MetadataAttribute{metaAttr()}},
 	}) {
 		t.Error("key-pair arm with KeyPairMeta only: want true (OR)")
 	}
@@ -581,35 +597,35 @@ func TestValidateKeyCreationPayload(t *testing.T) {
 	const incomplete = "key creation completed synchronously must carry a result payload"
 	secretKey := func() *mdl.SecretKeyDataV2Dto { return mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048) }
 
-	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{}), incomplete)
+	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{}, "key creation completed synchronously"), incomplete)
 	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{KeyData: secretKey()},
-	}), incomplete)
+	}, "key creation completed synchronously"), incomplete)
 	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{
-		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{KeyMeta: []mdl.MetadataAttribute{{}}},
-	}), incomplete)
+		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{KeyMeta: []mdl.MetadataAttribute{metaAttr()}},
+	}, "key creation completed synchronously"), incomplete)
 	wantNoError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 			KeyData: secretKey(),
-			KeyMeta: []mdl.MetadataAttribute{{}},
+			KeyMeta: []mdl.MetadataAttribute{metaAttr()},
 		},
-	}))
+	}, "key creation completed synchronously"))
 	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 			KeyData: &mdl.SecretKeyDataV2Dto{},
-			KeyMeta: []mdl.MetadataAttribute{{}},
+			KeyMeta: []mdl.MetadataAttribute{metaAttr()},
 		},
-	}), "keyData must carry a key type")
+	}, "key creation completed synchronously"), "keyData must carry key type Secret")
 
 	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{
 		KeyPairDataResponseV2Dto: &mdl.KeyPairDataResponseV2Dto{
 			PublicKeyData:  &mdl.PublicKeyDataResponseV2Dto{},
 			PrivateKeyData: &mdl.PrivateKeyDataResponseV2Dto{},
 		},
-	}), incomplete)
+	}, "key creation completed synchronously"), incomplete)
 	wantNoError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{
 		KeyPairDataResponseV2Dto: keyPair(func(*mdl.KeyPairDataResponseV2Dto) {}),
-	}))
+	}, "key creation completed synchronously"))
 }
 
 // keyPair builds a complete, valid key-pair response and applies mutate, so a
@@ -617,13 +633,13 @@ func TestValidateKeyCreationPayload(t *testing.T) {
 func keyPair(mutate func(*mdl.KeyPairDataResponseV2Dto)) *mdl.KeyPairDataResponseV2Dto {
 	v := &mdl.KeyPairDataResponseV2Dto{
 		KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR,
-		KeyPairMeta:    []mdl.MetadataAttribute{{}},
+		KeyPairMeta:    []mdl.MetadataAttribute{metaAttr()},
 		PublicKeyData: &mdl.PublicKeyDataResponseV2Dto{
-			KeyMeta: []mdl.MetadataAttribute{{}},
+			KeyMeta: []mdl.MetadataAttribute{metaAttr()},
 			KeyData: *mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048, "AA=="),
 		},
 		PrivateKeyData: &mdl.PrivateKeyDataResponseV2Dto{
-			KeyMeta: []mdl.MetadataAttribute{{}},
+			KeyMeta: []mdl.MetadataAttribute{metaAttr()},
 			KeyData: *mdl.NewPrivateKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048),
 		},
 	}
@@ -662,7 +678,7 @@ func TestValidateKeyPairPayload(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateKeyPairPayload(keyPair(tc.mutate))
+			err := validateKeyPairPayload(keyPair(tc.mutate), "key creation completed synchronously")
 			if tc.wantDetail == "" {
 				wantNoError(t, err)
 				return
@@ -670,6 +686,9 @@ func TestValidateKeyPairPayload(t *testing.T) {
 			wantResponseShapeError(t, err, tc.wantDetail)
 		})
 	}
+	wantResponseShapeError(t, validateKeyPairPayload(keyPair(func(v *mdl.KeyPairDataResponseV2Dto) {
+		v.PrivateKeyData.KeyData.Type = "Public"
+	}), "key creation completed synchronously"), "privateKeyData.keyData must carry key type Private")
 }
 
 func TestKeyCreationHasMeta(t *testing.T) {
@@ -677,12 +696,12 @@ func TestKeyCreationHasMeta(t *testing.T) {
 		t.Error("neither variant set: want false")
 	}
 	if !keyCreationHasMeta(&mdl.KeyCreationResponse{
-		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{{}}},
+		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{metaAttr()}},
 	}) {
 		t.Error("secret arm with OperationMeta: want true")
 	}
 	if !keyCreationHasMeta(&mdl.KeyCreationResponse{
-		KeyPairDataResponseV2Dto: &mdl.KeyPairDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{{}}},
+		KeyPairDataResponseV2Dto: &mdl.KeyPairDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{metaAttr()}},
 	}) {
 		t.Error("key-pair arm with OperationMeta: want true")
 	}
@@ -888,7 +907,7 @@ func TestValidateKeyCreationStatusShapeChecksCompletedResult(t *testing.T) {
 		{
 			name:       "partial payload: keyData without keyMeta",
 			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048)},
-			wantDetail: "key creation completed synchronously must carry a result payload",
+			wantDetail: "completed key creation result must carry a result payload",
 		},
 		{
 			name:       "absent discriminator",
@@ -903,7 +922,7 @@ func TestValidateKeyCreationStatusShapeChecksCompletedResult(t *testing.T) {
 		{
 			name:       "forbidden operationMeta on the result",
 			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048), KeyMeta: oneMeta, OperationMeta: oneMeta},
-			wantDetail: "key creation completed synchronously must not carry operationMeta",
+			wantDetail: "completed key creation result must not carry operationMeta",
 		},
 	}
 	for _, tc := range cases {
@@ -955,7 +974,7 @@ func TestValidateKeyCreationStatusShapeChecksCompletedKeyPairResult(t *testing.T
 		PublicKeyData:  &mdl.PublicKeyDataResponseV2Dto{},
 	}
 	wantResponseShapeError(t, validateKeyCreationStatusShape(completedWith(partial)),
-		"key creation completed synchronously must carry a result payload")
+		"completed key creation result must carry a result payload")
 }
 
 func TestValidateModeNotSwitchedRejectsBothDirections(t *testing.T) {
@@ -979,6 +998,7 @@ func TestValidateBatchItems(t *testing.T) {
 	wantValidationFailed(t,
 		validateBatchItems([]string{"a", "b"}, []string{"AA==", ""}, "data"),
 		"data entries must not carry empty data")
+	wantValidationFailed(t, validateBatchItems([]string{"a", "b"}, []string{"AA=="}, "data"), "data entries are malformed")
 }
 
 func TestValidateResponseIdentifiers(t *testing.T) {
@@ -993,6 +1013,9 @@ func TestValidateResponseIdentifiers(t *testing.T) {
 	wantResponseShapeError(t,
 		validateResponseIdentifiers([]string{"a", "b"}, []string{"a", "c"}, "encrypt data"),
 		"encrypt data response identifiers must match the request identifiers")
+	// A duplicated request identifier must not admit an identifier nobody asked for.
+	wantResponseShapeError(t, validateResponseIdentifiers([]string{"a", "a"}, []string{"a", "b"}, "verify data"),
+		"verify data response identifiers must match the request identifiers")
 }
 
 func TestValidateRandomDataPayload(t *testing.T) {
@@ -1051,6 +1074,80 @@ func TestValidateSignatureResultItem(t *testing.T) {
 	wantResponseShapeError(t,
 		validateSignatureResultItem(item(mdl.OPERATIONSTATUS_COMPLETED, strPtr("AA=="), strPtr(""))),
 		"reason must be absent unless status is failed or cancelled")
+	// completed with no signature at all: validateStatusShape must report it
+	// before the signature dereference below it runs.
+	wantResponseShapeError(t,
+		validateSignatureResultItem(item(mdl.OPERATIONSTATUS_COMPLETED, nil, nil)),
+		"result is required when status is completed")
+}
+
+func TestValidateSignStatusShape(t *testing.T) {
+	sig := strPtr("AA==")
+	wantResponseShapeError(t, validateSignStatusShape(&mdl.SignOperationStatusResponseV2Dto{}), "items must not be empty")
+	wantResponseShapeError(t, validateSignStatusShape(&mdl.SignOperationStatusResponseV2Dto{Items: []mdl.SignatureResultItemV2Dto{
+		{Identifier: "a", Status: mdl.OPERATIONSTATUS_COMPLETED, Signature: sig},
+		{Identifier: "a", Status: mdl.OPERATIONSTATUS_COMPLETED, Signature: sig},
+	}}), "sign status response identifiers must be unique")
+	wantResponseShapeError(t, validateSignStatusShape(&mdl.SignOperationStatusResponseV2Dto{Items: []mdl.SignatureResultItemV2Dto{
+		{Identifier: "a", Status: mdl.OPERATIONSTATUS_COMPLETED},
+	}}), "result is required when status is completed")
+	wantNoError(t, validateSignStatusShape(&mdl.SignOperationStatusResponseV2Dto{Items: []mdl.SignatureResultItemV2Dto{
+		{Identifier: "a", Status: mdl.OPERATIONSTATUS_COMPLETED, Signature: sig},
+		{Identifier: "b", Status: mdl.OPERATIONSTATUS_IN_PROGRESS},
+	}}))
+}
+
+func TestValidateResponseRejectsNil(t *testing.T) {
+	called := false
+	check := func(*mdl.TokenStatusResponseV2Dto) error { called = true; return nil }
+	if err := validateResponse[mdl.TokenStatusResponseV2Dto](nil, check); err != ErrNilResponse {
+		t.Errorf("nil response: err = %v, want ErrNilResponse", err)
+	}
+	if called {
+		t.Error("check must not run on a nil response")
+	}
+	wantNoError(t, validateResponse(&mdl.TokenStatusResponseV2Dto{Status: mdl.TOKENSTATUSV2_CONNECTED}, validateTokenStatus))
+}
+
+func TestValidateTokenStatus(t *testing.T) {
+	wantNoError(t, validateTokenStatus(&mdl.TokenStatusResponseV2Dto{Status: mdl.TOKENSTATUSV2_CONNECTED}))
+	wantResponseShapeError(t, validateTokenStatus(&mdl.TokenStatusResponseV2Dto{}), "token status must be a known token status")
+	wantResponseShapeError(t, validateTokenStatus(&mdl.TokenStatusResponseV2Dto{Status: "bogus"}), "token status must be a known token status")
+}
+
+func TestValidateKnownEnums(t *testing.T) {
+	wantNoError(t, validateKnownEnums([]mdl.KeyUsage{mdl.KEYUSAGE_SIGN, mdl.KEYUSAGE_VERIFY}, "key usages"))
+	wantNoError(t, validateKnownEnums[mdl.KeyUsage](nil, "key usages"))
+	wantResponseShapeError(t, validateKnownEnums([]mdl.KeyUsage{mdl.KEYUSAGE_SIGN, "bogus"}, "key usages"),
+		"key usages must contain only known values")
+	wantResponseShapeError(t, validateKnownEnums([]mdl.KeyRequestType{""}, "key request types"),
+		"key request types must contain only known values")
+}
+
+func TestValidateMetadataElements(t *testing.T) {
+	wantNoError(t, validateMetadataElements(nil, "operationMeta"))
+	wantNoError(t, validateMetadataElements([]mdl.MetadataAttribute{metaAttr()}, "operationMeta"))
+	wantNoError(t, validateMetadataElements([]mdl.MetadataAttribute{{MetadataAttributeV3: &mdl.MetadataAttributeV3{}}}, "operationMeta"))
+	const msg = "operationMeta entries must populate exactly one metadata attribute variant"
+	wantResponseShapeError(t, validateMetadataElements([]mdl.MetadataAttribute{metaAttr(), {}}, "operationMeta"), msg)
+	wantResponseShapeError(t, validateMetadataElements([]mdl.MetadataAttribute{
+		{MetadataAttributeV2: &mdl.MetadataAttributeV2{}, MetadataAttributeV3: &mdl.MetadataAttributeV3{}},
+	}, "operationMeta"), msg)
+}
+
+// A zero-value element anywhere in the populated arm is caught before the
+// mode-dependent rules, whichever list it sits in.
+func TestValidateKeyCreationShapeRejectsZeroValueMetadataElements(t *testing.T) {
+	secret := &mdl.KeyCreationResponse{SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
+		KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
+		KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048),
+		KeyMeta:        []mdl.MetadataAttribute{{}},
+	}}
+	wantResponseShapeError(t, validateKeyCreationShape(false, secret), "keyMeta entries must populate exactly one metadata attribute variant")
+
+	pair := keyPair(func(v *mdl.KeyPairDataResponseV2Dto) { v.PrivateKeyData.KeyMeta = []mdl.MetadataAttribute{{}} })
+	wantResponseShapeError(t, validateKeyCreationShape(false, &mdl.KeyCreationResponse{KeyPairDataResponseV2Dto: pair}),
+		"privateKeyData.keyMeta entries must populate exactly one metadata attribute variant")
 }
 
 func TestSignatureResultIdentifiers(t *testing.T) {

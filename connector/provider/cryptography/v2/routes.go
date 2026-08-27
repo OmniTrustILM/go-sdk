@@ -37,22 +37,22 @@ const (
 	eventCancelSignData   = "cancel_sign_data"
 )
 
-// rejectRequest is the shared tail of every request-side validation guard
-// added in validate.go: emit the outcome event and render the problem
-// response, then the caller returns. Factored out of the repeated
-// three-line EmitEvent/RenderError/return body so each guard's call site is
-// one line. Not used by the response-shape guards below (see their own
-// comment on why they must not emit).
+// rejectRequest emits the outcome event and renders the problem response for a
+// failed request guard.
 func (h *Handler) rejectRequest(w http.ResponseWriter, r *http.Request, event string, err error) {
 	shared.EmitEvent(r.Context(), event, err)
 	shared.RenderError(w, r, err)
 }
 
+// Every payload handler validates the response before emitting its event, so a
+// shape violation is recorded as outcome "error". shared.RenderError logs every
+// 5xx with detail and path, so handlers add no log line of their own.
+
 // --- Attribute endpoints -----------------------------------------------------
 
-// Attribute endpoints with no registered sub-provider respond 200 with an
-// empty array — the SDK-wide convention: missing optional attribute providers
-// must not break callers that enumerate them.
+// Attribute endpoints with no registered sub-provider respond 200 with an empty
+// array once the request validates, the SDK-wide convention for optional
+// attribute providers.
 
 func (h *Handler) listTokenAttributes(w http.ResponseWriter, r *http.Request) {
 	var out []mdl.BaseAttributeDto
@@ -270,13 +270,12 @@ func (h *Handler) tokenStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := h.provider.TokenStatus(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, validateTokenStatus)
+	}
 	shared.EmitEvent(r.Context(), eventTokenStatus, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
-		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
 		return
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
@@ -292,6 +291,9 @@ func (h *Handler) tokenProfileKeyUsages(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	out, err := h.provider.TokenProfileKeyUsages(r.Context(), &in)
+	if err == nil {
+		err = validateKnownEnums(out, "key usages")
+	}
 	shared.EmitEvent(r.Context(), eventTokenProfileKeyUsages, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
@@ -314,6 +316,9 @@ func (h *Handler) keyRequestTypes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := h.provider.KeyRequestTypes(r.Context(), &in)
+	if err == nil {
+		err = validateKnownEnums(out, "key request types")
+	}
 	shared.EmitEvent(r.Context(), eventKeyRequestTypes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
@@ -326,18 +331,18 @@ func (h *Handler) keyRequestTypes(w http.ResponseWriter, r *http.Request) {
 
 // --- Key management and signing: caller-selected execution mode -------------
 //
-// Each of these three routes accepts a request whose executionMode field is
-// caller-selected. The provider does not choose the mode; it reports, via
-// accepted, whether the operation it was asked for completed inline or was
-// taken up for asynchronous execution. accepted == false renders 200 with the
-// completed result; accepted == true renders 202 with the same response type
-// carrying the async tracking handle.
-//
-// The handler does not infer the mode from the request, but it does hold the
-// provider to it: a synchronously requested operation reported as accepted is
-// a provider-contract violation and renders 500, never a 202 the caller never
-// asked to poll (see validateModeNotSwitched, which also documents why the
-// converse is allowed).
+// The provider reports via accepted whether the operation completed inline
+// (200) or was taken up asynchronously (202). An operation reported in the
+// mode the caller did not select renders 500 in both directions (see
+// validateModeNotSwitched).
+
+// executionStatus maps the provider's accepted flag to the wire status.
+func executionStatus(accepted bool) int {
+	if accepted {
+		return http.StatusAccepted
+	}
+	return http.StatusOK
+}
 
 // 409 ErrKeyCreationConflict when keyCreationId is reused non-equivalently.
 func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {
@@ -356,32 +361,21 @@ func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, accepted, err := h.provider.CreateKey(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.KeyCreationResponse) error {
+			return firstError(
+				validateModeNotSwitched(in.ExecutionMode, accepted, "key creation"),
+				validateKeyCreationShape(accepted, out),
+				validateRequestedKeyRequestType(keyCreationRequestType(out), in.KeyRequestType),
+			)
+		})
+	}
 	shared.EmitEvent(r.Context(), eventCreateKey, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// The EmitEvent above already reported outcome "ok", so emitting here
-	// would double-count this request as both ok and error. The error-level
-	// log is the observability signal for a provider bug.
-	if err := firstError(
-		validateModeNotSwitched(in.ExecutionMode, accepted, "key creation"),
-		validateKeyCreationShape(accepted, out),
-		validateRequestedKeyRequestType(keyCreationRequestType(out), in.KeyRequestType),
-	); err != nil {
-		h.LoggerFor(r).Error("createKey response shape", "err", err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	status := http.StatusOK
-	if accepted {
-		status = http.StatusAccepted
-	}
-	if writeErr := shared.WriteJSON(w, status, out); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, executionStatus(accepted), out); writeErr != nil {
 		h.LoggerFor(r).Error("write createKey response", "err", writeErr)
 	}
 }
@@ -402,29 +396,21 @@ func (h *Handler) destroyKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, accepted, err := h.provider.DestroyKey(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.KeyOperationResponseV2Dto) error {
+			return firstError(
+				validateModeNotSwitched(in.ExecutionMode, accepted, "key destruction"),
+				validateMetadataElements(out.OperationMeta, "operationMeta"),
+				validateDestroyShape(accepted, len(out.OperationMeta) > 0),
+			)
+		})
+	}
 	shared.EmitEvent(r.Context(), eventDestroyKey, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := firstError(
-		validateModeNotSwitched(in.ExecutionMode, accepted, "key destruction"),
-		validateDestroyShape(accepted, len(out.OperationMeta) > 0),
-	); err != nil {
-		h.LoggerFor(r).Error("destroyKey response shape", "err", err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	status := http.StatusOK
-	if accepted {
-		status = http.StatusAccepted
-	}
-	if writeErr := shared.WriteJSON(w, status, out); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, executionStatus(accepted), out); writeErr != nil {
 		h.LoggerFor(r).Error("write destroyKey response", "err", writeErr)
 	}
 }
@@ -436,55 +422,41 @@ func (h *Handler) signData(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
+	dataIDs := signatureDataIdentifiers(in.Data)
 	if err := firstError(
 		validateExecutionMode(in.ExecutionMode),
 		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 		validateNonEmptyBatch(len(in.Data), "data"),
-		validateUniqueIdentifiers(signatureDataIdentifiers(in.Data), "data"),
-		validateBatchItems(signatureDataIdentifiers(in.Data), signatureDataPayloads(in.Data), "data"),
+		validateUniqueIdentifiers(dataIDs, "data"),
+		validateBatchItems(dataIDs, signatureDataPayloads(in.Data), "data"),
 	); err != nil {
 		h.rejectRequest(w, r, eventSignData, err)
 		return
 	}
 	out, accepted, err := h.provider.SignData(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.SignDataResponseV2Dto) error {
+			if err := firstError(
+				validateModeNotSwitched(in.ExecutionMode, accepted, "sign data"),
+				validateMetadataElements(out.OperationMeta, "operationMeta"),
+				validateExecutionShape(accepted, len(out.OperationMeta) > 0, signHasPayload(out), "sign data"),
+			); err != nil {
+				return err
+			}
+			// An accepted batch carries no signatures to correlate.
+			if accepted {
+				return nil
+			}
+			return validateResponseBatch(dataIDs, signatureDataIdentifiers(out.Signatures), signatureDataPayloads(out.Signatures), "sign data")
+		})
+	}
 	shared.EmitEvent(r.Context(), eventSignData, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := firstError(
-		validateModeNotSwitched(in.ExecutionMode, accepted, "sign data"),
-		validateExecutionShape(accepted, len(out.OperationMeta) > 0, signHasPayload(out), "sign data"),
-	); err != nil {
-		h.LoggerFor(r).Error("signData response shape", "err", err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	// Core correlates identifiers on a synchronous signing response only; an
-	// accepted batch carries no signatures to correlate.
-	if !accepted {
-		if err := validateResponseBatch(
-			signatureDataIdentifiers(in.Data),
-			signatureDataIdentifiers(out.Signatures),
-			signatureDataPayloads(out.Signatures),
-			"sign data",
-		); err != nil {
-			h.LoggerFor(r).Error("signData response shape", "err", err)
-			shared.RenderError(w, r, err)
-			return
-		}
-	}
-	status := http.StatusOK
-	if accepted {
-		status = http.StatusAccepted
-	}
-	if writeErr := shared.WriteJSON(w, status, out); writeErr != nil {
+	if writeErr := shared.WriteJSON(w, executionStatus(accepted), out); writeErr != nil {
 		h.LoggerFor(r).Error("write signData response", "err", writeErr)
 	}
 }
@@ -498,34 +470,25 @@ func (h *Handler) encryptData(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
+	cipherIDs := cipherDataIdentifiers(in.CipherData)
 	if err := firstError(
 		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 		validateNonEmptyBatch(len(in.CipherData), "cipherData"),
-		validateUniqueIdentifiers(cipherDataIdentifiers(in.CipherData), "cipherData"),
-		validateBatchItems(cipherDataIdentifiers(in.CipherData), cipherDataPayloads(in.CipherData), "cipherData"),
+		validateUniqueIdentifiers(cipherIDs, "cipherData"),
+		validateBatchItems(cipherIDs, cipherDataPayloads(in.CipherData), "cipherData"),
 	); err != nil {
 		h.rejectRequest(w, r, eventEncryptData, err)
 		return
 	}
 	out, err := h.provider.EncryptData(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.EncryptDataResponseV2Dto) error {
+			return validateResponseBatch(cipherIDs, cipherDataIdentifiers(out.EncryptedData), cipherDataPayloads(out.EncryptedData), "encrypt data")
+		})
+	}
 	shared.EmitEvent(r.Context(), eventEncryptData, err)
 	if err != nil {
-		shared.RenderError(w, r, err)
-		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := validateResponseBatch(
-		cipherDataIdentifiers(in.CipherData),
-		cipherDataIdentifiers(out.EncryptedData),
-		cipherDataPayloads(out.EncryptedData),
-		"encrypt data",
-	); err != nil {
-		h.LoggerFor(r).Error("encryptData response shape", "err", err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -541,34 +504,25 @@ func (h *Handler) decryptData(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
+	cipherIDs := cipherDataIdentifiers(in.CipherData)
 	if err := firstError(
 		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 		validateNonEmptyBatch(len(in.CipherData), "cipherData"),
-		validateUniqueIdentifiers(cipherDataIdentifiers(in.CipherData), "cipherData"),
-		validateBatchItems(cipherDataIdentifiers(in.CipherData), cipherDataPayloads(in.CipherData), "cipherData"),
+		validateUniqueIdentifiers(cipherIDs, "cipherData"),
+		validateBatchItems(cipherIDs, cipherDataPayloads(in.CipherData), "cipherData"),
 	); err != nil {
 		h.rejectRequest(w, r, eventDecryptData, err)
 		return
 	}
 	out, err := h.provider.DecryptData(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.DecryptDataResponseV2Dto) error {
+			return validateResponseBatch(cipherIDs, cipherDataIdentifiers(out.DecryptedData), cipherDataPayloads(out.DecryptedData), "decrypt data")
+		})
+	}
 	shared.EmitEvent(r.Context(), eventDecryptData, err)
 	if err != nil {
-		shared.RenderError(w, r, err)
-		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := validateResponseBatch(
-		cipherDataIdentifiers(in.CipherData),
-		cipherDataIdentifiers(out.DecryptedData),
-		cipherDataPayloads(out.DecryptedData),
-		"decrypt data",
-	); err != nil {
-		h.LoggerFor(r).Error("decryptData response shape", "err", err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -586,12 +540,6 @@ func (h *Handler) verifyData(w http.ResponseWriter, r *http.Request) {
 	}
 	dataIDs := signatureDataIdentifiers(in.Data)
 	signatureIDs := signatureDataIdentifiers(in.Signatures)
-	// Order is load-bearing: validateIdentifiersMatch is a same-size-plus-
-	// subset test, which is only a genuine set comparison once both lists
-	// are already known to be duplicate-free. Listed after the two
-	// uniqueness checks, its verdict is only ever reported when both passed;
-	// ahead of them, want=[a,b] got=[a,a] would be reported as matching
-	// (same size, every got element found in want).
 	if err := firstError(
 		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
@@ -607,22 +555,13 @@ func (h *Handler) verifyData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := h.provider.VerifyData(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.VerifyDataResponseV2Dto) error {
+			return validateResponseIdentifiers(dataIDs, verificationIdentifiers(out.Verifications), "verify data")
+		})
+	}
 	shared.EmitEvent(r.Context(), eventVerifyData, err)
 	if err != nil {
-		shared.RenderError(w, r, err)
-		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := validateResponseIdentifiers(
-		dataIDs,
-		verificationIdentifiers(out.Verifications),
-		"verify data",
-	); err != nil {
-		h.LoggerFor(r).Error("verifyData response shape", "err", err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -646,18 +585,13 @@ func (h *Handler) randomData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := h.provider.RandomData(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.RandomDataResponseV2Dto) error {
+			return validateRandomDataPayload(out.Data, in.Length)
+		})
+	}
 	shared.EmitEvent(r.Context(), eventRandomData, err)
 	if err != nil {
-		shared.RenderError(w, r, err)
-		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := validateRandomDataPayload(out.Data, in.Length); err != nil {
-		h.LoggerFor(r).Error("randomData response shape", "err", err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -666,37 +600,43 @@ func (h *Handler) randomData(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// --- Async key status and cancellation ---------------------------------------
+// --- Async status and cancellation -------------------------------------------
 //
-// Mounted only when an AsyncKeyProvider is registered (see WithAsyncKeys);
-// h.asyncKeys is dereferenced without a nil check because these routes are
-// not reachable otherwise.
+// All six routes are always mounted; without their sub-provider (WithAsyncKeys,
+// WithAsyncSign) they answer 404 OPERATION_NOT_SUPPORTED, the body the contract
+// declares for "endpoint not found or not implemented".
+
+// decodeTracking rejects the request when the sub-provider is absent, then
+// decodes the tracking handle and enforces minItems: 1. Reports false after
+// rendering.
+func (h *Handler) decodeTracking(w http.ResponseWriter, r *http.Request, event string, registered bool, in *mdl.OperationTrackingRequestV2Dto) bool {
+	if !registered {
+		h.rejectRequest(w, r, event, ErrOperationNotSupported)
+		return false
+	}
+	if err := shared.DecodeJSON(w, r, in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, event, err)
+		return false
+	}
+	if err := validateNonEmptyBatch(len(in.OperationMeta), "operationMeta"); err != nil {
+		h.rejectRequest(w, r, event, err)
+		return false
+	}
+	return true
+}
 
 // 200 with the creation status | 404 ErrOperationNotTracked.
 func (h *Handler) createKeyStatus(w http.ResponseWriter, r *http.Request) {
 	var in mdl.OperationTrackingRequestV2Dto
-	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		shared.EmitEvent(r.Context(), eventCreateKeyStatus, err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	if err := validateNonEmptyBatch(len(in.OperationMeta), "operationMeta"); err != nil {
-		h.rejectRequest(w, r, eventCreateKeyStatus, err)
+	if !h.decodeTracking(w, r, eventCreateKeyStatus, h.asyncKeys != nil, &in) {
 		return
 	}
 	out, err := h.asyncKeys.CreateKeyStatus(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, validateKeyCreationStatusShape)
+	}
 	shared.EmitEvent(r.Context(), eventCreateKeyStatus, err)
 	if err != nil {
-		shared.RenderError(w, r, err)
-		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := validateKeyCreationStatusShape(out); err != nil {
-		h.LoggerFor(r).Error("createKeyStatus response shape", "err", err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -708,18 +648,11 @@ func (h *Handler) createKeyStatus(w http.ResponseWriter, r *http.Request) {
 // 204 aborted | 404 ErrOperationNotTracked | 422 ErrCancelPastPointOfNoReturn (terminal or past the point of no return).
 func (h *Handler) cancelCreateKey(w http.ResponseWriter, r *http.Request) {
 	var in mdl.OperationTrackingRequestV2Dto
-	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		shared.EmitEvent(r.Context(), eventCancelCreateKey, err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	if err := validateNonEmptyBatch(len(in.OperationMeta), "operationMeta"); err != nil {
-		h.rejectRequest(w, r, eventCancelCreateKey, err)
+	if !h.decodeTracking(w, r, eventCancelCreateKey, h.asyncKeys != nil, &in) {
 		return
 	}
 	if err := h.asyncKeys.CancelCreateKey(r.Context(), &in); err != nil {
-		shared.EmitEvent(r.Context(), eventCancelCreateKey, err)
-		shared.RenderError(w, r, err)
+		h.rejectRequest(w, r, eventCancelCreateKey, err)
 		return
 	}
 	shared.EmitEvent(r.Context(), eventCancelCreateKey, nil)
@@ -729,29 +662,18 @@ func (h *Handler) cancelCreateKey(w http.ResponseWriter, r *http.Request) {
 // 200 with the destruction status | 404 ErrOperationNotTracked.
 func (h *Handler) destroyKeyStatus(w http.ResponseWriter, r *http.Request) {
 	var in mdl.OperationTrackingRequestV2Dto
-	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		shared.EmitEvent(r.Context(), eventDestroyKeyStatus, err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	if err := validateNonEmptyBatch(len(in.OperationMeta), "operationMeta"); err != nil {
-		h.rejectRequest(w, r, eventDestroyKeyStatus, err)
+	if !h.decodeTracking(w, r, eventDestroyKeyStatus, h.asyncKeys != nil, &in) {
 		return
 	}
 	out, err := h.asyncKeys.DestroyKeyStatus(r.Context(), &in)
+	if err == nil {
+		// No result field, so the reason rule alone applies.
+		err = validateResponse(out, func(out *mdl.KeyDestructionStatusResponseV2Dto) error {
+			return validateStatusReason(out.Status, out.Reason)
+		})
+	}
 	shared.EmitEvent(r.Context(), eventDestroyKeyStatus, err)
 	if err != nil {
-		shared.RenderError(w, r, err)
-		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// KeyDestructionStatusResponseV2Dto carries status and reason only, so the
-	// reason rule alone applies. No EmitEvent: see createKey.
-	if err := validateStatusReason(out.Status, out.Reason); err != nil {
-		h.LoggerFor(r).Error("destroyKeyStatus response shape", "err", err)
 		shared.RenderError(w, r, err)
 		return
 	}
@@ -763,75 +685,31 @@ func (h *Handler) destroyKeyStatus(w http.ResponseWriter, r *http.Request) {
 // 204 aborted | 404 ErrOperationNotTracked | 422 ErrCancelPastPointOfNoReturn (terminal or past the point of no return).
 func (h *Handler) cancelDestroyKey(w http.ResponseWriter, r *http.Request) {
 	var in mdl.OperationTrackingRequestV2Dto
-	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		shared.EmitEvent(r.Context(), eventCancelDestroyKey, err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	if err := validateNonEmptyBatch(len(in.OperationMeta), "operationMeta"); err != nil {
-		h.rejectRequest(w, r, eventCancelDestroyKey, err)
+	if !h.decodeTracking(w, r, eventCancelDestroyKey, h.asyncKeys != nil, &in) {
 		return
 	}
 	if err := h.asyncKeys.CancelDestroyKey(r.Context(), &in); err != nil {
-		shared.EmitEvent(r.Context(), eventCancelDestroyKey, err)
-		shared.RenderError(w, r, err)
+		h.rejectRequest(w, r, eventCancelDestroyKey, err)
 		return
 	}
 	shared.EmitEvent(r.Context(), eventCancelDestroyKey, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// --- Async signing status and cancellation -----------------------------------
-//
-// Mounted only when an AsyncSignProvider is registered (see WithAsyncSign);
-// h.asyncSign is dereferenced without a nil check because these routes are
-// not reachable otherwise.
-
 // 200 with the signing batch status | 404 ErrOperationNotTracked.
 func (h *Handler) signDataStatus(w http.ResponseWriter, r *http.Request) {
 	var in mdl.OperationTrackingRequestV2Dto
-	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		shared.EmitEvent(r.Context(), eventSignDataStatus, err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	if err := validateNonEmptyBatch(len(in.OperationMeta), "operationMeta"); err != nil {
-		h.rejectRequest(w, r, eventSignDataStatus, err)
+	if !h.decodeTracking(w, r, eventSignDataStatus, h.asyncSign != nil, &in) {
 		return
 	}
 	out, err := h.asyncSign.SignDataStatus(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, validateSignStatusShape)
+	}
 	shared.EmitEvent(r.Context(), eventSignDataStatus, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
-	}
-	if out == nil {
-		shared.RenderError(w, r, ErrNilResponse)
-		return
-	}
-	// The spec sets minItems: 1 on items; an empty array skips the per-item
-	// loop below entirely rather than tripping any of its checks, so it must
-	// be rejected explicitly before the loop runs.
-	if len(out.Items) == 0 {
-		err := errResponseShape("items must not be empty")
-		h.LoggerFor(r).Error("signDataStatus response shape", "err", err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	// No EmitEvent: see createKey.
-	if err := validateResponseItemIdentifiers(signatureResultIdentifiers(out.Items), "sign status"); err != nil {
-		h.LoggerFor(r).Error("signDataStatus response shape", "err", err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	// SignOperationStatusResponseV2Dto has no top-level status: each batch
-	// item carries its own, so the shape rule is checked once per item.
-	for _, item := range out.Items {
-		if err := validateSignatureResultItem(item); err != nil {
-			h.LoggerFor(r).Error("signDataStatus response shape", "err", err)
-			shared.RenderError(w, r, err)
-			return
-		}
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write signDataStatus response", "err", writeErr)
@@ -841,18 +719,11 @@ func (h *Handler) signDataStatus(w http.ResponseWriter, r *http.Request) {
 // 204 aborted | 404 ErrOperationNotTracked | 422 ErrCancelPastPointOfNoReturn (terminal or past the point of no return).
 func (h *Handler) cancelSignData(w http.ResponseWriter, r *http.Request) {
 	var in mdl.OperationTrackingRequestV2Dto
-	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		shared.EmitEvent(r.Context(), eventCancelSignData, err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	if err := validateNonEmptyBatch(len(in.OperationMeta), "operationMeta"); err != nil {
-		h.rejectRequest(w, r, eventCancelSignData, err)
+	if !h.decodeTracking(w, r, eventCancelSignData, h.asyncSign != nil, &in) {
 		return
 	}
 	if err := h.asyncSign.CancelSignData(r.Context(), &in); err != nil {
-		shared.EmitEvent(r.Context(), eventCancelSignData, err)
-		shared.RenderError(w, r, err)
+		h.rejectRequest(w, r, eventCancelSignData, err)
 		return
 	}
 	shared.EmitEvent(r.Context(), eventCancelSignData, nil)

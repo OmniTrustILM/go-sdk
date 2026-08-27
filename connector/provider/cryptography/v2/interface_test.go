@@ -111,6 +111,7 @@ func TestInterfaceReportsCryptographyV2(t *testing.T) {
 func TestInterfaceAdvertisesAsynchronousWhenConfigured(t *testing.T) {
 	h, err := cryptography.NewHandler(&stubProvider{},
 		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS))),
+		cryptography.WithAsyncKeys(&stubAsyncKeys{}),
 	)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
@@ -120,6 +121,18 @@ func TestInterfaceAdvertisesAsynchronousWhenConfigured(t *testing.T) {
 
 	if len(got) != 1 || got[0] != "asynchronous" {
 		t.Errorf("Features = %v, want [asynchronous]", got)
+	}
+}
+
+// FeatureFlag.ASYNCHRONOUS is ENFORCED: advertising it without a registered
+// async sub-provider would make Core select a mode whose status endpoints
+// answer 404, leaving every accepted operation untrackable.
+func TestNewHandlerRejectsAsynchronousFeatureWithoutAsyncProvider(t *testing.T) {
+	_, err := cryptography.NewHandler(&stubProvider{},
+		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS))),
+	)
+	if err == nil {
+		t.Fatal("expected an error when asynchronous is advertised without WithAsyncKeys or WithAsyncSign")
 	}
 }
 

@@ -369,7 +369,8 @@ func TestAcceptedResponseWithoutOperationMetaRenders500(t *testing.T) {
 	rec := post(t, srv, "/v2/cryptographyProvider/operations/sign",
 		keyScopedPrefix+`,"executionMode":"asynchronous","signatureAttributes":[],"data":[{"identifier":"a","data":"AA=="}]}`)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: sign data accepted for asynchronous execution must carry operationMeta")
 }
 
 func TestSynchronousResponseCarryingOperationMetaRenders500(t *testing.T) {
@@ -384,7 +385,8 @@ func TestSynchronousResponseCarryingOperationMetaRenders500(t *testing.T) {
 	rec := post(t, srv, "/v2/cryptographyProvider/operations/sign",
 		keyScopedPrefix+`,"executionMode":"synchronous","signatureAttributes":[],"data":[{"identifier":"a","data":"AA=="}]}`)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: sign data completed synchronously must not carry operationMeta")
 }
 
 func TestSynchronousSignResponseMissingSignaturesRenders500(t *testing.T) {
@@ -394,7 +396,8 @@ func TestSynchronousSignResponseMissingSignaturesRenders500(t *testing.T) {
 	rec := post(t, srv, "/v2/cryptographyProvider/operations/sign",
 		keyScopedPrefix+`,"executionMode":"synchronous","signatureAttributes":[],"data":[{"identifier":"a","data":"AA=="}]}`)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: sign data completed synchronously must carry a result payload")
 }
 
 func TestAcceptedSignResponseCarryingSignaturesRenders500(t *testing.T) {
@@ -410,7 +413,8 @@ func TestAcceptedSignResponseCarryingSignaturesRenders500(t *testing.T) {
 	rec := post(t, srv, "/v2/cryptographyProvider/operations/sign",
 		keyScopedPrefix+`,"executionMode":"asynchronous","signatureAttributes":[],"data":[{"identifier":"a","data":"AA=="}]}`)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: sign data accepted for asynchronous execution must not carry a result payload")
 	// The failure mode the guard exists to prevent: the leftover signature
 	// must never leak into the body Core sees.
 	if strings.Contains(rec.Body.String(), "signatures") {
@@ -429,7 +433,8 @@ func TestCreateKeyAcceptedResponseWithoutOperationMetaRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys", createKeyBody("asynchronous"))
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: key creation accepted for asynchronous execution must carry operationMeta")
 }
 
 func TestCreateKeySynchronousResponseWithPartialPayloadRenders500(t *testing.T) {
@@ -446,7 +451,8 @@ func TestCreateKeySynchronousResponseWithPartialPayloadRenders500(t *testing.T) 
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys", createKeyBody("synchronous"))
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: key creation completed synchronously must carry a result payload")
 }
 
 func TestDestroyKeyAcceptedResponseWithoutOperationMetaRenders500(t *testing.T) {
@@ -455,7 +461,8 @@ func TestDestroyKeyAcceptedResponseWithoutOperationMetaRenders500(t *testing.T) 
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys/destroy", destroyKeyBody("asynchronous"))
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: key destruction accepted for asynchronous execution must carry operationMeta")
 }
 
 func TestDestroyKeySynchronousResponseCarryingOperationMetaRenders500(t *testing.T) {
@@ -467,7 +474,8 @@ func TestDestroyKeySynchronousResponseCarryingOperationMetaRenders500(t *testing
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys/destroy", destroyKeyBody("synchronous"))
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: key destruction completed synchronously must not carry operationMeta")
 }
 
 // TestCreateKeyResponseWithoutKeyRequestTypeRenders500 proves the oneOf
@@ -489,7 +497,8 @@ func TestCreateKeyResponseWithoutKeyRequestTypeRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys", createKeyBody("synchronous"))
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: keyRequestType is required on the populated key data variant")
 }
 
 // TestCreateKeyResponseWithMismatchedKeyRequestTypeRenders500 is the other
@@ -509,7 +518,8 @@ func TestCreateKeyResponseWithMismatchedKeyRequestTypeRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys", createKeyBody("synchronous"))
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: keyRequestType must match the populated key data variant")
 }
 
 // TestCreateKeyStatusResponseWithMismatchedKeyRequestTypeRenders500 pins the
@@ -527,7 +537,8 @@ func TestCreateKeyStatusResponseWithMismatchedKeyRequestTypeRenders500(t *testin
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys/create/status", operationTrackingBody)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: keyRequestType must match the populated key data variant")
 }
 
 // --- Response side: status shape (reason iff failed/cancelled, result iff
@@ -545,7 +556,8 @@ func TestSignStatusItemMissingReasonForFailedRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/operations/sign/status", operationTrackingBody)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: reason is required when status is failed or cancelled")
 }
 
 func TestCreateKeyStatusMissingReasonForFailedRenders500(t *testing.T) {
@@ -561,7 +573,8 @@ func TestCreateKeyStatusMissingReasonForFailedRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys/create/status", operationTrackingBody)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: reason is required when status is failed or cancelled")
 }
 
 // TestDestroyKeyStatusCompletedRenders200 proves that a completed
@@ -638,7 +651,8 @@ func TestDestroyKeyStatusCompletedWithReasonRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys/destroy/status", operationTrackingBody)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: reason must be absent unless status is failed or cancelled")
 }
 
 // TestSignDataStatusEmptyItemsRenders500 proves the spec's minItems: 1 on
@@ -653,7 +667,8 @@ func TestSignDataStatusEmptyItemsRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/operations/sign/status", operationTrackingBody)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: items must not be empty")
 }
 
 func TestDestroyKeyStatusMissingReasonForFailedRenders500(t *testing.T) {
@@ -666,7 +681,8 @@ func TestDestroyKeyStatusMissingReasonForFailedRenders500(t *testing.T) {
 
 	rec := post(t, srv, "/v2/cryptographyProvider/keys/destroy/status", operationTrackingBody)
 
-	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: reason is required when status is failed or cancelled")
 }
 
 // --- Response side: the caller-selected mode must survive the round trip ------

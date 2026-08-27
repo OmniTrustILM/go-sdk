@@ -89,14 +89,14 @@ func secretKeyCreationAcceptedResponse() *mdl.KeyCreationResponse {
 	}
 }
 
-// metadataAttributeFixture is a populated MetadataAttribute element; see the
-// oneOf zero-value trap above.
+// metadataAttributeFixture decodes oneMetadataAttribute, so a response that
+// embeds it round-trips through the generated decoder.
 func metadataAttributeFixture() mdl.MetadataAttribute {
-	return mdl.MetadataAttribute{
-		MetadataAttributeV2: &mdl.MetadataAttributeV2{
-			Properties: mdl.MetadataAttributeProperties{},
-		},
+	var elems []mdl.MetadataAttribute
+	if err := json.Unmarshal([]byte(oneMetadataAttribute), &elems); err != nil || len(elems) != 1 {
+		panic("metadataAttributeFixture: oneMetadataAttribute must decode to one element: " + err.Error())
 	}
+	return elems[0]
 }
 
 func TestCreateKeyRendersSyncAs200(t *testing.T) {
@@ -198,6 +198,13 @@ func TestDestroyKeyRendersSyncAs200AndAcceptedAs202(t *testing.T) {
 			if rec.Code != tc.want {
 				t.Fatalf("status = %d, want %d; body %s", rec.Code, tc.want, rec.Body.String())
 			}
+			var got mdl.KeyOperationResponseV2Dto
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode body: %v; body %q", err, rec.Body.String())
+			}
+			if len(got.OperationMeta) != len(tc.resp.OperationMeta) {
+				t.Errorf("operationMeta has %d entries, want %d", len(got.OperationMeta), len(tc.resp.OperationMeta))
+			}
 		})
 	}
 }
@@ -255,6 +262,13 @@ func TestSignDataRendersSyncAs200AndAcceptedAs202(t *testing.T) {
 
 			if rec.Code != tc.want {
 				t.Fatalf("status = %d, want %d; body %s", rec.Code, tc.want, rec.Body.String())
+			}
+			var got mdl.SignDataResponseV2Dto
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode body: %v; body %q", err, rec.Body.String())
+			}
+			if len(got.OperationMeta) != len(tc.resp.OperationMeta) || len(got.Signatures) != len(tc.resp.Signatures) {
+				t.Errorf("body = %s, want the provider's operationMeta and signatures round-tripped", rec.Body.String())
 			}
 		})
 	}
@@ -366,9 +380,12 @@ func secretKeyCreationStatusResponse() *mdl.KeyCreationStatusResponse {
 	}
 }
 
-// --- Gating: routes absent without the sub-interface -------------------------
+// --- Gating: 404 problem document without the sub-interface ------------------
 
-func TestStatusAndCancelRoutesAreNotMountedWithoutSubInterfaces(t *testing.T) {
+// The contract declares these endpoints' 404 as application/problem+json
+// ("endpoint not found or not implemented"), so the body is asserted as well as
+// the status: a bare ServeMux 404 would be text/plain.
+func TestStatusAndCancelRoutesRender404ProblemWithoutSubInterfaces(t *testing.T) {
 	srv := newTestServer(t, &stubProvider{}) // no WithAsyncKeys, no WithAsyncSign
 
 	for _, path := range []string{
@@ -382,8 +399,9 @@ func TestStatusAndCancelRoutesAreNotMountedWithoutSubInterfaces(t *testing.T) {
 		t.Run(path, func(t *testing.T) {
 			rec := post(t, srv, path, operationTrackingBody)
 
-			if rec.Code != http.StatusNotFound {
-				t.Errorf("status = %d, want 404 when the async sub-interface is unregistered", rec.Code)
+			assertProblem(t, rec, http.StatusNotFound, "OPERATION_NOT_SUPPORTED")
+			if ct := rec.Header().Get("Content-Type"); ct != shared.ProblemContentType {
+				t.Errorf("Content-Type = %q, want %q", ct, shared.ProblemContentType)
 			}
 		})
 	}
@@ -733,36 +751,31 @@ func TestStatusAndCancelRoutesRejectMissingOperationMeta(t *testing.T) {
 	}
 }
 
-// --- Mount route counts --------------------------------------------------------
+// --- Mount routes --------------------------------------------------------------
 
-func TestMountRegistersEighteenRoutesWithoutSubInterfaces(t *testing.T) {
-	h, err := cryptography.NewHandler(&stubProvider{})
-	if err != nil {
-		t.Fatalf("NewHandler: %v", err)
-	}
+func TestMountRegistersAllTwentyFourRoutes(t *testing.T) {
+	for name, opts := range map[string][]cryptography.Option{
+		"without sub-interfaces": nil,
+		"fully configured":       {cryptography.WithAsyncKeys(&stubAsyncKeys{}), cryptography.WithAsyncSign(&stubAsyncSign{})},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, err := cryptography.NewHandler(&stubProvider{}, opts...)
+			if err != nil {
+				t.Fatalf("NewHandler: %v", err)
+			}
 
-	rec := &recordingRouter{}
-	h.Mount(rec)
+			rec := &recordingRouter{}
+			h.Mount(rec)
 
-	if len(rec.patterns) != 18 {
-		t.Fatalf("mounted %d routes, want 18: %v", len(rec.patterns), rec.patterns)
+			assertMountedExactly(t, rec.patterns)
+		})
 	}
 }
 
-func TestMountRegistersAllTwentyFourRoutesWhenFullyConfigured(t *testing.T) {
-	h, err := cryptography.NewHandler(&stubProvider{},
-		cryptography.WithAsyncKeys(&stubAsyncKeys{}),
-		cryptography.WithAsyncSign(&stubAsyncSign{}),
-	)
-	if err != nil {
-		t.Fatalf("NewHandler: %v", err)
-	}
-
-	rec := &recordingRouter{}
-	h.Mount(rec)
-
-	if len(rec.patterns) != 24 {
-		t.Fatalf("mounted %d routes, want 24: %v", len(rec.patterns), rec.patterns)
+func assertMountedExactly(t *testing.T, patterns []string) {
+	t.Helper()
+	if len(patterns) != 24 {
+		t.Fatalf("mounted %d routes, want 24: %v", len(patterns), patterns)
 	}
 
 	want := map[string]bool{
@@ -794,7 +807,7 @@ func TestMountRegistersAllTwentyFourRoutesWhenFullyConfigured(t *testing.T) {
 	if len(want) != 24 {
 		t.Fatalf("test bug: want set has %d entries, need 24", len(want))
 	}
-	for _, p := range rec.patterns {
+	for _, p := range patterns {
 		if strings.ContainsAny(p, "{}") {
 			t.Errorf("pattern %q contains a wildcard; v2 has no path parameters", p)
 		}

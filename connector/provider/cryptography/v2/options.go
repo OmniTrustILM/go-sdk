@@ -21,9 +21,10 @@ type Option func(*Handler) error
 //	    cryptography.WithAsyncKeys(p),
 //	)
 //
-// Strict decoding is recommended for v2 connectors: many of the contract's
-// schemas declare additionalProperties: false, and the Java DTOs hard-reject
-// unknown JSON properties via a throwing @JsonAnySetter.
+// handlerbase.WithStrictDecode has no effect here: every v2 request DTO's
+// generated UnmarshalJSON calls DisallowUnknownFields unconditionally, matching
+// the contract's additionalProperties: false, so unknown properties always
+// answer 400.
 func Base(opts ...handlerbase.Option) Option {
 	return func(h *Handler) error {
 		for _, opt := range opts {
@@ -36,8 +37,8 @@ func Base(opts ...handlerbase.Option) Option {
 }
 
 // WithAsyncKeys registers the provider backing the four key status/cancel
-// routes. When absent those routes are not mounted and the framework answers
-// 404. See AsyncKeyProvider for the ENFORCED-feature-flag caveat.
+// routes. When absent those routes answer 404 OPERATION_NOT_SUPPORTED. See
+// AsyncKeyProvider for the ENFORCED-feature-flag requirement.
 func WithAsyncKeys(p AsyncKeyProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {
@@ -49,8 +50,8 @@ func WithAsyncKeys(p AsyncKeyProvider) Option {
 }
 
 // WithAsyncSign registers the provider backing the two sign status/cancel
-// routes. When absent those routes are not mounted and the framework answers
-// 404. See AsyncSignProvider for the ENFORCED-feature-flag caveat.
+// routes. When absent those routes answer 404 OPERATION_NOT_SUPPORTED. See
+// AsyncSignProvider for the ENFORCED-feature-flag requirement.
 func WithAsyncSign(p AsyncSignProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {

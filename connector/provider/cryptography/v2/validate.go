@@ -9,57 +9,44 @@ import (
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
 
-// The Cryptography Provider v2 contract carries Jakarta Bean Validation
-// constraints that the OpenAPI spec cannot express, and the generated DTOs
-// enforce only required-property presence. This file closes that gap.
+// The spec declares minItems, uniqueItems, minLength, maxLength, minimum and
+// maximum on its schemas, and the Java DTOs add cross-field @AssertTrue rules.
+// The openapi-generator Go template drops all of them, so this file hand-writes
+// the checks; a generator-level pass like the one tools/fixoneof does for pins
+// is where they eventually belong.
 //
-// The remaining constraints need crypto knowledge or the connector's own
-// attribute-equality rules, so they are delegated and documented on the
-// affected Provider method: publicKeySpki's DER shape and its agreement with
-// the declared algorithm and length, MetadataAttribute validation, and
-// keyCreationId request-equivalence.
+// Checks that need crypto knowledge or connector-specific attribute equality
+// are delegated to the Provider methods and documented there.
 
-// maxKeyCreationIdLen mirrors the contract's @Size(max = 256) on
-// CreateKeyRequestV2Dto.keyCreationId. The spec and Java's @Size count
-// characters, so the check counts runes — a multi-byte id must pass on its
-// rune count rather than its UTF-8 byte length.
+// maxKeyCreationIdLen mirrors the spec's maxLength: 256 on keyCreationId. JSON
+// Schema maxLength counts code points, so the check counts runes; Java's @Size
+// counts UTF-16 code units, so Core may still reject supplementary-plane ids.
 const maxKeyCreationIdLen = 256
 
 // maxRandomDataLength mirrors RandomDataRequestV2Dto.length's documented 1 MiB
-// cap. openapi-generator emits no numeric range validation, so an unbounded
-// length would otherwise reach a connector's RNG as a resource-exhaustion
-// vector.
+// cap, which the generated DTO does not enforce.
 const maxRandomDataLength = 1048576
 
-// errValidationFailed renders 422 with the contract's VALIDATION_FAILED code,
-// built per call so WithProperty context stays request-local.
-//
-// msg must be a %-free literal describing the violated rule: shared.Invalid is
-// printf-style, and echoing request content into an error body discloses
-// information.
+// errValidationFailed renders 422 VALIDATION_FAILED. msg must be a %-free
+// literal naming the violated rule: shared.Invalid is printf-style, and echoing
+// request content into an error body discloses information.
 func errValidationFailed(msg string) *shared.Error {
 	return shared.Invalid("VALIDATION_FAILED", "%s", msg)
 }
 
-// errResponseShape renders 500, treating a response-shape violation as a
-// provider bug — the connector returned a body the contract forbids, and
-// letting it through would break Core's validation of a supposedly well-formed
-// 200/202. msg carries errValidationFailed's %-free-literal requirement.
+// errResponseShape renders 500 for a response body the contract forbids and
+// Core would reject. msg follows errValidationFailed's literal rule.
 func errResponseShape(msg string) *shared.Error {
 	return shared.Internal("INTERNAL_SERVER_ERROR", "provider response violates the contract: %s", msg)
 }
 
-// validateExecutionMode enforces that the caller-selected mode is present
-// and known. The connector must not switch modes implicitly, so an unknown
-// value is a client error rather than something to default.
+// validateExecutionMode rejects a missing mode with 422 VALIDATION_FAILED and an
+// unknown one with 400 BAD_REQUEST, the codes the contract documents.
 //
-// In practice shared.DecodeJSON rejects every malformed executionMode before
-// the handler runs: an absent property or a non-string value yields 422
-// VALIDATION_FAILED, while null (which unmarshals into the empty string) and
-// any unknown string are rejected by the generated
-// OperationExecutionMode.UnmarshalJSON as 400 INVALID_JSON. This guard is
-// therefore a documented invariant and a backstop against that decode behavior
-// ever loosening, not a reachable path; validate_test.go exercises it directly.
+// shared.DecodeJSON already rejects both cases before the handler runs (the
+// generated OperationExecutionMode.UnmarshalJSON answers unknown values with
+// 400 INVALID_JSON), so this guard is a backstop; validate_test.go exercises
+// it directly.
 func validateExecutionMode(m mdl.OperationExecutionMode) error {
 	switch m {
 	case mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS:
@@ -67,20 +54,14 @@ func validateExecutionMode(m mdl.OperationExecutionMode) error {
 	case "":
 		return errValidationFailed("executionMode is required")
 	default:
-		return errValidationFailed("executionMode must be synchronous or asynchronous")
+		return shared.BadRequest("BAD_REQUEST", "executionMode must be synchronous or asynchronous")
 	}
 }
 
-// validateModeNotSwitched enforces the contract rule that a connector must not
-// switch the caller-selected execution mode: a synchronous request renders 200
-// and an asynchronous one renders 202.
-//
-// Core enforces both directions — OperationResponseValidator requires HTTP 200
-// for synchronous and HTTP 202 for asynchronous — so a downgraded 200 is
-// rejected there rather than reaching the caller as a usable result. A
-// connector that cannot execute asynchronously must decline the feature
-// instead, by leaving FEATUREFLAG_ASYNCHRONOUS unadvertised so Core never
-// selects the mode.
+// validateModeNotSwitched enforces that a synchronous request renders 200 and
+// an asynchronous one 202. Core's OperationResponseValidator requires both
+// directions, so a switched mode is a provider bug; a connector that cannot
+// execute asynchronously must leave FEATUREFLAG_ASYNCHRONOUS unadvertised.
 func validateModeNotSwitched(mode mdl.OperationExecutionMode, accepted bool, what string) error {
 	if accepted && mode == mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS {
 		return errResponseShape(what + " requested synchronously must not be accepted for asynchronous execution")
@@ -104,8 +85,7 @@ func validateKeyCreationId(id string) error {
 }
 
 // validateUniqueIdentifiers enforces the contract's @UniqueIdentifiers on a
-// batch list. field names the offending list in the error message, not any
-// request value.
+// batch list. field names the list in the error message.
 func validateUniqueIdentifiers(ids []string, field string) error {
 	seen := make(map[string]struct{}, len(ids))
 	for _, id := range ids {
@@ -117,10 +97,8 @@ func validateUniqueIdentifiers(ids []string, field string) error {
 	return nil
 }
 
-// validateNonEmptyBatch enforces the contract's minItems: 1 on a request batch
-// list. The generated DTOs verify only that a required property is present, so
-// an empty batch decodes cleanly and reaches the provider. field names the
-// offending list in the error message, never a request value.
+// validateNonEmptyBatch enforces the contract's minItems: 1, which the generated
+// DTOs do not. field names the list in the error message.
 func validateNonEmptyBatch(n int, field string) error {
 	if n == 0 {
 		return errValidationFailed(field + " must not be empty")
@@ -144,13 +122,9 @@ func validateKeyUsages(usages []mdl.KeyUsage) error {
 	return nil
 }
 
-// firstError returns the first non-nil error in errs, letting a handler state
-// its whole request-guard set as one ordered list.
-//
-// Every argument is evaluated before the selection, which is safe because the
-// guards are pure and cheap. Argument order decides which violation is
-// reported, so a guard whose correctness depends on an earlier one must be
-// listed after it (see verifyData).
+// firstError returns the first non-nil error in errs, so a handler states its
+// request guards as one ordered list. All arguments are evaluated eagerly; the
+// guards are pure and cheap, and none depends on an earlier one.
 func firstError(errs ...error) error {
 	for _, err := range errs {
 		if err != nil {
@@ -160,29 +134,41 @@ func firstError(errs ...error) error {
 	return nil
 }
 
-// validateIdentifiersMatch enforces that two batch lists cover exactly the
-// same identifier set — verify's signature identifiers against its
-// signed-data identifiers, same set and same size.
-func validateIdentifiersMatch(want, got []string, field string) error {
+// sameMultiset reports whether got is a permutation of want, so duplicates on
+// either side are detected without a preceding uniqueness guard.
+func sameMultiset(want, got []string) bool {
 	if len(want) != len(got) {
-		return errValidationFailed(field + " identifiers must match the request data identifiers")
+		return false
 	}
-	set := make(map[string]struct{}, len(want))
+	counts := make(map[string]int, len(want))
 	for _, id := range want {
-		set[id] = struct{}{}
+		counts[id]++
 	}
 	for _, id := range got {
-		if _, ok := set[id]; !ok {
-			return errValidationFailed(field + " identifiers must match the request data identifiers")
+		counts[id]--
+		if counts[id] < 0 {
+			return false
 		}
+	}
+	return true
+}
+
+// validateIdentifiersMatch enforces that two batch lists carry the same
+// identifiers, such as verify's signatures against its signed data.
+func validateIdentifiersMatch(want, got []string, field string) error {
+	if !sameMultiset(want, got) {
+		return errValidationFailed(field + " identifiers must match the request data identifiers")
 	}
 	return nil
 }
 
-// validateBatchItems enforces the contract's @NotBlank on each batch item's
-// identifier and @NotEmpty on its data, which the generated DTOs leave
-// unchecked because both fields decode cleanly when present but empty.
+// validateBatchItems enforces @NotBlank on each item's identifier and @NotEmpty
+// on its data. ids and data are paired projections of one list, so unequal
+// lengths are rejected instead of indexed.
 func validateBatchItems(ids []string, data []string, field string) error {
+	if len(ids) != len(data) {
+		return errValidationFailed(field + " entries are malformed")
+	}
 	for i, id := range ids {
 		if strings.TrimSpace(id) == "" {
 			return errValidationFailed(field + " identifiers must not be blank")
@@ -195,9 +181,7 @@ func validateBatchItems(ids []string, data []string, field string) error {
 }
 
 // validateResponseIdentifiers enforces that a batch response covers exactly the
-// request's identifier set, with no duplicates. Core applies the same rule and
-// rejects the response otherwise, so a mismatch is reported here as a provider
-// bug rather than passed on.
+// request's identifiers, with no duplicates, as Core requires.
 func validateResponseIdentifiers(want, got []string, what string) error {
 	seen := make(map[string]struct{}, len(got))
 	for _, id := range got {
@@ -206,20 +190,56 @@ func validateResponseIdentifiers(want, got []string, what string) error {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(want) != len(got) {
+	if !sameMultiset(want, got) {
 		return errResponseShape(what + " response identifiers must match the request identifiers")
 	}
-	for _, id := range want {
-		if _, ok := seen[id]; !ok {
-			return errResponseShape(what + " response identifiers must match the request identifiers")
+	return nil
+}
+
+// validateResponse rejects a nil response, which would serialize as a 200 with
+// a null body, and otherwise runs check against it.
+func validateResponse[T any](out *T, check func(*T) error) error {
+	if out == nil {
+		return ErrNilResponse
+	}
+	return check(out)
+}
+
+// validateKnownEnums enforces that every element of a response enum list is a
+// member of its enum; the generated types are bare strings.
+func validateKnownEnums[T interface{ IsValid() bool }](values []T, what string) error {
+	for _, v := range values {
+		if !v.IsValid() {
+			return errResponseShape(what + " must contain only known values")
 		}
 	}
 	return nil
 }
 
-// validateResponseBatch adds the contract's @NotEmpty on each item's data to
-// validateResponseIdentifiers. Core rejects an empty payload even when every
-// identifier lines up.
+// validateTokenStatus enforces that the response carries a known status; the
+// field is tagged without omitempty, so a zero value would ship as "".
+func validateTokenStatus(out *mdl.TokenStatusResponseV2Dto) error {
+	if !out.Status.IsValid() {
+		return errResponseShape("token status must be a known token status")
+	}
+	return nil
+}
+
+// validateMetadataElements enforces that every MetadataAttribute populates
+// exactly one oneOf arm. The generated MarshalJSON returns (nil, nil) otherwise,
+// which fails after shared.WriteJSON has committed the 2xx status and leaves
+// Core a success with an empty body.
+func validateMetadataElements(as []mdl.MetadataAttribute, field string) error {
+	for _, a := range as {
+		if (a.MetadataAttributeV2 == nil) == (a.MetadataAttributeV3 == nil) {
+			return errResponseShape(field + " entries must populate exactly one metadata attribute variant")
+		}
+	}
+	return nil
+}
+
+// validateResponseBatch adds @NotEmpty on each item's data to
+// validateResponseIdentifiers.
 func validateResponseBatch(want, got, data []string, what string) error {
 	if err := validateResponseIdentifiers(want, got, what); err != nil {
 		return err
@@ -233,8 +253,7 @@ func validateResponseBatch(want, got, data []string, what string) error {
 }
 
 // validateResponseItemIdentifiers enforces @NotBlank and @UniqueIdentifiers on
-// the sign-status response, whose request carries only an operationMeta handle
-// to correlate against.
+// the sign-status response, which has no request identifiers to correlate with.
 func validateResponseItemIdentifiers(ids []string, what string) error {
 	seen := make(map[string]struct{}, len(ids))
 	for _, id := range ids {
@@ -249,9 +268,10 @@ func validateResponseItemIdentifiers(ids []string, what string) error {
 	return nil
 }
 
-// validateRandomDataPayload enforces that a random-data response decodes to
-// exactly the requested number of bytes. Core compares the decoded length
-// against the request, so a short or long payload is a provider bug.
+// validateRandomDataPayload enforces that the response decodes to exactly the
+// requested number of bytes, as Core checks. The decode is what makes the byte
+// count knowable; it requires standard padded base64, the encoding Java emits.
+// Sign, encrypt and decrypt payloads are not decoded here; Core decodes them.
 func validateRandomDataPayload(data string, want int32) error {
 	raw, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
@@ -264,9 +284,7 @@ func validateRandomDataPayload(data string, want int32) error {
 }
 
 // validateRequestedKeyRequestType enforces that a key-creation response names
-// the same key request type the caller asked for. Core rejects a response whose
-// type differs from the request's, so answering a secret request with a key
-// pair is a provider bug.
+// the key request type the caller asked for, as Core requires.
 func validateRequestedKeyRequestType(got, want mdl.KeyRequestType) error {
 	if got != want {
 		return errResponseShape("keyRequestType must match the requested key request type")
@@ -274,9 +292,8 @@ func validateRequestedKeyRequestType(got, want mdl.KeyRequestType) error {
 	return nil
 }
 
-// keyCreationRequestType reports the key request type the populated arm of a
-// key-creation response represents, independently of the discriminator the arm
-// carries. Empty when no arm is populated, which the shape guards report first.
+// keyCreationRequestType reports the key request type of the populated arm,
+// independently of its discriminator. Empty when no arm is populated.
 func keyCreationRequestType(out *mdl.KeyCreationResponse) mdl.KeyRequestType {
 	if out.SecretKeyDataResponseV2Dto != nil {
 		return mdl.KEYREQUESTTYPE_SECRET
@@ -299,16 +316,17 @@ func validateRandomDataLength(length int32) error {
 	return nil
 }
 
-// validateExecutionShape enforces the mode-dependent response shape the
-// contract expresses as Jakarta validation groups: an accepted (202) response
-// carries a non-empty tracking handle and no payload; a synchronous (200)
-// response carries the payload and no handle.
+// validateExecutionShape enforces the mode-dependent shape the contract
+// expresses as Jakarta validation groups: a 202 carries a non-empty tracking
+// handle and no payload, a 200 the payload and no handle.
 //
-// hasPayload answers a different question per branch — "any payload fragment
-// present" for accepted, "complete payload present" for synchronous. One
-// boolean serves both only where the response type has a single payload field,
-// as SignDataResponseV2Dto does; see validateKeyCreationShape for the
-// multi-field case.
+// hasPayload means "any fragment" for accepted and "complete payload" for
+// synchronous, which coincide only for a single payload field as in
+// SignDataResponseV2Dto; see validateKeyCreationShape for the multi-field case.
+//
+// The spec text for SignDataResponseV2Dto states only the accepted direction,
+// but the Java DTO carries @Null on operationMeta for the synchronous group, so
+// Core rejects a synchronous signing response with a handle too.
 func validateExecutionShape(accepted, hasMeta, hasPayload bool, what string) error {
 	if accepted {
 		if !hasMeta {
@@ -328,12 +346,9 @@ func validateExecutionShape(accepted, hasMeta, hasPayload bool, what string) err
 	return nil
 }
 
-// validateStatusReason enforces the contract's reason-presence rule: a
-// non-blank reason accompanies failed and cancelled, and is absent for
-// inProgress and completed. reason is a pointer because the rule turns on
-// presence — an empty string still serializes as "reason":"".
-//
-// Use validateStatusShape for DTOs that also carry a result field.
+// validateStatusReason enforces that a non-blank reason accompanies failed and
+// cancelled and is absent otherwise. reason is a pointer because the rule turns
+// on presence. Use validateStatusShape for DTOs that also carry a result.
 func validateStatusReason(status mdl.OperationStatus, reason *string) error {
 	switch status {
 	case mdl.OPERATIONSTATUS_FAILED, mdl.OPERATIONSTATUS_CANCELLED:
@@ -350,9 +365,8 @@ func validateStatusReason(status mdl.OperationStatus, reason *string) error {
 	return nil
 }
 
-// validateStatusShape layers the result-presence rule on validateStatusReason:
-// a result is present exactly when the status is completed. Requires a DTO
-// that carries a result field.
+// validateStatusShape adds to validateStatusReason that a result is present
+// exactly when the status is completed.
 func validateStatusShape(status mdl.OperationStatus, reason *string, hasResult bool) error {
 	if err := validateStatusReason(status, reason); err != nil {
 		return err
@@ -370,11 +384,9 @@ func validateStatusShape(status mdl.OperationStatus, reason *string, hasResult b
 	return nil
 }
 
-// validateDestroyShape is the destroy-key counterpart to
-// validateExecutionShape, covering the operationMeta rule alone:
-// KeyOperationResponseV2Dto carries operationMeta and no payload field. The
-// spec states both directions — operationMeta is required and non-empty when
-// accepting asynchronous execution, and absent from a synchronous response.
+// validateDestroyShape enforces the operationMeta rule alone, as
+// KeyOperationResponseV2Dto has no payload field: required and non-empty on
+// 202, absent on 200.
 func validateDestroyShape(accepted, hasMeta bool) error {
 	if accepted && !hasMeta {
 		return errResponseShape("key destruction accepted for asynchronous execution must carry operationMeta")
@@ -385,24 +397,17 @@ func validateDestroyShape(accepted, hasMeta bool) error {
 	return nil
 }
 
-// validateKeyCreationShape is createKey's mode-dependent response-shape guard.
-// KeyCreationResponse spreads its payload over several fields, so each branch
-// needs its own predicate: the accepted branch rejects any fragment
-// (keyCreationHasPayload), while the synchronous branch requires a complete
-// and usable payload (validateKeyCreationPayload).
-//
-// Both branches first require exactly one populated arm carrying a matching
-// keyRequestType discriminator.
+// validateKeyCreationShape is createKey's mode-dependent response guard. The
+// payload spans several fields, so the accepted branch rejects any fragment
+// (keyCreationHasPayload) while the synchronous branch requires a complete
+// payload (validateKeyCreationPayload). A completed result nested in a status
+// response is held to the synchronous rules by validateKeyCreationStatusShape.
 func validateKeyCreationShape(accepted bool, out *mdl.KeyCreationResponse) error {
-	if err := validateSingleKeyCreationArm(out); err != nil {
+	if err := validateKeyCreationCommon(out); err != nil {
 		return err
 	}
-	if err := validateKeyRequestType(keyCreationDiscriminator(out)); err != nil {
-		return err
-	}
-	hasMeta := keyCreationHasMeta(out)
 	if accepted {
-		if !hasMeta {
+		if !keyCreationHasMeta(out) {
 			return errResponseShape("key creation accepted for asynchronous execution must carry operationMeta")
 		}
 		if keyCreationHasPayload(out) {
@@ -410,15 +415,60 @@ func validateKeyCreationShape(accepted bool, out *mdl.KeyCreationResponse) error
 		}
 		return nil
 	}
-	if hasMeta {
-		return errResponseShape("key creation completed synchronously must not carry operationMeta")
-	}
-	return validateKeyCreationPayload(out)
+	return validateSynchronousKeyCreation(out, "key creation completed synchronously")
 }
 
-// keyCreationHasPayload reports whether the populated oneOf variant carries any
-// fragment of a created-key result. This is the accepted (202) branch's test,
-// where a single leftover fragment is already a violation.
+// validateKeyCreationCommon holds the mode-independent rules: exactly one
+// populated arm, a matching discriminator, and marshallable metadata elements.
+func validateKeyCreationCommon(out *mdl.KeyCreationResponse) error {
+	if err := validateSingleKeyCreationArm(out); err != nil {
+		return err
+	}
+	if err := validateKeyRequestType(keyCreationDiscriminator(out)); err != nil {
+		return err
+	}
+	return validateKeyCreationMetadata(out)
+}
+
+// validateSynchronousKeyCreation enforces the 200 branch: no tracking handle
+// and a complete payload. subject names the payload in the messages.
+func validateSynchronousKeyCreation(out *mdl.KeyCreationResponse, subject string) error {
+	if keyCreationHasMeta(out) {
+		return errResponseShape(subject + " must not carry operationMeta")
+	}
+	return validateKeyCreationPayload(out, subject)
+}
+
+// validateKeyCreationMetadata applies validateMetadataElements to every
+// metadata list the populated arm carries.
+func validateKeyCreationMetadata(out *mdl.KeyCreationResponse) error {
+	if v := out.SecretKeyDataResponseV2Dto; v != nil {
+		return firstError(
+			validateMetadataElements(v.OperationMeta, "operationMeta"),
+			validateMetadataElements(v.KeyMeta, "keyMeta"),
+		)
+	}
+	if v := out.KeyPairDataResponseV2Dto; v != nil {
+		if err := firstError(
+			validateMetadataElements(v.OperationMeta, "operationMeta"),
+			validateMetadataElements(v.KeyPairMeta, "keyPairMeta"),
+		); err != nil {
+			return err
+		}
+		if v.PublicKeyData != nil {
+			if err := validateMetadataElements(v.PublicKeyData.KeyMeta, "publicKeyData.keyMeta"); err != nil {
+				return err
+			}
+		}
+		if v.PrivateKeyData != nil {
+			return validateMetadataElements(v.PrivateKeyData.KeyMeta, "privateKeyData.keyMeta")
+		}
+	}
+	return nil
+}
+
+// keyCreationHasPayload reports whether the populated arm carries any fragment
+// of a created-key result, which a 202 must not.
 func keyCreationHasPayload(out *mdl.KeyCreationResponse) bool {
 	if v := out.SecretKeyDataResponseV2Dto; v != nil {
 		return v.KeyData != nil || len(v.KeyMeta) > 0
@@ -429,42 +479,49 @@ func keyCreationHasPayload(out *mdl.KeyCreationResponse) bool {
 	return false
 }
 
-// validateKeyCreationPayload is the synchronous (200) branch's payload guard:
-// every fragment the contract requires, with a usable descriptor behind it.
-// Core rejects an empty nested DTO.
-func validateKeyCreationPayload(out *mdl.KeyCreationResponse) error {
+// validateKeyCreationPayload enforces the 200 branch's payload: every required
+// fragment with a usable descriptor behind it. Core rejects an empty nested DTO.
+func validateKeyCreationPayload(out *mdl.KeyCreationResponse, subject string) error {
 	if v := out.SecretKeyDataResponseV2Dto; v != nil {
 		if v.KeyData == nil || len(v.KeyMeta) == 0 {
-			return errIncompleteKeyPayload()
+			return errIncompleteKeyPayload(subject)
 		}
-		return validateKeyDescriptor(v.KeyData.Type, v.KeyData.Algorithm, v.KeyData.Length, "keyData")
+		return validateKeyDescriptor(v.KeyData.Type, keyTypeSecret, v.KeyData.Algorithm, v.KeyData.Length, "keyData")
 	}
 	if v := out.KeyPairDataResponseV2Dto; v != nil {
 		if v.PublicKeyData == nil || v.PrivateKeyData == nil || len(v.KeyPairMeta) == 0 {
-			return errIncompleteKeyPayload()
+			return errIncompleteKeyPayload(subject)
 		}
-		return validateKeyPairPayload(v)
+		return validateKeyPairPayload(v, subject)
 	}
-	return errIncompleteKeyPayload()
+	return errIncompleteKeyPayload(subject)
 }
 
-func errIncompleteKeyPayload() error {
-	return errResponseShape("key creation completed synchronously must carry a result payload")
+func errIncompleteKeyPayload(subject string) error {
+	return errResponseShape(subject + " must carry a result payload")
 }
 
-// validateKeyPairPayload covers the key-pair arm's own rules: each side's
-// keyMeta and descriptor, the public SPKI, and the contract's assertion that
-// both halves describe the same algorithm and length.
-//
-// The SPKI is checked for presence only; parsing it is the connector's job.
-func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto) error {
+// The spec pins each key descriptor's type, and tools/fixoneof enforces the pin
+// in the generated MarshalJSON, which fails after the 2xx status is on the wire.
+const (
+	keyTypeSecret  = "Secret"
+	keyTypePublic  = "Public"
+	keyTypePrivate = "Private"
+)
+
+// validateKeyPairPayload enforces each side's keyMeta and descriptor, the
+// public SPKI's presence, and equal algorithm and length across both halves.
+// The SPKI is not parsed; that is the connector's job. Core applies the length
+// equality (KeyPairDataResponseV2Dto.isKeyLengthsMatching) to every algorithm;
+// for post-quantum entries length identifies the parameter set, so it matches.
+func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) error {
 	if len(v.PublicKeyData.KeyMeta) == 0 || len(v.PrivateKeyData.KeyMeta) == 0 {
-		return errIncompleteKeyPayload()
+		return errIncompleteKeyPayload(subject)
 	}
 	pub, priv := &v.PublicKeyData.KeyData, &v.PrivateKeyData.KeyData
 	if err := firstError(
-		validateKeyDescriptor(pub.Type, pub.Algorithm, pub.Length, "publicKeyData.keyData"),
-		validateKeyDescriptor(priv.Type, priv.Algorithm, priv.Length, "privateKeyData.keyData"),
+		validateKeyDescriptor(pub.Type, keyTypePublic, pub.Algorithm, pub.Length, "publicKeyData.keyData"),
+		validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"),
 	); err != nil {
 		return err
 	}
@@ -480,12 +537,12 @@ func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto) error {
 	return nil
 }
 
-// validateKeyDescriptor enforces the key descriptor's required fields. The
-// generated struct leaves type as a bare string, so an unset one decodes to ""
-// and reaches Core as an unresolvable discriminator.
-func validateKeyDescriptor(keyType string, algorithm mdl.KeyAlgorithm, length int32, field string) error {
-	if keyType == "" {
-		return errResponseShape(field + " must carry a key type")
+// validateKeyDescriptor enforces the descriptor's required fields. An unset
+// type reaches Core as an unresolvable discriminator; a wrong one fails the
+// pinned MarshalJSON (see keyTypeSecret).
+func validateKeyDescriptor(keyType, wantType string, algorithm mdl.KeyAlgorithm, length int32, field string) error {
+	if keyType != wantType {
+		return errResponseShape(field + " must carry key type " + wantType)
 	}
 	if !algorithm.IsValid() {
 		return errResponseShape(field + " must carry a known key algorithm")
@@ -496,9 +553,8 @@ func validateKeyDescriptor(keyType string, algorithm mdl.KeyAlgorithm, length in
 	return nil
 }
 
-// keyCreationHasMeta reports whether the populated oneOf variant carries an
-// operationMeta tracking handle. KeyCreationResponse is a oneOf wrapper, so
-// this reaches into whichever variant is set.
+// keyCreationHasMeta reports whether the populated arm carries an operationMeta
+// tracking handle.
 func keyCreationHasMeta(out *mdl.KeyCreationResponse) bool {
 	if v := out.SecretKeyDataResponseV2Dto; v != nil {
 		return len(v.OperationMeta) > 0
@@ -509,16 +565,10 @@ func keyCreationHasMeta(out *mdl.KeyCreationResponse) bool {
 	return false
 }
 
-// validateKeyRequestType enforces the wire discriminator both key-creation
-// oneOf wrappers are resolved by. The generated structs tag keyRequestType
-// without omitempty, so an unset one emits "keyRequestType":"" — not a member
-// of the enum, leaving Core unable to pick a variant and rejecting an
-// otherwise well-formed 200/202. A value disagreeing with the populated arm is
-// equally unresolvable, so both halves are checked.
-//
-// got is the discriminator the populated arm carries; want is the value that
-// arm must carry, or "" when no arm was populated, which the payload and
-// status guards report in their own terms.
+// validateKeyRequestType enforces the discriminator both key-creation oneOf
+// wrappers are resolved by. The field is tagged without omitempty, so an unset
+// or mismatched value leaves Core unable to pick a variant. want is "" when no
+// arm is populated, which the payload and status guards report themselves.
 func validateKeyRequestType(got, want mdl.KeyRequestType) error {
 	if want == "" {
 		return nil
@@ -532,13 +582,10 @@ func validateKeyRequestType(got, want mdl.KeyRequestType) error {
 	return nil
 }
 
-// validateSingleKeyCreationArm rejects a key-creation response wrapper with
-// more than one oneOf arm populated. Such a wrapper is unvalidatable: the
-// generated MarshalJSON serializes the key-pair arm first while every helper
-// here inspects the secret arm first, so validation would approve one arm
-// while the wire carried the other, unchecked.
-//
-// The payload guards report a wrapper with zero arms in their own terms.
+// validateSingleKeyCreationArm rejects a wrapper with more than one arm
+// populated: the generated MarshalJSON serializes the key-pair arm first while
+// the helpers here inspect the secret arm first, so the wire would carry an
+// unchecked arm. Zero arms are reported by the payload guards.
 func validateSingleKeyCreationArm(out *mdl.KeyCreationResponse) error {
 	if out.SecretKeyDataResponseV2Dto != nil && out.KeyPairDataResponseV2Dto != nil {
 		return errResponseShape("exactly one key data variant may be populated")
@@ -556,9 +603,8 @@ func validateSingleKeyCreationStatusArm(out *mdl.KeyCreationStatusResponse) erro
 	return nil
 }
 
-// keyCreationDiscriminator reports the keyRequestType the populated arm of a
-// key-creation response carries, together with the value that arm is
-// required to carry. Both are "" when neither arm is set.
+// keyCreationDiscriminator reports the keyRequestType the populated arm carries
+// and the value it must carry. Both are "" when neither arm is set.
 func keyCreationDiscriminator(out *mdl.KeyCreationResponse) (got, want mdl.KeyRequestType) {
 	if v := out.SecretKeyDataResponseV2Dto; v != nil {
 		return v.KeyRequestType, mdl.KEYREQUESTTYPE_SECRET
@@ -586,9 +632,8 @@ func signHasPayload(out *mdl.SignDataResponseV2Dto) bool {
 	return len(out.Signatures) > 0
 }
 
-// validateSignatureResultItem enforces SignatureResultItemV2Dto's per-item
-// consistency rule, which pairs the status/result shape with a non-empty
-// signature on a completed item.
+// validateSignatureResultItem enforces the status/reason rule per item and a
+// non-empty signature on a completed one.
 func validateSignatureResultItem(item mdl.SignatureResultItemV2Dto) error {
 	if err := validateStatusShape(item.Status, item.Reason, item.Signature != nil); err != nil {
 		return err
@@ -599,10 +644,26 @@ func validateSignatureResultItem(item mdl.SignatureResultItemV2Dto) error {
 	return nil
 }
 
-// keyCreationStatusShape extracts the status, reason and result-presence used
-// by validateStatusShape from whichever oneOf variant of
-// KeyCreationStatusResponse is populated. An empty status reports a malformed
-// response with neither variant set, which validateStatusShape rejects.
+// validateSignStatusShape is signDataStatus's response guard. minItems: 1 is
+// checked first because an empty array would skip the per-item loop; there is
+// no top-level status, so each item is checked on its own.
+func validateSignStatusShape(out *mdl.SignOperationStatusResponseV2Dto) error {
+	if len(out.Items) == 0 {
+		return errResponseShape("items must not be empty")
+	}
+	if err := validateResponseItemIdentifiers(signatureResultIdentifiers(out.Items), "sign status"); err != nil {
+		return err
+	}
+	for _, item := range out.Items {
+		if err := validateSignatureResultItem(item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// keyCreationStatusShape extracts status, reason and result presence from the
+// populated arm. The caller has already rejected a wrapper with neither arm.
 func keyCreationStatusShape(out *mdl.KeyCreationStatusResponse) (status mdl.OperationStatus, reason *string, hasResult bool) {
 	if v := out.SecretKeyOperationStatusResponseV2Dto; v != nil {
 		return v.Status, v.Reason, v.Result != nil
@@ -613,15 +674,11 @@ func keyCreationStatusShape(out *mdl.KeyCreationStatusResponse) (status mdl.Oper
 	return "", nil, false
 }
 
-// validateKeyCreationStatusShape is createKeyStatus's full response-shape
-// guard: exactly one populated arm, its keyRequestType discriminator, the
-// status/reason/result rules, and finally the completed result's own shape.
-//
-// A completed result is a full created-key payload of the same type a
-// synchronous creation returns, so it is held to the same rules. Presence
-// alone would admit a result whose discriminator is unset or mismatched, whose
-// key payload is incomplete, or which carries a forbidden operationMeta —
-// Core can consume none of these.
+// validateKeyCreationStatusShape is createKeyStatus's response guard: exactly
+// one populated arm, its discriminator, the status/reason/result rules, and the
+// completed result's shape. The result is a full created-key payload, so it is
+// held to the synchronous-creation rules; presence alone would admit an
+// incomplete payload or a forbidden operationMeta.
 func validateKeyCreationStatusShape(out *mdl.KeyCreationStatusResponse) error {
 	if err := validateSingleKeyCreationStatusArm(out); err != nil {
 		return err
@@ -629,19 +686,25 @@ func validateKeyCreationStatusShape(out *mdl.KeyCreationStatusResponse) error {
 	if err := validateKeyRequestType(keyCreationStatusDiscriminator(out)); err != nil {
 		return err
 	}
+	if out.SecretKeyOperationStatusResponseV2Dto == nil && out.KeyPairOperationStatusResponseV2Dto == nil {
+		return errResponseShape("exactly one key status variant must be populated")
+	}
 	status, reason, hasResult := keyCreationStatusShape(out)
 	if err := validateStatusShape(status, reason, hasResult); err != nil {
 		return err
 	}
 	if result := keyCreationStatusResult(out); result != nil {
-		return validateKeyCreationShape(false, result)
+		if err := validateKeyCreationCommon(result); err != nil {
+			return err
+		}
+		return validateSynchronousKeyCreation(result, "completed key creation result")
 	}
 	return nil
 }
 
-// keyCreationStatusResult wraps a status response's completed result in the
-// initial-response oneOf wrapper, so the synchronous-creation rules apply to
-// it verbatim. Returns nil for every non-completed status.
+// keyCreationStatusResult wraps a completed result in the initial-response
+// wrapper so the synchronous-creation rules apply verbatim. Nil unless
+// completed.
 func keyCreationStatusResult(out *mdl.KeyCreationStatusResponse) *mdl.KeyCreationResponse {
 	if v := out.SecretKeyOperationStatusResponseV2Dto; v != nil && v.Result != nil {
 		return &mdl.KeyCreationResponse{SecretKeyDataResponseV2Dto: v.Result}
@@ -652,8 +715,7 @@ func keyCreationStatusResult(out *mdl.KeyCreationStatusResponse) *mdl.KeyCreatio
 	return nil
 }
 
-// signatureDataIdentifiers extracts the identifier field of each batch
-// element, for validateUniqueIdentifiers and validateIdentifiersMatch.
+// signatureDataIdentifiers extracts each batch element's identifier.
 func signatureDataIdentifiers(data []mdl.SignatureDataV2Dto) []string {
 	ids := make([]string, len(data))
 	for i, d := range data {
@@ -662,8 +724,7 @@ func signatureDataIdentifiers(data []mdl.SignatureDataV2Dto) []string {
 	return ids
 }
 
-// cipherDataIdentifiers is signatureDataIdentifiers' counterpart for the
-// encrypt/decrypt batch element type.
+// cipherDataIdentifiers extracts each cipher batch element's identifier.
 func cipherDataIdentifiers(data []mdl.CipherDataV2Dto) []string {
 	ids := make([]string, len(data))
 	for i, d := range data {
@@ -672,8 +733,7 @@ func cipherDataIdentifiers(data []mdl.CipherDataV2Dto) []string {
 	return ids
 }
 
-// verificationIdentifiers is signatureDataIdentifiers' counterpart for the
-// verify response element type.
+// verificationIdentifiers extracts each verify response element's identifier.
 func verificationIdentifiers(items []mdl.VerificationResponseItemV2Dto) []string {
 	ids := make([]string, len(items))
 	for i, v := range items {
@@ -682,8 +742,7 @@ func verificationIdentifiers(items []mdl.VerificationResponseItemV2Dto) []string
 	return ids
 }
 
-// signatureDataPayloads extracts the data field of each batch element, for
-// validateBatchItems.
+// signatureDataPayloads extracts each batch element's data.
 func signatureDataPayloads(data []mdl.SignatureDataV2Dto) []string {
 	out := make([]string, len(data))
 	for i, d := range data {
@@ -692,8 +751,7 @@ func signatureDataPayloads(data []mdl.SignatureDataV2Dto) []string {
 	return out
 }
 
-// cipherDataPayloads is signatureDataPayloads' counterpart for the
-// encrypt/decrypt batch element type.
+// cipherDataPayloads extracts each cipher batch element's data.
 func cipherDataPayloads(data []mdl.CipherDataV2Dto) []string {
 	out := make([]string, len(data))
 	for i, d := range data {
@@ -702,8 +760,7 @@ func cipherDataPayloads(data []mdl.CipherDataV2Dto) []string {
 	return out
 }
 
-// signatureResultIdentifiers extracts the identifier field of each sign-status
-// item, for validateResponseItemIdentifiers.
+// signatureResultIdentifiers extracts each sign-status item's identifier.
 func signatureResultIdentifiers(items []mdl.SignatureResultItemV2Dto) []string {
 	out := make([]string, len(items))
 	for i, item := range items {

@@ -6,16 +6,12 @@ import (
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
 )
 
-// Attribute provider interfaces are split per endpoint so a connector can
-// implement only the surfaces it actually exposes. Each unregistered attribute
-// endpoint responds 200 with an empty array — the SDK-wide convention for
-// optional attribute providers.
-//
-// Definitions returned here must not contain resolved credentials or secret
-// values.
+// Attribute provider interfaces are split per endpoint so a connector
+// implements only the surfaces it exposes. An unregistered endpoint responds
+// 200 with an empty array once the request validates. Definitions must not
+// contain resolved credentials or secret values.
 
 // TokenAttributeProvider serves GET /v2/cryptographyProvider/tokens/attributes.
-// The only GET in this interface and the only endpoint with no request body.
 type TokenAttributeProvider interface {
 	TokenAttributes(ctx context.Context) ([]mdl.BaseAttributeDto, error)
 }
@@ -58,7 +54,7 @@ type VerifyAttributeProvider interface {
 
 // RandomDataAttributeProvider serves
 // POST /v2/cryptographyProvider/operations/random/attributes. Scoped to the
-// token profile, not to a key — random data has no key context.
+// token profile; random data has no key context.
 type RandomDataAttributeProvider interface {
 	RandomDataAttributes(ctx context.Context, req *mdl.TokenProfileScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error)
 }

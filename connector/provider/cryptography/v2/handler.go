@@ -3,6 +3,9 @@ package cryptography
 import (
 	"errors"
 	"net/http"
+	"slices"
+
+	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
 
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
@@ -15,10 +18,10 @@ const DefaultBasePath = "/v2/cryptographyProvider"
 // "cryptography" connector interface.
 const InterfaceVersion = shared.VersionV2
 
-// Handler adapts a Provider implementation (and any optional attribute or
-// async sub-providers) to an HTTP surface mountable on a shared.Connector.
-// Implements shared.Registrable and renders errors through the default
-// WriteProblem.
+// Handler adapts a Provider and its optional sub-providers to an HTTP surface
+// mountable on a shared.Connector. Build it with NewHandler: a zero-value
+// Handler panics on every provider-backed route, and Config must not change
+// after Mount.
 type Handler struct {
 	handlerbase.Config
 
@@ -49,6 +52,12 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 	if err := handlerbase.ApplyOptions(h, opts, "cryptography"); err != nil {
 		return nil, err
 	}
+	// FeatureFlag.ASYNCHRONOUS is ENFORCED: Core selects asynchronous
+	// execution when it is advertised, so without an async sub-provider every
+	// accepted operation would be untrackable.
+	if slices.Contains(h.Features, string(mdl.FEATUREFLAG_ASYNCHRONOUS)) && h.asyncKeys == nil && h.asyncSign == nil {
+		return nil, errors.New("cryptography: asynchronous feature advertised without WithAsyncKeys or WithAsyncSign")
+	}
 	return h, nil
 }
 
@@ -59,13 +68,10 @@ func (h *Handler) Interface() shared.InterfaceInfo {
 	return h.InterfaceInfo(shared.InterfaceCodeCryptography, InterfaceVersion)
 }
 
-// Mount attaches every Cryptography Provider v2 route onto r. All patterns are
-// literal — v2 has no path parameters — so this provider composes with any
-// other provider package on one mux.
-//
-// Eighteen routes are always mounted. The six async status/cancel routes are
-// mounted only when their sub-interface was registered (WithAsyncKeys,
-// WithAsyncSign), reaching the package's full 24.
+// Mount attaches all 24 routes onto r unconditionally; the patterns are literal,
+// so this package composes with any other on one mux. The six async routes
+// answer 404 OPERATION_NOT_SUPPORTED when their sub-interface was not
+// registered.
 func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
@@ -91,18 +97,11 @@ func (h *Handler) Mount(r shared.Router) {
 	r.Handle(http.MethodPost, base+"/operations/verify", h.verifyData)
 	r.Handle(http.MethodPost, base+"/operations/random", h.randomData)
 
-	// Mounted only when the sub-interface is registered; otherwise the
-	// framework answers 404, which the contract documents as "endpoint not
-	// found or not implemented".
-	if h.asyncKeys != nil {
-		r.Handle(http.MethodPost, base+"/keys/create/status", h.createKeyStatus)
-		r.Handle(http.MethodPost, base+"/keys/create/cancel", h.cancelCreateKey)
-		r.Handle(http.MethodPost, base+"/keys/destroy/status", h.destroyKeyStatus)
-		r.Handle(http.MethodPost, base+"/keys/destroy/cancel", h.cancelDestroyKey)
-	}
+	r.Handle(http.MethodPost, base+"/keys/create/status", h.createKeyStatus)
+	r.Handle(http.MethodPost, base+"/keys/create/cancel", h.cancelCreateKey)
+	r.Handle(http.MethodPost, base+"/keys/destroy/status", h.destroyKeyStatus)
+	r.Handle(http.MethodPost, base+"/keys/destroy/cancel", h.cancelDestroyKey)
 
-	if h.asyncSign != nil {
-		r.Handle(http.MethodPost, base+"/operations/sign/status", h.signDataStatus)
-		r.Handle(http.MethodPost, base+"/operations/sign/cancel", h.cancelSignData)
-	}
+	r.Handle(http.MethodPost, base+"/operations/sign/status", h.signDataStatus)
+	r.Handle(http.MethodPost, base+"/operations/sign/cancel", h.cancelSignData)
 }
