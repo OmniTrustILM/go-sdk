@@ -17,6 +17,7 @@ package cryptography
 // the point of having unexported access in the first place.
 
 import (
+	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -223,6 +224,14 @@ func TestValidateIdentifiersMatch(t *testing.T) {
 		"signatures identifiers must match the request data identifiers")
 	wantValidationFailed(t, validateIdentifiersMatch([]string{"a", "a"}, []string{"a", "b"}, "signatures"),
 		"signatures identifiers must match the request data identifiers")
+}
+
+// The cap is the contract's documented 1 MiB; the boundary rows below would
+// pass for any value, so the value itself is pinned here.
+func TestMaxRandomDataLengthIsOneMiB(t *testing.T) {
+	if maxRandomDataLength != 1<<20 {
+		t.Errorf("maxRandomDataLength = %d, want %d", maxRandomDataLength, 1<<20)
+	}
 }
 
 func TestValidateRandomDataLength(t *testing.T) {
@@ -493,6 +502,7 @@ func TestValidateStatusShape(t *testing.T) {
 		{"failed with reason and result", mdl.OPERATIONSTATUS_FAILED, strPtr("boom"), true, "result must be absent unless status is completed"},
 		{"cancelled with reason", mdl.OPERATIONSTATUS_CANCELLED, strPtr("aborted"), false, ""},
 		{"cancelled without reason", mdl.OPERATIONSTATUS_CANCELLED, nil, false, "reason is required when status is failed or cancelled"},
+		{"cancelled with reason and result", mdl.OPERATIONSTATUS_CANCELLED, strPtr("aborted"), true, "result must be absent unless status is completed"},
 		{"inProgress bare", mdl.OPERATIONSTATUS_IN_PROGRESS, nil, false, ""},
 		{"inProgress with reason", mdl.OPERATIONSTATUS_IN_PROGRESS, strPtr("why"), false, "reason must be absent unless status is failed or cancelled"},
 		{"inProgress with empty reason", mdl.OPERATIONSTATUS_IN_PROGRESS, strPtr(""), false, "reason must be absent unless status is failed or cancelled"},
@@ -1145,9 +1155,49 @@ func TestValidateKeyCreationShapeRejectsZeroValueMetadataElements(t *testing.T) 
 	}}
 	wantResponseShapeError(t, validateKeyCreationShape(false, secret), "keyMeta entries must populate exactly one metadata attribute variant")
 
-	pair := keyPair(func(v *mdl.KeyPairDataResponseV2Dto) { v.PrivateKeyData.KeyMeta = []mdl.MetadataAttribute{{}} })
-	wantResponseShapeError(t, validateKeyCreationShape(false, &mdl.KeyCreationResponse{KeyPairDataResponseV2Dto: pair}),
-		"privateKeyData.keyMeta entries must populate exactly one metadata attribute variant")
+	secret.SecretKeyDataResponseV2Dto.KeyMeta = []mdl.MetadataAttribute{metaAttr()}
+	secret.SecretKeyDataResponseV2Dto.KeyData.Metadata = []mdl.MetadataAttribute{{}}
+	wantResponseShapeError(t, validateKeyCreationShape(false, secret), "keyData.metadata entries must populate exactly one metadata attribute variant")
+
+	pairCases := []struct {
+		mutate func(*mdl.KeyPairDataResponseV2Dto)
+		field  string
+	}{
+		{func(v *mdl.KeyPairDataResponseV2Dto) { v.KeyPairMeta = []mdl.MetadataAttribute{{}} }, "keyPairMeta"},
+		{func(v *mdl.KeyPairDataResponseV2Dto) { v.PublicKeyData.KeyMeta = []mdl.MetadataAttribute{{}} }, "publicKeyData.keyMeta"},
+		{func(v *mdl.KeyPairDataResponseV2Dto) { v.PublicKeyData.KeyData.Metadata = []mdl.MetadataAttribute{{}} }, "publicKeyData.keyData.metadata"},
+		{func(v *mdl.KeyPairDataResponseV2Dto) { v.PrivateKeyData.KeyMeta = []mdl.MetadataAttribute{{}} }, "privateKeyData.keyMeta"},
+		{func(v *mdl.KeyPairDataResponseV2Dto) { v.PrivateKeyData.KeyData.Metadata = []mdl.MetadataAttribute{{}} }, "privateKeyData.keyData.metadata"},
+	}
+	for _, tc := range pairCases {
+		pair := keyPair(tc.mutate)
+		wantResponseShapeError(t, validateKeyCreationShape(false, &mdl.KeyCreationResponse{KeyPairDataResponseV2Dto: pair}),
+			tc.field+" entries must populate exactly one metadata attribute variant")
+	}
+}
+
+// validateResponse's marshal probe: a response that passes every field-level
+// guard but that encoding/json refuses is rejected with the generic message,
+// and a well-formed one passes.
+func TestValidateResponseRejectsUnencodableResponse(t *testing.T) {
+	ok := func(*mdl.KeyOperationResponseV2Dto) error { return nil }
+	wantNoError(t, validateResponse(&mdl.KeyOperationResponseV2Dto{}, ok))
+
+	unset := &mdl.KeyOperationResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{{
+		MetadataAttributeV2: &mdl.MetadataAttributeV2{Content: []mdl.BaseAttributeContentDtoV2{{}}},
+	}}}
+	wantResponseShapeError(t, validateResponse(unset, ok), "response cannot be encoded as JSON")
+
+	nan := &mdl.KeyOperationResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{{
+		MetadataAttributeV2: &mdl.MetadataAttributeV2{AdditionalProperties: map[string]interface{}{"bad": math.NaN()}},
+	}}}
+	wantResponseShapeError(t, validateResponse(nan, ok), "response cannot be encoded as JSON")
+
+	// The probe runs after check, so check's own message wins.
+	boom := errResponseShape("boom")
+	if err := validateResponse(unset, func(*mdl.KeyOperationResponseV2Dto) error { return boom }); err != boom {
+		t.Errorf("err = %v, want check's error", err)
+	}
 }
 
 func TestSignatureResultIdentifiers(t *testing.T) {

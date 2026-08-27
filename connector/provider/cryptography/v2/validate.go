@@ -2,6 +2,7 @@ package cryptography
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"strings"
 	"unicode/utf8"
 
@@ -197,12 +198,28 @@ func validateResponseIdentifiers(want, got []string, what string) error {
 }
 
 // validateResponse rejects a nil response, which would serialize as a 200 with
-// a null body, and otherwise runs check against it.
+// a null body, runs check against it, and finally probes that the response
+// encodes at all.
 func validateResponse[T any](out *T, check func(*T) error) error {
 	if out == nil {
 		return ErrNilResponse
 	}
-	return check(out)
+	if err := check(out); err != nil {
+		return err
+	}
+	return validateEncodable(out)
+}
+
+// validateEncodable marshals v and rejects anything encoding/json refuses: an
+// unset oneOf wrapper at any depth (the generated MarshalJSON returns
+// (nil, nil)), or a NaN or func in an AdditionalProperties map.
+// shared.WriteJSON commits the status before encoding, so without this probe
+// such a response reaches Core as a 2xx with an empty body.
+func validateEncodable(v any) error {
+	if _, err := json.Marshal(v); err != nil {
+		return errResponseShape("response cannot be encoded as JSON").WithCause(err)
+	}
+	return nil
 }
 
 // validateKnownEnums enforces that every element of a response enum list is a
@@ -226,9 +243,8 @@ func validateTokenStatus(out *mdl.TokenStatusResponseV2Dto) error {
 }
 
 // validateMetadataElements enforces that every MetadataAttribute populates
-// exactly one oneOf arm. The generated MarshalJSON returns (nil, nil) otherwise,
-// which fails after shared.WriteJSON has committed the 2xx status and leaves
-// Core a success with an empty body.
+// exactly one oneOf arm, naming the offending list. validateEncodable catches
+// the same defect anywhere else in the tree with a generic message.
 func validateMetadataElements(as []mdl.MetadataAttribute, field string) error {
 	for _, a := range as {
 		if (a.MetadataAttributeV2 == nil) == (a.MetadataAttributeV3 == nil) {
@@ -440,13 +456,19 @@ func validateSynchronousKeyCreation(out *mdl.KeyCreationResponse, subject string
 }
 
 // validateKeyCreationMetadata applies validateMetadataElements to every
-// metadata list the populated arm carries.
+// metadata list the populated arm carries, the key descriptors' included.
 func validateKeyCreationMetadata(out *mdl.KeyCreationResponse) error {
 	if v := out.SecretKeyDataResponseV2Dto; v != nil {
-		return firstError(
+		if err := firstError(
 			validateMetadataElements(v.OperationMeta, "operationMeta"),
 			validateMetadataElements(v.KeyMeta, "keyMeta"),
-		)
+		); err != nil {
+			return err
+		}
+		if v.KeyData != nil {
+			return validateMetadataElements(v.KeyData.Metadata, "keyData.metadata")
+		}
+		return nil
 	}
 	if v := out.KeyPairDataResponseV2Dto; v != nil {
 		if err := firstError(
@@ -456,12 +478,18 @@ func validateKeyCreationMetadata(out *mdl.KeyCreationResponse) error {
 			return err
 		}
 		if v.PublicKeyData != nil {
-			if err := validateMetadataElements(v.PublicKeyData.KeyMeta, "publicKeyData.keyMeta"); err != nil {
+			if err := firstError(
+				validateMetadataElements(v.PublicKeyData.KeyMeta, "publicKeyData.keyMeta"),
+				validateMetadataElements(v.PublicKeyData.KeyData.Metadata, "publicKeyData.keyData.metadata"),
+			); err != nil {
 				return err
 			}
 		}
 		if v.PrivateKeyData != nil {
-			return validateMetadataElements(v.PrivateKeyData.KeyMeta, "privateKeyData.keyMeta")
+			return firstError(
+				validateMetadataElements(v.PrivateKeyData.KeyMeta, "privateKeyData.keyMeta"),
+				validateMetadataElements(v.PrivateKeyData.KeyData.Metadata, "privateKeyData.keyData.metadata"),
+			)
 		}
 	}
 	return nil

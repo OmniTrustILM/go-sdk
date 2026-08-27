@@ -52,11 +52,12 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 	if err := handlerbase.ApplyOptions(h, opts, "cryptography"); err != nil {
 		return nil, err
 	}
-	// FeatureFlag.ASYNCHRONOUS is ENFORCED: Core selects asynchronous
-	// execution when it is advertised, so without an async sub-provider every
-	// accepted operation would be untrackable.
-	if slices.Contains(h.Features, string(mdl.FEATUREFLAG_ASYNCHRONOUS)) && h.asyncKeys == nil && h.asyncSign == nil {
-		return nil, errors.New("cryptography: asynchronous feature advertised without WithAsyncKeys or WithAsyncSign")
+	// FeatureFlag.ASYNCHRONOUS is ENFORCED and covers the whole interface:
+	// once advertised, Core may select asynchronous execution for key
+	// creation, key destruction and signing alike, so every accepted
+	// operation needs its status and cancel routes served.
+	if slices.Contains(h.Features, string(mdl.FEATUREFLAG_ASYNCHRONOUS)) && (h.asyncKeys == nil || h.asyncSign == nil) {
+		return nil, errors.New("cryptography: asynchronous feature advertised without both WithAsyncKeys and WithAsyncSign")
 	}
 	return h, nil
 }

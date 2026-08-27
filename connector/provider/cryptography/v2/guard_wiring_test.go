@@ -7,6 +7,7 @@ package cryptography_test
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -90,6 +91,113 @@ func TestEncryptResponseEntriesMustCarryData(t *testing.T) {
 	}}
 	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/operations/encrypt", cipherDataBody)
 	assertShapeViolation(t, rec, "encrypt data response entries must not carry empty data")
+}
+
+func TestDecryptResponseEntriesMustCarryData(t *testing.T) {
+	p := &stubProvider{decryptData: &mdl.DecryptDataResponseV2Dto{
+		DecryptedData: []mdl.CipherDataV2Dto{{Identifier: "c-1"}},
+	}}
+	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/operations/decrypt", cipherDataBody)
+	assertShapeViolation(t, rec, "decrypt data response entries must not carry empty data")
+}
+
+func TestSignResponseEntriesMustCarryData(t *testing.T) {
+	p := &stubProvider{signDataResp: &mdl.SignDataResponseV2Dto{
+		Signatures: []mdl.SignatureDataV2Dto{{Identifier: "d-1"}},
+	}}
+	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/operations/sign", signDataBody("synchronous"))
+	assertShapeViolation(t, rec, "sign data response entries must not carry empty data")
+}
+
+// --- Encodability: the probe behind every 2xx body -----------------------------
+
+// unencodableMetadata is a metadata element that passes
+// validateMetadataElements (one arm set) yet fails to encode: its content[]
+// holds an unset BaseAttributeContentDtoV2, a oneOf wrapper whose generated
+// MarshalJSON returns (nil, nil).
+func unencodableMetadata() mdl.MetadataAttribute {
+	m := metadataAttributeFixture()
+	if m.MetadataAttributeV2 == nil {
+		panic("unencodableMetadata: oneMetadataAttribute must decode to the V2 arm")
+	}
+	m.MetadataAttributeV2.Content = []mdl.BaseAttributeContentDtoV2{{}}
+	return m
+}
+
+// A response that passes every field-level guard but cannot be encoded is
+// rejected as a 500 before the event is emitted and the status committed —
+// on the 202 paths, the 200 path, and for a value no shape rule can reach.
+func TestUnencodableResponseIsRejectedBeforeCommit(t *testing.T) {
+	nan := metadataAttributeFixture()
+	nan.MetadataAttributeV2.AdditionalProperties = map[string]interface{}{"bad": math.NaN()}
+
+	cases := []struct {
+		name  string
+		p     *stubProvider
+		path  string
+		body  string
+		event string
+	}{
+		{"destroyKey 202 operationMeta content", &stubProvider{destroyKeyAccepted: true, destroyKeyResp: &mdl.KeyOperationResponseV2Dto{
+			OperationMeta: []mdl.MetadataAttribute{unencodableMetadata()},
+		}}, "/v2/cryptographyProvider/keys/destroy", destroyKeyBody("asynchronous"), "destroy_key"},
+		{"signData 202 operationMeta content", &stubProvider{signDataAccepted: true, signDataResp: &mdl.SignDataResponseV2Dto{
+			OperationMeta: []mdl.MetadataAttribute{unencodableMetadata()},
+		}}, "/v2/cryptographyProvider/operations/sign", signDataBody("asynchronous"), "sign_data"},
+		{"createKey 202 operationMeta content", &stubProvider{createKeyAccepted: true, createKeyResp: &mdl.KeyCreationResponse{
+			SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
+				KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
+				OperationMeta:  []mdl.MetadataAttribute{unencodableMetadata()},
+			},
+		}}, "/v2/cryptographyProvider/keys", createKeyBody("asynchronous"), "create_key"},
+		{"createKey 200 keyMeta content", &stubProvider{createKeyResp: &mdl.KeyCreationResponse{
+			SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
+				KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
+				KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048),
+				KeyMeta:        []mdl.MetadataAttribute{unencodableMetadata()},
+			},
+		}}, "/v2/cryptographyProvider/keys", createKeyBody("synchronous"), "create_key"},
+		{"destroyKey 202 additionalProperties NaN", &stubProvider{destroyKeyAccepted: true, destroyKeyResp: &mdl.KeyOperationResponseV2Dto{
+			OperationMeta: []mdl.MetadataAttribute{nan},
+		}}, "/v2/cryptographyProvider/keys/destroy", destroyKeyBody("asynchronous"), "destroy_key"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mc := &recordingMetrics{events: map[string]int{}}
+			rec := post(t, newMeteredServer(t, tc.p, mc), tc.path, tc.body)
+
+			assertShapeViolation(t, rec, "response cannot be encoded as JSON")
+			if mc.events[tc.event+"/error"] != 1 || mc.events[tc.event+"/ok"] != 0 {
+				t.Errorf("events = %v, want exactly one %s/error and no %s/ok", mc.events, tc.event, tc.event)
+			}
+		})
+	}
+}
+
+// The key descriptors' own metadata lists are enumerated too, with the precise
+// message rather than the probe's generic one.
+func TestCreateKeyKeyDataMetadataElementsMustPopulateOneVariant(t *testing.T) {
+	keyData := mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048)
+	keyData.Metadata = []mdl.MetadataAttribute{{}}
+	p := &stubProvider{createKeyResp: &mdl.KeyCreationResponse{
+		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
+			KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
+			KeyData:        keyData,
+			KeyMeta:        []mdl.MetadataAttribute{metadataAttributeFixture()},
+		},
+	}}
+	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/keys", createKeyBody("synchronous"))
+	assertShapeViolation(t, rec, "keyData.metadata entries must populate exactly one metadata attribute variant")
+}
+
+// The attribute lists have no other shape rule, so the probe is their only
+// guard against an unset BaseAttributeDto wrapper.
+func TestUnencodableAttributeListIsRejectedBeforeCommit(t *testing.T) {
+	srv := newTestServer(t, &stubProvider{}, cryptography.WithTokenAttributes(&stubTokenAttrs{resp: []mdl.BaseAttributeDto{{}}}))
+	req := httptest.NewRequest(http.MethodGet, "/v2/cryptographyProvider/tokens/attributes", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	assertShapeViolation(t, rec, "response cannot be encoded as JSON")
 }
 
 // --- Random data: decoded length against the request ---------------------------
@@ -249,15 +357,10 @@ func TestVerifyDataRejectsDuplicateSignatureIdentifiersCoveringTheDataSet(t *tes
 
 type recordingMetrics struct{ events map[string]int }
 
-func (m *recordingMetrics) Handler() http.Handler                             { return http.NotFoundHandler() }
-func (m *recordingMetrics) ObserveRequest(string, string, int, time.Duration) {}
-func (m *recordingMetrics) InFlightInc(string)                                {}
-func (m *recordingMetrics) InFlightDec(string)                                {}
-func (m *recordingMetrics) IncConnectorEvent(event, outcome string)           { m.events[event+"/"+outcome]++ }
-
-func TestResponseShapeViolationIsCountedAsErrorOutcome(t *testing.T) {
-	mc := &recordingMetrics{events: map[string]int{}}
-	h, err := cryptography.NewHandler(&stubProvider{createKeyResp: secretKeyCreationResponse(), createKeyAccepted: false})
+// newMeteredServer is newTestServer with mc recording connector events.
+func newMeteredServer(t *testing.T, p cryptography.Provider, mc *recordingMetrics, opts ...cryptography.Option) http.Handler {
+	t.Helper()
+	h, err := cryptography.NewHandler(p, opts...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
@@ -269,8 +372,20 @@ func TestResponseShapeViolationIsCountedAsErrorOutcome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("shared.New: %v", err)
 	}
+	return c.Handler()
+}
 
-	rec := post(t, c.Handler(), "/v2/cryptographyProvider/keys", createKeyBody("asynchronous"))
+func (m *recordingMetrics) Handler() http.Handler                             { return http.NotFoundHandler() }
+func (m *recordingMetrics) ObserveRequest(string, string, int, time.Duration) {}
+func (m *recordingMetrics) InFlightInc(string)                                {}
+func (m *recordingMetrics) InFlightDec(string)                                {}
+func (m *recordingMetrics) IncConnectorEvent(event, outcome string)           { m.events[event+"/"+outcome]++ }
+
+func TestResponseShapeViolationIsCountedAsErrorOutcome(t *testing.T) {
+	mc := &recordingMetrics{events: map[string]int{}}
+	srv := newMeteredServer(t, &stubProvider{createKeyResp: secretKeyCreationResponse(), createKeyAccepted: false}, mc)
+
+	rec := post(t, srv, "/v2/cryptographyProvider/keys", createKeyBody("asynchronous"))
 
 	assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 	if mc.events["create_key/error"] != 1 || mc.events["create_key/ok"] != 0 {

@@ -60,6 +60,9 @@ func (h *Handler) listTokenAttributes(w http.ResponseWriter, r *http.Request) {
 	if h.tokenAttrs != nil {
 		out, err = h.tokenAttrs.TokenAttributes(r.Context())
 	}
+	if err == nil {
+		err = validateEncodable(out)
+	}
 	shared.EmitEvent(r.Context(), eventTokenAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
@@ -81,6 +84,9 @@ func (h *Handler) listTokenProfileAttributes(w http.ResponseWriter, r *http.Requ
 	var err error
 	if h.tokenProfileAttrs != nil {
 		out, err = h.tokenProfileAttrs.TokenProfileAttributes(r.Context(), &in)
+	}
+	if err == nil {
+		err = validateEncodable(out)
 	}
 	shared.EmitEvent(r.Context(), eventTokenProfileAttributes, err)
 	if err != nil {
@@ -107,6 +113,9 @@ func (h *Handler) listCreateKeyAttributes(w http.ResponseWriter, r *http.Request
 	var err error
 	if h.createKeyAttrs != nil {
 		out, err = h.createKeyAttrs.CreateKeyAttributes(r.Context(), &in)
+	}
+	if err == nil {
+		err = validateEncodable(out)
 	}
 	shared.EmitEvent(r.Context(), eventCreateKeyAttributes, err)
 	if err != nil {
@@ -137,6 +146,9 @@ func (h *Handler) listEncryptAttributes(w http.ResponseWriter, r *http.Request) 
 	if h.encryptAttrs != nil {
 		out, err = h.encryptAttrs.EncryptAttributes(r.Context(), &in)
 	}
+	if err == nil {
+		err = validateEncodable(out)
+	}
 	shared.EmitEvent(r.Context(), eventEncryptAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
@@ -165,6 +177,9 @@ func (h *Handler) listDecryptAttributes(w http.ResponseWriter, r *http.Request) 
 	var err error
 	if h.decryptAttrs != nil {
 		out, err = h.decryptAttrs.DecryptAttributes(r.Context(), &in)
+	}
+	if err == nil {
+		err = validateEncodable(out)
 	}
 	shared.EmitEvent(r.Context(), eventDecryptAttributes, err)
 	if err != nil {
@@ -195,6 +210,9 @@ func (h *Handler) listSignAttributes(w http.ResponseWriter, r *http.Request) {
 	if h.signAttrs != nil {
 		out, err = h.signAttrs.SignAttributes(r.Context(), &in)
 	}
+	if err == nil {
+		err = validateEncodable(out)
+	}
 	shared.EmitEvent(r.Context(), eventSignAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
@@ -224,6 +242,9 @@ func (h *Handler) listVerifyAttributes(w http.ResponseWriter, r *http.Request) {
 	if h.verifyAttrs != nil {
 		out, err = h.verifyAttrs.VerifyAttributes(r.Context(), &in)
 	}
+	if err == nil {
+		err = validateEncodable(out)
+	}
 	shared.EmitEvent(r.Context(), eventVerifyAttributes, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
@@ -249,6 +270,9 @@ func (h *Handler) listRandomDataAttributes(w http.ResponseWriter, r *http.Reques
 	var err error
 	if h.randomAttrs != nil {
 		out, err = h.randomAttrs.RandomDataAttributes(r.Context(), &in)
+	}
+	if err == nil {
+		err = validateEncodable(out)
 	}
 	shared.EmitEvent(r.Context(), eventRandomDataAttributes, err)
 	if err != nil {

@@ -112,6 +112,7 @@ func TestInterfaceAdvertisesAsynchronousWhenConfigured(t *testing.T) {
 	h, err := cryptography.NewHandler(&stubProvider{},
 		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS))),
 		cryptography.WithAsyncKeys(&stubAsyncKeys{}),
+		cryptography.WithAsyncSign(&stubAsyncSign{}),
 	)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
@@ -124,15 +125,26 @@ func TestInterfaceAdvertisesAsynchronousWhenConfigured(t *testing.T) {
 	}
 }
 
-// FeatureFlag.ASYNCHRONOUS is ENFORCED: advertising it without a registered
-// async sub-provider would make Core select a mode whose status endpoints
-// answer 404, leaving every accepted operation untrackable.
-func TestNewHandlerRejectsAsynchronousFeatureWithoutAsyncProvider(t *testing.T) {
-	_, err := cryptography.NewHandler(&stubProvider{},
-		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS))),
-	)
-	if err == nil {
-		t.Fatal("expected an error when asynchronous is advertised without WithAsyncKeys or WithAsyncSign")
+// FeatureFlag.ASYNCHRONOUS is one ENFORCED flag for the whole interface:
+// advertising it with either async sub-provider missing lets Core select a
+// mode whose status and cancel endpoints answer 404 for that family, leaving
+// every accepted operation untrackable.
+func TestNewHandlerRejectsAsynchronousFeatureWithoutBothAsyncProviders(t *testing.T) {
+	features := cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS)))
+	cases := []struct {
+		name string
+		opts []cryptography.Option
+	}{
+		{"neither", []cryptography.Option{features}},
+		{"keys only", []cryptography.Option{features, cryptography.WithAsyncKeys(&stubAsyncKeys{})}},
+		{"sign only", []cryptography.Option{features, cryptography.WithAsyncSign(&stubAsyncSign{})}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := cryptography.NewHandler(&stubProvider{}, tc.opts...); err == nil {
+				t.Fatal("expected an error when asynchronous is advertised without both WithAsyncKeys and WithAsyncSign")
+			}
+		})
 	}
 }
 
