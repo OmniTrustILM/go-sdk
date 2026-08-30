@@ -33,10 +33,10 @@ const cancelledReason = "cancelled by caller"
 // this Store; publicKeySpki is genuine DER, because the platform parses it
 // (see spkiFor).
 //
-// A key's durable handle is the Uuid of a single MetadataAttribute the Store
-// attaches to every KeyMeta, KeyPairMeta and operationMeta it returns;
-// callers echo that attribute back unchanged. Both halves of a key pair share
-// one Uuid and differ only in the attribute's Name.
+// A key's handle is the Uuid of a single MetadataAttribute the Store attaches
+// to every KeyMeta, KeyPairMeta and operationMeta it returns; callers echo
+// that attribute back unchanged. Both halves of a key pair share one Uuid and
+// differ only in the attribute's Name.
 type Store struct {
 	mu sync.Mutex
 
@@ -257,31 +257,32 @@ func fakeKeyStream(keyID string, n int) []byte {
 	return out
 }
 
-// fakeEncrypt XORs plaintext with a key-derived stream and base64-encodes the
-// result. Self-inverse: fakeDecrypt reverses it exactly.
-func fakeEncrypt(keyID, plaintext string) string {
-	pt := []byte(plaintext)
-	ks := fakeKeyStream(keyID, len(pt))
-	ct := make([]byte, len(pt))
-	for i := range pt {
-		ct[i] = pt[i] ^ ks[i]
+// fakeXor XORs the base64-decoded in with a key-derived stream and
+// base64-encodes the result, making it self-inverse. CipherDataV2Dto.data is
+// `format: byte`, so plaintext and ciphertext alike cross the wire as base64.
+func fakeXor(keyID, in string) (string, error) {
+	src, err := base64.StdEncoding.DecodeString(in)
+	if err != nil {
+		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(ct)
+	ks := fakeKeyStream(keyID, len(src))
+	out := make([]byte, len(src))
+	for i := range src {
+		out[i] = src[i] ^ ks[i]
+	}
+	return base64.StdEncoding.EncodeToString(out), nil
+}
+
+// fakeEncrypt encrypts base64 plaintext into base64 ciphertext, erroring when
+// plaintext is not valid base64.
+func fakeEncrypt(keyID, plaintext string) (string, error) {
+	return fakeXor(keyID, plaintext)
 }
 
 // fakeDecrypt reverses fakeEncrypt. Returns an error when ciphertext is not
 // valid base64.
 func fakeDecrypt(keyID, ciphertext string) (string, error) {
-	ct, err := base64.StdEncoding.DecodeString(ciphertext)
-	if err != nil {
-		return "", err
-	}
-	ks := fakeKeyStream(keyID, len(ct))
-	pt := make([]byte, len(ct))
-	for i := range ct {
-		pt[i] = ct[i] ^ ks[i]
-	}
-	return string(pt), nil
+	return fakeXor(keyID, ciphertext)
 }
 
 // --- Public-key encoding ----------------------------------------------------
@@ -558,8 +559,8 @@ func (s *Store) VerifyData(ctx context.Context, req *mdl.VerifyDataRequestV2Dto)
 	return &mdl.VerifyDataResponseV2Dto{Verifications: out}, nil
 }
 
-// EncryptData encrypts a batch. Always synchronous, using the fakeEncrypt
-// placeholder.
+// EncryptData encrypts a batch. Always synchronous; a cipherData element that
+// is not valid base64 renders 400.
 func (s *Store) EncryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto) (*mdl.EncryptDataResponseV2Dto, error) {
 	keyID, ok := metaID(req.KeyMeta)
 	if !ok {
@@ -576,7 +577,11 @@ func (s *Store) EncryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto
 
 	out := make([]mdl.CipherDataV2Dto, len(req.CipherData))
 	for i, d := range req.CipherData {
-		out[i] = mdl.CipherDataV2Dto{Identifier: d.Identifier, Data: fakeEncrypt(keyID, d.Data)}
+		ct, err := fakeEncrypt(keyID, d.Data)
+		if err != nil {
+			return nil, cryptography.ErrInvalidRequest.WithProperty("identifier", d.Identifier)
+		}
+		out[i] = mdl.CipherDataV2Dto{Identifier: d.Identifier, Data: ct}
 	}
 	return &mdl.EncryptDataResponseV2Dto{EncryptedData: out}, nil
 }

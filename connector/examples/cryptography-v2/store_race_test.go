@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"strconv"
 	"sync"
 	"testing"
@@ -32,8 +33,13 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 		}
 		keyMeta := createResp.SecretKeyDataResponseV2Dto.KeyMeta
 
-		plaintext := "hello world"
+		// EncryptData needs base64: a rejected fixture never reaches the race.
+		plaintext := base64.StdEncoding.EncodeToString([]byte("hello world"))
 		signature := fakeSignForTest(keyMeta, plaintext)
+		ciphertext, err := fakeEncrypt(mustKeyID(keyMeta), plaintext)
+		if err != nil {
+			t.Fatalf("iteration %d: fakeEncrypt: %v", iter, err)
+		}
 
 		var wg sync.WaitGroup
 		wg.Add(readersPerIteration + 1)
@@ -91,7 +97,7 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 				case 2:
 					resp, err := store.DecryptData(ctx, &mdl.CipherDataRequestV2Dto{
 						KeyMeta:    keyMeta,
-						CipherData: []mdl.CipherDataV2Dto{{Identifier: "1", Data: fakeEncrypt(mustKeyID(keyMeta), plaintext)}},
+						CipherData: []mdl.CipherDataV2Dto{{Identifier: "1", Data: ciphertext}},
 					})
 					if (resp == nil) == (err == nil) {
 						t.Errorf("DecryptData: expected exactly one of (resp, err) to be nil, got resp=%v err=%v", resp, err)

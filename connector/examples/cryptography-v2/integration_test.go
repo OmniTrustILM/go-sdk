@@ -5,9 +5,9 @@ package main_test
 // or under -short.
 //
 // Every operation is a POST scoped entirely by its request body, except
-// GET .../tokens/attributes. A key's or operation's durable handle is the
-// uuid of a single MetadataAttribute the store returns, echoed back unchanged
-// (see store.go).
+// GET .../tokens/attributes. A key's or operation's handle is the uuid of a
+// single MetadataAttribute the store returns, echoed back unchanged (see
+// store.go).
 
 import (
 	"crypto/ecdsa"
@@ -151,6 +151,12 @@ func randomRequest(length int32) mdl.RandomDataRequestV2Dto {
 
 func trackingRequest(meta []mdl.MetadataAttribute) mdl.OperationTrackingRequestV2Dto {
 	return mdl.OperationTrackingRequestV2Dto{OperationMeta: meta}
+}
+
+// b64 encodes s for the wire. SignatureDataV2Dto.data and CipherDataV2Dto.data
+// are `format: byte`, so every payload these tests send is base64.
+func b64(s string) string {
+	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
 // metaAttribute builds a well-formed MetadataAttribute carrying uuid. The
@@ -373,7 +379,7 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 			// Sign to prove the returned handle is live.
 			signResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
 				mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta,
-				[]mdl.SignatureDataV2Dto{{Data: "sign-me", Identifier: "item-1"}},
+				[]mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}},
 			)})
 			if !itest.AssertStatus(t, signResp, http.StatusOK) {
 				t.FailNow()
@@ -397,7 +403,7 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 
 			after := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
 				mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta,
-				[]mdl.SignatureDataV2Dto{{Data: "sign-me", Identifier: "item-1"}},
+				[]mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}},
 			)})
 			itest.AssertProblem(t, after, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 		})
@@ -414,7 +420,7 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 	idents := []string{"item-a", "item-b", "item-c"}
 	signData := make([]mdl.SignatureDataV2Dto, len(idents))
 	for i, id := range idents {
-		signData[i] = mdl.SignatureDataV2Dto{Data: "payload-" + id, Identifier: id}
+		signData[i] = mdl.SignatureDataV2Dto{Data: b64("payload-" + id), Identifier: id}
 	}
 	signResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta, signData)})
 	if !itest.AssertStatus(t, signResp, http.StatusOK) {
@@ -468,7 +474,8 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 	// Encrypt then decrypt: the round trip must return the original
 	// plaintext, which a status-only assertion would miss.
 	const plaintext = "the quick brown fox jumps over the lazy dog"
-	encResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(meta, []mdl.CipherDataV2Dto{{Data: plaintext, Identifier: "p-1"}})})
+	wirePlaintext := b64(plaintext)
+	encResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(meta, []mdl.CipherDataV2Dto{{Data: wirePlaintext, Identifier: "p-1"}})})
 	if !itest.AssertStatus(t, encResp, http.StatusOK) {
 		t.FailNow()
 	}
@@ -477,7 +484,7 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 	if len(encOut.EncryptedData) != 1 {
 		t.Fatalf("encrypt returned %d items, want 1: %+v", len(encOut.EncryptedData), encOut)
 	}
-	if encOut.EncryptedData[0].Data == plaintext {
+	if encOut.EncryptedData[0].Data == wirePlaintext {
 		t.Errorf("encrypted output equals the plaintext input; want it transformed")
 	}
 
@@ -490,8 +497,13 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 	if len(decOut.DecryptedData) != 1 {
 		t.Fatalf("decrypt returned %d items, want 1: %+v", len(decOut.DecryptedData), decOut)
 	}
-	if decOut.DecryptedData[0].Data != plaintext {
-		t.Errorf("decrypted output = %q, want the original plaintext %q", decOut.DecryptedData[0].Data, plaintext)
+	// Compare bytes, not encodings: the same bytes may come back re-encoded.
+	decoded, err := base64.StdEncoding.DecodeString(decOut.DecryptedData[0].Data)
+	if err != nil {
+		t.Fatalf("decrypted data is not standard base64: %v", err)
+	}
+	if string(decoded) != plaintext {
+		t.Errorf("decrypted output = %q, want the original plaintext %q", decoded, plaintext)
 	}
 
 	const wantLen = int32(32)
@@ -650,7 +662,7 @@ func TestCryptographyV2AsyncWalk(t *testing.T) {
 		// accepted, so this signature request must already be refused.
 		during := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
 			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta,
-			[]mdl.SignatureDataV2Dto{{Data: "sign-me", Identifier: "item-1"}},
+			[]mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}},
 		)})
 		itest.AssertProblem(t, during, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 
@@ -678,7 +690,7 @@ func TestCryptographyV2AsyncWalk(t *testing.T) {
 		idents := []string{"async-a", "async-b"}
 		data := make([]mdl.SignatureDataV2Dto, len(idents))
 		for i, id := range idents {
-			data[i] = mdl.SignatureDataV2Dto{Data: "payload-" + id, Identifier: id}
+			data[i] = mdl.SignatureDataV2Dto{Data: b64("payload-" + id), Identifier: id}
 		}
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS, meta, data)})
 		if !itest.AssertStatus(t, resp, http.StatusAccepted) {
@@ -862,6 +874,35 @@ func TestCryptographyV2KeyCreationIdempotency(t *testing.T) {
 	conflicting := createKeyRequest(mdl.KEYREQUESTTYPE_KEY_PAIR, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, creationID)
 	conflict := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: conflicting})
 	itest.AssertProblem(t, conflict, http.StatusConflict, "RESOURCE_ALREADY_EXISTS")
+
+	// An asynchronous replay answers 202 again, carrying the original
+	// operation's tracking handle.
+	asyncID := uuid.NewString()
+	asyncReq := createKeyRequest(mdl.KEYREQUESTTYPE_SECRET, mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS, asyncID)
+
+	firstAsync := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: asyncReq})
+	if !itest.AssertStatus(t, firstAsync, http.StatusAccepted) {
+		t.FailNow()
+	}
+	var firstAsyncOut mdl.KeyCreationResponse
+	firstAsync.JSON(t, &firstAsyncOut)
+	firstOperation := acceptedCreateMeta(t, mdl.KEYREQUESTTYPE_SECRET, &firstAsyncOut)
+
+	replayAsync := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: asyncReq})
+	if !itest.AssertStatus(t, replayAsync, http.StatusAccepted) {
+		t.FailNow()
+	}
+	var replayAsyncOut mdl.KeyCreationResponse
+	replayAsync.JSON(t, &replayAsyncOut)
+	replayOperation := acceptedCreateMeta(t, mdl.KEYREQUESTTYPE_SECRET, &replayAsyncOut)
+	if got, want := metaUUID(t, replayOperation), metaUUID(t, firstOperation); got != want {
+		t.Errorf("replayed asynchronous keyCreationId returned operation handle %q, want the original %q", got, want)
+	}
+
+	// A handle the store never issued answers 404, so a 200 proves this one
+	// tracks the original operation.
+	replayStatus := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathCreateKeyStatus, Body: trackingRequest(replayOperation)})
+	itest.AssertStatus(t, replayStatus, http.StatusOK)
 }
 
 // --- strict decoding ----------------------------------------------------------
