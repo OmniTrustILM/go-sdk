@@ -6,6 +6,7 @@
 /compliance-v2
 /credential-v1
 /cryptography-v1
+/cryptography-v2
 /disco-v1
 /entity-v1
 /legacy-auth-v1
@@ -22,6 +23,9 @@ coverage.out
 coverage.txt
 coverage.html
 .scannerwork/
+
+# Output of superpowers skills
+/docs/superpowers/
 
 # Editor / OS
 .idea/
