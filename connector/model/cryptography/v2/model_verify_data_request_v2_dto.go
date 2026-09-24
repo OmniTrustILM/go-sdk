@@ -26,8 +26,6 @@ type VerifyDataRequestV2Dto struct {
 	TokenAttributes []RequestAttribute `json:"tokenAttributes"`
 	// Token profile attributes
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
-	// Key usages selected on the token profile
-	KeyUsages []KeyUsage `json:"keyUsages"`
 	// Connector-defined metadata identifying the key, as returned when the key was created, listed or identified. Supply the metadata unchanged in subsequent requests for the key. Metadata must identify the key durably—it must remain valid across connector restarts and sessions; ephemeral handles must not be used.
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
 	// Signature attributes
@@ -44,11 +42,10 @@ type _VerifyDataRequestV2Dto VerifyDataRequestV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewVerifyDataRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyUsages []KeyUsage, keyMeta []MetadataAttribute, signatureAttributes []RequestAttribute, data []SignatureDataV2Dto, signatures []SignatureDataV2Dto) *VerifyDataRequestV2Dto {
+func NewVerifyDataRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyMeta []MetadataAttribute, signatureAttributes []RequestAttribute, data []SignatureDataV2Dto, signatures []SignatureDataV2Dto) *VerifyDataRequestV2Dto {
 	this := VerifyDataRequestV2Dto{}
 	this.TokenAttributes = tokenAttributes
 	this.TokenProfileAttributes = tokenProfileAttributes
-	this.KeyUsages = keyUsages
 	this.KeyMeta = keyMeta
 	this.SignatureAttributes = signatureAttributes
 	this.Data = data
@@ -110,30 +107,6 @@ func (o *VerifyDataRequestV2Dto) GetTokenProfileAttributesOk() ([]RequestAttribu
 // SetTokenProfileAttributes sets field value
 func (o *VerifyDataRequestV2Dto) SetTokenProfileAttributes(v []RequestAttribute) {
 	o.TokenProfileAttributes = v
-}
-
-// GetKeyUsages returns the KeyUsages field value
-func (o *VerifyDataRequestV2Dto) GetKeyUsages() []KeyUsage {
-	if o == nil {
-		var ret []KeyUsage
-		return ret
-	}
-
-	return o.KeyUsages
-}
-
-// GetKeyUsagesOk returns a tuple with the KeyUsages field value
-// and a boolean to check if the value has been set.
-func (o *VerifyDataRequestV2Dto) GetKeyUsagesOk() ([]KeyUsage, bool) {
-	if o == nil {
-		return nil, false
-	}
-	return o.KeyUsages, true
-}
-
-// SetKeyUsages sets field value
-func (o *VerifyDataRequestV2Dto) SetKeyUsages(v []KeyUsage) {
-	o.KeyUsages = v
 }
 
 // GetKeyMeta returns the KeyMeta field value
@@ -244,7 +217,6 @@ func (o VerifyDataRequestV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["tokenAttributes"] = o.TokenAttributes
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
-	toSerialize["keyUsages"] = o.KeyUsages
 	toSerialize["keyMeta"] = o.KeyMeta
 	toSerialize["signatureAttributes"] = o.SignatureAttributes
 	toSerialize["data"] = o.Data
@@ -259,7 +231,6 @@ func (o *VerifyDataRequestV2Dto) UnmarshalJSON(data []byte) (err error) {
 	requiredProperties := []string{
 		"tokenAttributes",
 		"tokenProfileAttributes",
-		"keyUsages",
 		"keyMeta",
 		"signatureAttributes",
 		"data",

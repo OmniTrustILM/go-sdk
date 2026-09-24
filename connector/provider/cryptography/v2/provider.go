@@ -51,11 +51,9 @@ type Provider interface {
 	//   - return the complete payload and no operationMeta on 200, and
 	//     operationMeta alone on 202
 	//   - honor req.KeyCreationId as an idempotency key over KeyRequestType,
-	//     ExecutionMode, TokenAttributes, TokenProfileAttributes, KeyUsages
-	//     and CreateKeyAttributes; non-equivalent reuse returns
-	//     ErrKeyCreationConflict. Matching on the id alone lets a caller
-	//     replay it with wider KeyUsages and have Core record the original
-	//     key as authorized for them.
+	//     ExecutionMode, TokenAttributes, TokenProfileAttributes and
+	//     CreateKeyAttributes. Non-equivalent reuse returns
+	//     ErrKeyCreationConflict.
 	//   - validate publicKeySpki's DER encoding and its agreement with the
 	//     declared algorithm and length, and MetadataAttribute
 	//

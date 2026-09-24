@@ -15,8 +15,6 @@ import (
 // responses, so the guarded routes fail on ErrNilResponse — with both async
 // sub-providers registered, so no route short-circuits on the 404 path.
 func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
-	const keyScopedBody = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` +
-		oneKeyUsage + `,"keyMeta":` + oneMetadataAttribute + `}`
 	routes := []struct {
 		method string
 		path   string
@@ -26,10 +24,10 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 		{http.MethodGet, "/v2/cryptographyProvider/tokens/attributes", ``, "list_token_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/tokens/tokenProfile/attributes", tokenScopedBody, "list_token_profile_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/keys/create/attributes", createKeyAttributesRequestBody, "list_create_key_attributes"},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/encrypt/attributes", keyScopedBody, "list_encrypt_attributes"},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/decrypt/attributes", keyScopedBody, "list_decrypt_attributes"},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/sign/attributes", keyScopedBody, "list_sign_attributes"},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/verify/attributes", keyScopedBody, "list_verify_attributes"},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/encrypt/attributes", keyScopedRequestBody, "list_encrypt_attributes"},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/decrypt/attributes", keyScopedRequestBody, "list_decrypt_attributes"},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/sign/attributes", keyScopedRequestBody, "list_sign_attributes"},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/verify/attributes", keyScopedRequestBody, "list_verify_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/operations/random/attributes", tokenProfileScopedBody, "list_random_data_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/tokens/status", tokenScopedBody, "token_status"},
 		{http.MethodPost, "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages", tokenScopedBody, "token_profile_key_usages"},

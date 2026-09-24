@@ -154,31 +154,6 @@ func TestValidateNonEmptyBatch(t *testing.T) {
 	wantValidationFailed(t, validateNonEmptyBatch(0, "operationMeta"), "operationMeta must not be empty")
 }
 
-func TestValidateKeyUsages(t *testing.T) {
-	cases := []struct {
-		name       string
-		usages     []mdl.KeyUsage
-		wantDetail string // "" means no error
-	}{
-		{"one usage", []mdl.KeyUsage{mdl.KEYUSAGE_SIGN}, ""},
-		{"distinct usages", []mdl.KeyUsage{mdl.KEYUSAGE_SIGN, mdl.KEYUSAGE_VERIFY}, ""},
-		{"empty", []mdl.KeyUsage{}, "keyUsages must not be empty"},
-		{"nil", nil, "keyUsages must not be empty"},
-		{"duplicate", []mdl.KeyUsage{mdl.KEYUSAGE_SIGN, mdl.KEYUSAGE_SIGN}, "keyUsages must not contain duplicates"},
-		{"duplicate after a distinct one", []mdl.KeyUsage{mdl.KEYUSAGE_SIGN, mdl.KEYUSAGE_VERIFY, mdl.KEYUSAGE_SIGN}, "keyUsages must not contain duplicates"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := validateKeyUsages(tc.usages)
-			if tc.wantDetail == "" {
-				wantNoError(t, err)
-				return
-			}
-			wantValidationFailed(t, err, tc.wantDetail)
-		})
-	}
-}
-
 // TestFirstError pins the property every handler's guard list depends on:
 // the reported violation is the first one in argument order, not whichever
 // guard happens to be cheapest or last.

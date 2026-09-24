@@ -67,9 +67,6 @@ const (
 
 var (
 	noAttrs = []mdl.RequestAttribute{}
-	// oneUsage is not empty: the contract marks keyUsages minItems: 1, and
-	// the SDK rejects a violation with 422 before the store is called.
-	oneUsage = []mdl.KeyUsage{mdl.KEYUSAGE_SIGN}
 )
 
 func startCrypto(t *testing.T, extraEnv map[string]string) *itest.Harness {
@@ -87,7 +84,6 @@ func createKeyRequest(reqType mdl.KeyRequestType, mode mdl.OperationExecutionMod
 	return mdl.CreateKeyRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
-		KeyUsages:              oneUsage,
 		KeyRequestType:         reqType,
 		ExecutionMode:          mode,
 		KeyCreationId:          creationID,
@@ -99,7 +95,6 @@ func destroyKeyRequest(mode mdl.OperationExecutionMode, keyMeta []mdl.MetadataAt
 	return mdl.DestroyKeyRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
-		KeyUsages:              oneUsage,
 		KeyMeta:                keyMeta,
 		ExecutionMode:          mode,
 	}
@@ -116,7 +111,6 @@ func signRequestWith(mode mdl.OperationExecutionMode, keyMeta []mdl.MetadataAttr
 	return mdl.SignDataRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
-		KeyUsages:              oneUsage,
 		KeyMeta:                keyMeta,
 		ExecutionMode:          mode,
 		SignatureAttributes:    signatureAttributes,
@@ -126,7 +120,7 @@ func signRequestWith(mode mdl.OperationExecutionMode, keyMeta []mdl.MetadataAttr
 
 func keyScopedRequest(keyMeta []mdl.MetadataAttribute) mdl.KeyScopedRequestV2Dto {
 	return mdl.KeyScopedRequestV2Dto{
-		TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyUsages: oneUsage, KeyMeta: keyMeta,
+		TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyMeta: keyMeta,
 	}
 }
 
@@ -134,7 +128,6 @@ func verifyRequest(keyMeta []mdl.MetadataAttribute, data, sigs []mdl.SignatureDa
 	return mdl.VerifyDataRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
-		KeyUsages:              oneUsage,
 		KeyMeta:                keyMeta,
 		SignatureAttributes:    noAttrs,
 		Data:                   data,
@@ -146,7 +139,6 @@ func cipherRequest(keyMeta []mdl.MetadataAttribute, data []mdl.CipherDataV2Dto) 
 	return mdl.CipherDataRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
-		KeyUsages:              oneUsage,
 		KeyMeta:                keyMeta,
 		CipherAttributes:       noAttrs,
 		CipherData:             data,
@@ -157,7 +149,6 @@ func randomRequest(length int32) mdl.RandomDataRequestV2Dto {
 	return mdl.RandomDataRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
-		KeyUsages:              oneUsage,
 		Length:                 length,
 		OperationAttributes:    noAttrs,
 	}
@@ -641,14 +632,14 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 		{"tokenAttributes", http.MethodGet, pathTokenAttrs, nil},
 		{"tokenProfileAttributes", http.MethodPost, pathTokenProfileAttrs, mdl.TokenScopedRequestV2Dto{TokenAttributes: noAttrs}},
 		{"createKeyAttributes", http.MethodPost, pathCreateKeyAttrs, mdl.CreateKeyAttributesRequestV2Dto{
-			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyUsages: oneUsage, KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
+			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
 		}},
 		{"encryptAttributes", http.MethodPost, pathEncryptAttrs, keyScoped},
 		{"decryptAttributes", http.MethodPost, pathDecryptAttrs, keyScoped},
 		{"signAttributes", http.MethodPost, pathSignAttrs, keyScopedRequest(pairMeta)},
 		{"verifyAttributes", http.MethodPost, pathVerifyAttrs, keyScoped},
 		{"randomDataAttributes", http.MethodPost, pathRandomAttrs, mdl.TokenProfileScopedRequestV2Dto{
-			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyUsages: oneUsage,
+			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs,
 		}},
 	}
 	for _, c := range cases {
@@ -999,7 +990,6 @@ func TestCryptographyV2StrictDecoding(t *testing.T) {
 	body := map[string]any{
 		"tokenAttributes":        []any{},
 		"tokenProfileAttributes": []any{},
-		"keyUsages":              []any{"sign"},
 		"length":                 16,
 		"operationAttributes":    []any{},
 		"unknownProperty":        "surprise",

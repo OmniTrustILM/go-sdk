@@ -34,13 +34,8 @@ func newTestServer(t *testing.T, p cryptography.Provider, opts ...cryptography.O
 func TestUnregisteredAttributeEndpointsReturnEmptyArray(t *testing.T) {
 	srv := newTestServer(t, &stubProvider{})
 
-	// Request bodies satisfy each DTO's generated required-property check
-	// (an empty `{}` fails required-field validation before the handler ever
-	// reaches the unregistered-provider path) and the contract's minItems: 1
-	// on keyUsages and keyMeta, which validate.go's request guards enforce
-	// ahead of the unregistered-provider path; the GET case ignores its body.
-	const keyScopedBody = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` +
-		oneKeyUsage + `,"keyMeta":` + oneMetadataAttribute + `}`
+	// Each body passes the checks that run before the unregistered-provider
+	// path. The GET case ignores its body.
 	cases := []struct {
 		method string
 		path   string
@@ -49,10 +44,10 @@ func TestUnregisteredAttributeEndpointsReturnEmptyArray(t *testing.T) {
 		{http.MethodGet, "/v2/cryptographyProvider/tokens/attributes", `{}`},
 		{http.MethodPost, "/v2/cryptographyProvider/tokens/tokenProfile/attributes", `{"tokenAttributes":[]}`},
 		{http.MethodPost, "/v2/cryptographyProvider/keys/create/attributes", createKeyAttributesRequestBody},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/encrypt/attributes", keyScopedBody},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/decrypt/attributes", keyScopedBody},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/sign/attributes", keyScopedBody},
-		{http.MethodPost, "/v2/cryptographyProvider/operations/verify/attributes", keyScopedBody},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/encrypt/attributes", keyScopedRequestBody},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/decrypt/attributes", keyScopedRequestBody},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/sign/attributes", keyScopedRequestBody},
+		{http.MethodPost, "/v2/cryptographyProvider/operations/verify/attributes", keyScopedRequestBody},
 		{http.MethodPost, "/v2/cryptographyProvider/operations/random/attributes", tokenProfileScopedBody},
 	}
 

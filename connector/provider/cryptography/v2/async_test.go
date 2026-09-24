@@ -17,28 +17,18 @@ import (
 // the contract's minItems: 1 on its batch lists (see
 // TestUnregisteredAttributeEndpointsReturnEmptyArray in attributes_test.go for
 // the same convention).
-//
-// CreateKeyRequestV2Dto requires: tokenAttributes, tokenProfileAttributes,
-// keyUsages, keyRequestType, executionMode, keyCreationId,
-// createKeyAttributes.
-//
-// DestroyKeyRequestV2Dto requires: tokenAttributes, tokenProfileAttributes,
-// keyUsages, keyMeta, executionMode.
-//
-// SignDataRequestV2Dto requires: tokenAttributes, tokenProfileAttributes,
-// keyUsages, keyMeta, executionMode, signatureAttributes, data.
 func createKeyBody(executionMode string) string {
-	return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage +
+	return `{"tokenAttributes":[],"tokenProfileAttributes":[]` +
 		`,"keyRequestType":"secret","executionMode":"` + executionMode + `","keyCreationId":"k1","createKeyAttributes":[]}`
 }
 
 func destroyKeyBody(executionMode string) string {
-	return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage +
+	return `{"tokenAttributes":[],"tokenProfileAttributes":[]` +
 		`,"keyMeta":` + oneMetadataAttribute + `,"executionMode":"` + executionMode + `"}`
 }
 
 func signDataBody(executionMode string) string {
-	return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage +
+	return `{"tokenAttributes":[],"tokenProfileAttributes":[]` +
 		`,"keyMeta":` + oneMetadataAttribute + `,"executionMode":"` + executionMode +
 		`","signatureAttributes":[],"data":[{"identifier":"d-1","data":"AA=="}]}`
 }

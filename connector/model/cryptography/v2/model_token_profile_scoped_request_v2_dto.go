@@ -26,8 +26,6 @@ type TokenProfileScopedRequestV2Dto struct {
 	TokenAttributes []RequestAttribute `json:"tokenAttributes"`
 	// Token profile attributes
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
-	// Key usages selected on the token profile
-	KeyUsages []KeyUsage `json:"keyUsages"`
 }
 
 type _TokenProfileScopedRequestV2Dto TokenProfileScopedRequestV2Dto
@@ -36,11 +34,10 @@ type _TokenProfileScopedRequestV2Dto TokenProfileScopedRequestV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewTokenProfileScopedRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyUsages []KeyUsage) *TokenProfileScopedRequestV2Dto {
+func NewTokenProfileScopedRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute) *TokenProfileScopedRequestV2Dto {
 	this := TokenProfileScopedRequestV2Dto{}
 	this.TokenAttributes = tokenAttributes
 	this.TokenProfileAttributes = tokenProfileAttributes
-	this.KeyUsages = keyUsages
 	return &this
 }
 
@@ -100,30 +97,6 @@ func (o *TokenProfileScopedRequestV2Dto) SetTokenProfileAttributes(v []RequestAt
 	o.TokenProfileAttributes = v
 }
 
-// GetKeyUsages returns the KeyUsages field value
-func (o *TokenProfileScopedRequestV2Dto) GetKeyUsages() []KeyUsage {
-	if o == nil {
-		var ret []KeyUsage
-		return ret
-	}
-
-	return o.KeyUsages
-}
-
-// GetKeyUsagesOk returns a tuple with the KeyUsages field value
-// and a boolean to check if the value has been set.
-func (o *TokenProfileScopedRequestV2Dto) GetKeyUsagesOk() ([]KeyUsage, bool) {
-	if o == nil {
-		return nil, false
-	}
-	return o.KeyUsages, true
-}
-
-// SetKeyUsages sets field value
-func (o *TokenProfileScopedRequestV2Dto) SetKeyUsages(v []KeyUsage) {
-	o.KeyUsages = v
-}
-
 func (o TokenProfileScopedRequestV2Dto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -136,7 +109,6 @@ func (o TokenProfileScopedRequestV2Dto) ToMap() (map[string]interface{}, error) 
 	toSerialize := map[string]interface{}{}
 	toSerialize["tokenAttributes"] = o.TokenAttributes
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
-	toSerialize["keyUsages"] = o.KeyUsages
 	return toSerialize, nil
 }
 
@@ -147,7 +119,6 @@ func (o *TokenProfileScopedRequestV2Dto) UnmarshalJSON(data []byte) (err error) 
 	requiredProperties := []string{
 		"tokenAttributes",
 		"tokenProfileAttributes",
-		"keyUsages",
 	}
 
 	allProperties := make(map[string]interface{})

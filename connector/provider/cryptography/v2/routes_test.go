@@ -12,27 +12,22 @@ import (
 )
 
 // Request bodies satisfying each DTO's generated required-property check and
-// the contract's minItems/uniqueItems constraints on its batch lists (see
+// the contract's minItems: 1 on its batch lists (see
 // TestUnregisteredAttributeEndpointsReturnEmptyArray in attributes_test.go for
 // the same convention on the attribute-schema DTOs).
 const (
-	// oneKeyUsage and oneMetadataAttribute are the smallest values that
-	// satisfy the spec's minItems: 1 on keyUsages and on the metadata batches
-	// (keyMeta, operationMeta): validateKeyUsages and validateNonEmptyBatch
-	// reject an empty one with 422 before the provider is called, so a body
-	// meant to reach the provider cannot leave them empty. oneMetadataAttribute
-	// carries every property MetadataAttributeV2 requires, and version 2 so
-	// the discriminator-aware decoder picks that arm.
-	oneKeyUsage          = `["sign"]`
+	// oneMetadataAttribute is the smallest metadata batch the request guards
+	// accept. It is a complete MetadataAttributeV2 at version 2, the arm the
+	// discriminator-aware decoder picks.
 	oneMetadataAttribute = `[{"uuid":"m-1","name":"handle","version":2,"type":"meta","contentType":"string","properties":{"label":"handle","visible":true}}]`
 
 	tokenScopedBody        = `{"tokenAttributes":[]}`
-	tokenProfileScopedBody = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage + `}`
-	cipherDataBody         = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage + `,"keyMeta":` + oneMetadataAttribute + `,"cipherAttributes":[],"cipherData":[{"identifier":"c-1","data":"AA=="}]}`
-	verifyDataBody         = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage + `,"keyMeta":` + oneMetadataAttribute + `,"signatureAttributes":[],"data":[{"identifier":"d-1","data":"AA=="}],"signatures":[{"identifier":"d-1","data":"BB=="}]}`
+	tokenProfileScopedBody = `{"tokenAttributes":[],"tokenProfileAttributes":[]}`
+	cipherDataBody         = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyMeta":` + oneMetadataAttribute + `,"cipherAttributes":[],"cipherData":[{"identifier":"c-1","data":"AA=="}]}`
+	verifyDataBody         = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyMeta":` + oneMetadataAttribute + `,"signatureAttributes":[],"data":[{"identifier":"d-1","data":"AA=="}],"signatures":[{"identifier":"d-1","data":"BB=="}]}`
 	// length is 1, not 0: validateRandomDataLength rejects a non-positive
 	// length before the provider is called.
-	randomDataBody = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage + `,"length":1,"operationAttributes":[]}`
+	randomDataBody = `{"tokenAttributes":[],"tokenProfileAttributes":[],"length":1,"operationAttributes":[]}`
 )
 
 // --- /tokens/status -----------------------------------------------------------

@@ -26,8 +26,6 @@ type CreateKeyAttributesRequestV2Dto struct {
 	TokenAttributes []RequestAttribute `json:"tokenAttributes"`
 	// Token profile attributes
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
-	// Key usages selected on the token profile
-	KeyUsages []KeyUsage `json:"keyUsages"`
 	// Type of key whose creation attributes are requested
 	KeyRequestType KeyRequestType `json:"keyRequestType"`
 }
@@ -38,11 +36,10 @@ type _CreateKeyAttributesRequestV2Dto CreateKeyAttributesRequestV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewCreateKeyAttributesRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyUsages []KeyUsage, keyRequestType KeyRequestType) *CreateKeyAttributesRequestV2Dto {
+func NewCreateKeyAttributesRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyRequestType KeyRequestType) *CreateKeyAttributesRequestV2Dto {
 	this := CreateKeyAttributesRequestV2Dto{}
 	this.TokenAttributes = tokenAttributes
 	this.TokenProfileAttributes = tokenProfileAttributes
-	this.KeyUsages = keyUsages
 	this.KeyRequestType = keyRequestType
 	return &this
 }
@@ -103,30 +100,6 @@ func (o *CreateKeyAttributesRequestV2Dto) SetTokenProfileAttributes(v []RequestA
 	o.TokenProfileAttributes = v
 }
 
-// GetKeyUsages returns the KeyUsages field value
-func (o *CreateKeyAttributesRequestV2Dto) GetKeyUsages() []KeyUsage {
-	if o == nil {
-		var ret []KeyUsage
-		return ret
-	}
-
-	return o.KeyUsages
-}
-
-// GetKeyUsagesOk returns a tuple with the KeyUsages field value
-// and a boolean to check if the value has been set.
-func (o *CreateKeyAttributesRequestV2Dto) GetKeyUsagesOk() ([]KeyUsage, bool) {
-	if o == nil {
-		return nil, false
-	}
-	return o.KeyUsages, true
-}
-
-// SetKeyUsages sets field value
-func (o *CreateKeyAttributesRequestV2Dto) SetKeyUsages(v []KeyUsage) {
-	o.KeyUsages = v
-}
-
 // GetKeyRequestType returns the KeyRequestType field value
 func (o *CreateKeyAttributesRequestV2Dto) GetKeyRequestType() KeyRequestType {
 	if o == nil {
@@ -163,7 +136,6 @@ func (o CreateKeyAttributesRequestV2Dto) ToMap() (map[string]interface{}, error)
 	toSerialize := map[string]interface{}{}
 	toSerialize["tokenAttributes"] = o.TokenAttributes
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
-	toSerialize["keyUsages"] = o.KeyUsages
 	toSerialize["keyRequestType"] = o.KeyRequestType
 	return toSerialize, nil
 }
@@ -175,7 +147,6 @@ func (o *CreateKeyAttributesRequestV2Dto) UnmarshalJSON(data []byte) (err error)
 	requiredProperties := []string{
 		"tokenAttributes",
 		"tokenProfileAttributes",
-		"keyUsages",
 		"keyRequestType",
 	}
 

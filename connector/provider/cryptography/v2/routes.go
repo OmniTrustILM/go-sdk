@@ -105,10 +105,6 @@ func (h *Handler) listCreateKeyAttributes(w http.ResponseWriter, r *http.Request
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := validateKeyUsages(in.KeyUsages); err != nil {
-		h.rejectRequest(w, r, eventCreateKeyAttributes, err)
-		return
-	}
 	var out []mdl.BaseAttributeDto
 	var err error
 	if h.createKeyAttrs != nil {
@@ -134,10 +130,7 @@ func (h *Handler) listEncryptAttributes(w http.ResponseWriter, r *http.Request) 
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
-		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
-	); err != nil {
+	if err := validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"); err != nil {
 		h.rejectRequest(w, r, eventEncryptAttributes, err)
 		return
 	}
@@ -166,10 +159,7 @@ func (h *Handler) listDecryptAttributes(w http.ResponseWriter, r *http.Request) 
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
-		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
-	); err != nil {
+	if err := validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"); err != nil {
 		h.rejectRequest(w, r, eventDecryptAttributes, err)
 		return
 	}
@@ -198,10 +188,7 @@ func (h *Handler) listSignAttributes(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
-		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
-	); err != nil {
+	if err := validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"); err != nil {
 		h.rejectRequest(w, r, eventSignAttributes, err)
 		return
 	}
@@ -230,10 +217,7 @@ func (h *Handler) listVerifyAttributes(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
-		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
-	); err != nil {
+	if err := validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"); err != nil {
 		h.rejectRequest(w, r, eventVerifyAttributes, err)
 		return
 	}
@@ -260,10 +244,6 @@ func (h *Handler) listRandomDataAttributes(w http.ResponseWriter, r *http.Reques
 	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
 		shared.EmitEvent(r.Context(), eventRandomDataAttributes, err)
 		shared.RenderError(w, r, err)
-		return
-	}
-	if err := validateKeyUsages(in.KeyUsages); err != nil {
-		h.rejectRequest(w, r, eventRandomDataAttributes, err)
 		return
 	}
 	var out []mdl.BaseAttributeDto
@@ -335,10 +315,6 @@ func (h *Handler) keyRequestTypes(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := validateKeyUsages(in.KeyUsages); err != nil {
-		h.rejectRequest(w, r, eventKeyRequestTypes, err)
-		return
-	}
 	out, err := h.provider.KeyRequestTypes(r.Context(), &in)
 	if err == nil {
 		err = validateKnownEnums(out, "key request types")
@@ -379,7 +355,6 @@ func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {
 	if err := firstError(
 		validateExecutionMode(in.ExecutionMode),
 		validateKeyCreationId(in.KeyCreationId),
-		validateKeyUsages(in.KeyUsages),
 	); err != nil {
 		h.rejectRequest(w, r, eventCreateKey, err)
 		return
@@ -413,7 +388,6 @@ func (h *Handler) destroyKey(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := firstError(
 		validateExecutionMode(in.ExecutionMode),
-		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 	); err != nil {
 		h.rejectRequest(w, r, eventDestroyKey, err)
@@ -449,7 +423,6 @@ func (h *Handler) signData(w http.ResponseWriter, r *http.Request) {
 	dataIDs := signatureDataIdentifiers(in.Data)
 	if err := firstError(
 		validateExecutionMode(in.ExecutionMode),
-		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 		validateNonEmptyBatch(len(in.Data), "data"),
 		validateUniqueIdentifiers(dataIDs, "data"),
@@ -496,7 +469,6 @@ func (h *Handler) encryptData(w http.ResponseWriter, r *http.Request) {
 	}
 	cipherIDs := cipherDataIdentifiers(in.CipherData)
 	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 		validateNonEmptyBatch(len(in.CipherData), "cipherData"),
 		validateUniqueIdentifiers(cipherIDs, "cipherData"),
@@ -530,7 +502,6 @@ func (h *Handler) decryptData(w http.ResponseWriter, r *http.Request) {
 	}
 	cipherIDs := cipherDataIdentifiers(in.CipherData)
 	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 		validateNonEmptyBatch(len(in.CipherData), "cipherData"),
 		validateUniqueIdentifiers(cipherIDs, "cipherData"),
@@ -565,7 +536,6 @@ func (h *Handler) verifyData(w http.ResponseWriter, r *http.Request) {
 	dataIDs := signatureDataIdentifiers(in.Data)
 	signatureIDs := signatureDataIdentifiers(in.Signatures)
 	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
 		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
 		validateNonEmptyBatch(len(in.Data), "data"),
 		validateNonEmptyBatch(len(in.Signatures), "signatures"),
@@ -601,10 +571,7 @@ func (h *Handler) randomData(w http.ResponseWriter, r *http.Request) {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := firstError(
-		validateKeyUsages(in.KeyUsages),
-		validateRandomDataLength(in.Length),
-	); err != nil {
+	if err := validateRandomDataLength(in.Length); err != nil {
 		h.rejectRequest(w, r, eventRandomData, err)
 		return
 	}
