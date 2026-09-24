@@ -43,6 +43,10 @@ var (
 	// their sub-provider was not registered.
 	ErrOperationNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "asynchronous execution is not implemented by this connector")
 
+	// ErrSignatureAlgorithmUnsupported -> 422. The selected signature algorithm
+	// is unknown, or the key lacks it.
+	ErrSignatureAlgorithmUnsupported = shared.Invalid("PARAMETER_UNSUPPORTED", "signature algorithm is not supported by the key")
+
 	// ErrNilResponse -> 500. A nil result with no error would serialize as a
 	// 200 with a null body.
 	ErrNilResponse = shared.Internal("INTERNAL_SERVER_ERROR", "provider returned no response")
