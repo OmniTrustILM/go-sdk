@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
 	cryptography "github.com/OmniTrustILM/go-sdk/connector/provider/cryptography/v2"
+	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
 
 // defaultAsyncOperationDelay is how long an accepted asynchronous operation
@@ -238,6 +240,30 @@ func fingerprintCreateKey(req *mdl.CreateKeyRequestV2Dto) string {
 //
 // Deterministic stand-ins that let sign/verify and encrypt/decrypt round-trip
 // within this Store. Public-key encoding is real; see spkiFor.
+
+func offeredSignatureAlgorithms(algorithm mdl.KeyAlgorithm) []cryptography.SignatureAlgorithm {
+	if algorithm != mdl.KEYALGORITHM_ECDSA {
+		return nil
+	}
+	return []cryptography.SignatureAlgorithm{
+		cryptography.SignatureAlgorithmSHA256WithECDSA,
+		cryptography.SignatureAlgorithmSHA384WithECDSA,
+		cryptography.SignatureAlgorithmSHA512WithECDSA,
+	}
+}
+
+var errKeyCannotSign = shared.Invalid("VALIDATION_FAILED", "key cannot sign")
+
+func requireOfferedSignatureAlgorithm(algorithm mdl.KeyAlgorithm, signatureAttributes []mdl.RequestAttribute) error {
+	selected, err := cryptography.SelectedSignatureAlgorithm(signatureAttributes)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(offeredSignatureAlgorithms(algorithm), selected) {
+		return cryptography.ErrSignatureAlgorithmUnsupported
+	}
+	return nil
+}
 
 // fakeSign derives a deterministic "signature" from the key handle and data,
 // so verifying against the same Store recomputes the same value.
@@ -505,6 +531,9 @@ func (s *Store) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*m
 	rec, ok := s.keys[keyID]
 	if !ok || rec.destroyed {
 		return nil, false, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
+	}
+	if err := requireOfferedSignatureAlgorithm(rec.algorithm, req.SignatureAttributes); err != nil {
+		return nil, false, err
 	}
 
 	if req.ExecutionMode == mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS {
@@ -778,10 +807,6 @@ func (s *Store) CancelSignData(ctx context.Context, req *mdl.OperationTrackingRe
 }
 
 // --- Attribute schema providers ---------------------------------------------
-//
-// This example declares no mandatory attributes, so every method returns an
-// empty schema. Registering them exercises the wiring, letting the
-// integration tests assert a 200 with `[]`.
 
 // TokenAttributes reports the token attribute schema: none for this example.
 func (s *Store) TokenAttributes(ctx context.Context) ([]mdl.BaseAttributeDto, error) {
@@ -812,9 +837,27 @@ func (s *Store) DecryptAttributes(ctx context.Context, req *mdl.KeyScopedRequest
 	return nil, nil
 }
 
-// SignAttributes reports the signing attribute schema: none for this example.
+// SignAttributes offers the key's signature algorithms through the reserved
+// signatureAlgorithm attribute.
 func (s *Store) SignAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	return nil, nil
+	keyID, ok := metaID(req.KeyMeta)
+	if !ok {
+		return nil, cryptography.ErrKeyNotFound
+	}
+
+	s.mu.Lock()
+	rec, ok := s.keys[keyID]
+	destroyed := ok && rec.destroyed
+	s.mu.Unlock()
+	if !ok || destroyed {
+		return nil, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
+	}
+
+	offered := offeredSignatureAlgorithms(rec.algorithm)
+	if len(offered) == 0 {
+		return nil, errKeyCannotSign
+	}
+	return []mdl.BaseAttributeDto{cryptography.SignatureAlgorithmDefinition(offered...)}, nil
 }
 
 // VerifyAttributes reports the verification attribute schema: none for this

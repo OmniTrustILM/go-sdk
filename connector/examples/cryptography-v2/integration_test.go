@@ -23,6 +23,7 @@ import (
 
 	"github.com/OmniTrustILM/go-sdk/connector/examples/internal/itest"
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
+	cryptography "github.com/OmniTrustILM/go-sdk/connector/provider/cryptography/v2"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 )
 
@@ -104,15 +105,28 @@ func destroyKeyRequest(mode mdl.OperationExecutionMode, keyMeta []mdl.MetadataAt
 	}
 }
 
+// signRequest selects SHA256withECDSA, an algorithm every key pair offers.
 func signRequest(mode mdl.OperationExecutionMode, keyMeta []mdl.MetadataAttribute, data []mdl.SignatureDataV2Dto) mdl.SignDataRequestV2Dto {
+	return signRequestWith(mode, keyMeta, data, []mdl.RequestAttribute{
+		cryptography.SignatureAlgorithmSelection(cryptography.SignatureAlgorithmSHA256WithECDSA),
+	})
+}
+
+func signRequestWith(mode mdl.OperationExecutionMode, keyMeta []mdl.MetadataAttribute, data []mdl.SignatureDataV2Dto, signatureAttributes []mdl.RequestAttribute) mdl.SignDataRequestV2Dto {
 	return mdl.SignDataRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
 		KeyUsages:              oneUsage,
 		KeyMeta:                keyMeta,
 		ExecutionMode:          mode,
-		SignatureAttributes:    noAttrs,
+		SignatureAttributes:    signatureAttributes,
 		Data:                   data,
+	}
+}
+
+func keyScopedRequest(keyMeta []mdl.MetadataAttribute) mdl.KeyScopedRequestV2Dto {
+	return mdl.KeyScopedRequestV2Dto{
+		TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyUsages: oneUsage, KeyMeta: keyMeta,
 	}
 }
 
@@ -376,18 +390,16 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 				}
 			}
 
-			// Sign to prove the returned handle is live.
-			signResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
-				mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta,
-				[]mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}},
-			)})
-			if !itest.AssertStatus(t, signResp, http.StatusOK) {
+			// Encrypt to prove the returned handle is live. Encryption works for both key kinds.
+			probe := []mdl.CipherDataV2Dto{{Data: b64("probe"), Identifier: "item-1"}}
+			encResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(meta, probe)})
+			if !itest.AssertStatus(t, encResp, http.StatusOK) {
 				t.FailNow()
 			}
-			var signOut mdl.SignDataResponseV2Dto
-			signResp.JSON(t, &signOut)
-			if len(signOut.Signatures) != 1 || signOut.Signatures[0].Data == "" {
-				t.Fatalf("signing with the new key handle returned no signature: %+v", signOut)
+			var encOut mdl.EncryptDataResponseV2Dto
+			encResp.JSON(t, &encOut)
+			if len(encOut.EncryptedData) != 1 || encOut.EncryptedData[0].Data == "" {
+				t.Fatalf("encrypting with the new key handle returned no ciphertext: %+v", encOut)
 			}
 
 			// Destroy -> 200 synchronously, with no operationMeta.
@@ -401,10 +413,7 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 				t.Errorf("synchronous destroy response carries operationMeta: %+v", destroyOut)
 			}
 
-			after := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
-				mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta,
-				[]mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}},
-			)})
+			after := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(meta, probe)})
 			itest.AssertProblem(t, after, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 		})
 	}
@@ -414,7 +423,7 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 
 func TestCryptographyV2CryptoOperations(t *testing.T) {
 	h := startCrypto(t, nil)
-	meta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_SECRET)
+	meta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
 
 	// Sign: correlate by identifier, since slice order carries no guarantee.
 	idents := []string{"item-a", "item-b", "item-c"}
@@ -522,6 +531,85 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 	}
 }
 
+func schemaSignatureAlgorithms(t *testing.T, schema []mdl.BaseAttributeDto) []string {
+	t.Helper()
+	for _, attr := range schema {
+		if attr.BaseAttributeDtoV3 == nil || attr.BaseAttributeDtoV3.DataAttributeV3 == nil {
+			continue
+		}
+		definition := attr.BaseAttributeDtoV3.DataAttributeV3
+		if definition.Name != cryptography.SignatureAlgorithmAttributeName {
+			continue
+		}
+		codes := make([]string, 0, len(definition.Content))
+		for _, option := range definition.Content {
+			if option.StringAttributeContentV3 == nil {
+				t.Fatalf("signatureAlgorithm offers a non-string option: %+v", option)
+			}
+			codes = append(codes, option.StringAttributeContentV3.Data)
+		}
+		return codes
+	}
+	t.Fatalf("sign schema carries no signatureAlgorithm definition: %+v", schema)
+	return nil
+}
+
+func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
+	h := startCrypto(t, nil)
+	pairMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
+	secretMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_SECRET)
+	item := []mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}}
+	selecting := func(algorithm cryptography.SignatureAlgorithm) []mdl.RequestAttribute {
+		return []mdl.RequestAttribute{cryptography.SignatureAlgorithmSelection(algorithm)}
+	}
+
+	t.Run("a key pair offers the ECDSA algorithms", func(t *testing.T) {
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSignAttrs, Body: keyScopedRequest(pairMeta)})
+		if !itest.AssertStatus(t, resp, http.StatusOK) {
+			t.FailNow()
+		}
+		var schema []mdl.BaseAttributeDto
+		resp.JSON(t, &schema)
+		want := []string{"SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA"}
+		if got := schemaSignatureAlgorithms(t, schema); !slices.Equal(got, want) {
+			t.Errorf("offered algorithms = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("a key pair signs with an offered algorithm", func(t *testing.T) {
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequestWith(
+			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item, selecting(cryptography.SignatureAlgorithmSHA512WithECDSA),
+		)})
+		itest.AssertStatus(t, resp, http.StatusOK)
+	})
+
+	t.Run("a sign request without a selection is refused", func(t *testing.T) {
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequestWith(
+			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item, noAttrs,
+		)})
+		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+	})
+
+	t.Run("an algorithm outside the key's offer is refused", func(t *testing.T) {
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequestWith(
+			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item, selecting(cryptography.SignatureAlgorithmSHA256WithRSA),
+		)})
+		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
+	})
+
+	t.Run("sign attributes for a secret key are refused", func(t *testing.T) {
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSignAttrs, Body: keyScopedRequest(secretMeta)})
+		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+	})
+
+	t.Run("signing with a secret key is refused", func(t *testing.T) {
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
+			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, secretMeta, item,
+		)})
+		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
+	})
+}
+
 // --- attribute endpoints -----------------------------------------------------
 
 func TestCryptographyV2AttributeEndpoints(t *testing.T) {
@@ -541,10 +629,8 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 
 	// keyMeta is minItems: 1, so these endpoints need a well-formed handle
 	// even though they ignore the key it names.
-	keyScoped := mdl.KeyScopedRequestV2Dto{
-		TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyUsages: oneUsage,
-		KeyMeta: metaAttribute(uuid.NewString(), "keyHandle", "key handle"),
-	}
+	keyScoped := keyScopedRequest(metaAttribute(uuid.NewString(), "keyHandle", "key handle"))
+	pairMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
 
 	cases := []struct {
 		name   string
@@ -559,7 +645,7 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 		}},
 		{"encryptAttributes", http.MethodPost, pathEncryptAttrs, keyScoped},
 		{"decryptAttributes", http.MethodPost, pathDecryptAttrs, keyScoped},
-		{"signAttributes", http.MethodPost, pathSignAttrs, keyScoped},
+		{"signAttributes", http.MethodPost, pathSignAttrs, keyScopedRequest(pairMeta)},
 		{"verifyAttributes", http.MethodPost, pathVerifyAttrs, keyScoped},
 		{"randomDataAttributes", http.MethodPost, pathRandomAttrs, mdl.TokenProfileScopedRequestV2Dto{
 			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyUsages: oneUsage,
@@ -659,10 +745,9 @@ func TestCryptographyV2AsyncWalk(t *testing.T) {
 		handle := out.OperationMeta
 
 		// The contract invalidates the key the moment destruction is
-		// accepted, so this signature request must already be refused.
-		during := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
-			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta,
-			[]mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}},
+		// accepted, so this encryption request must already be refused.
+		during := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(
+			meta, []mdl.CipherDataV2Dto{{Data: b64("encrypt-me"), Identifier: "item-1"}},
 		)})
 		itest.AssertProblem(t, during, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 
@@ -686,7 +771,7 @@ func TestCryptographyV2AsyncWalk(t *testing.T) {
 	})
 
 	t.Run("sign", func(t *testing.T) {
-		meta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_SECRET)
+		meta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
 		idents := []string{"async-a", "async-b"}
 		data := make([]mdl.SignatureDataV2Dto, len(idents))
 		for i, id := range idents {
@@ -779,7 +864,7 @@ func TestCryptographyV2Cancellation(t *testing.T) {
 
 	// Cancelling an accepted async signing batch: 204, then every item
 	// reports cancelled with a reason.
-	signKeyMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_SECRET)
+	signKeyMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
 	signResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
 		mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS, signKeyMeta,
 		[]mdl.SignatureDataV2Dto{{Identifier: "a", Data: "Zmlyc3Q="}, {Identifier: "b", Data: "c2Vjb25k"}},

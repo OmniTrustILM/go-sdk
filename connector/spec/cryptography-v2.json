@@ -773,7 +773,7 @@
             }
           },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Request validation failed (errorCode VALIDATION_FAILED), or the signatureAlgorithm selection names an algorithm the key does not support (errorCode PARAMETER_UNSUPPORTED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -970,7 +970,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "List signing attributes",
-        "description": "Returns the signing parameter schema supported by the connector for the supplied token, profile and key context",
+        "description": "Returns the signing parameter schema supported by the connector for the supplied token, profile and key context. The schema includes signatureAlgorithm, a v3 data attribute offering the signature algorithms the key supports.",
         "operationId": "listSignAttributes",
         "requestBody": {
           "content": {

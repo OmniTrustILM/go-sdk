@@ -71,7 +71,8 @@ type Provider interface {
 	// SignData signs a batch, with CreateKey's accepted semantics; a 202
 	// carries one operationMeta handle for the whole batch. There is no
 	// idempotency key: a retry after a lost accepted response starts a new
-	// batch.
+	// batch. Implementers must sign with the algorithm read by SelectedSignatureAlgorithm,
+	// and refuse one the key lacks with ErrSignatureAlgorithmUnsupported.
 	SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (resp *mdl.SignDataResponseV2Dto, accepted bool, err error)
 
 	// VerifyData verifies signatures. Always synchronous; the handler requires
