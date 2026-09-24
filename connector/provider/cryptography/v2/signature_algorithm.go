@@ -100,6 +100,7 @@ func (a SignatureAlgorithm) IsValid() bool {
 	return a.Label() != ""
 }
 
+// SignatureAlgorithmDefinition builds the required single-select v3 signatureAlgorithm definition from supported.
 func SignatureAlgorithmDefinition(supported ...SignatureAlgorithm) mdl.BaseAttributeDto {
 	properties := mdl.DataAttributeProperties{
 		Label:           "Signature Algorithm",
