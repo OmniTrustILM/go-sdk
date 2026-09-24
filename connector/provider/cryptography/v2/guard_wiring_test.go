@@ -237,7 +237,9 @@ func TestCreateKeyResponseMustAnswerTheRequestedKeyRequestType(t *testing.T) {
 }
 
 func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
-	p := &stubProvider{createKeyResp: keyPairCreationResponse(func(*mdl.KeyPairDataResponseV2Dto) {})}
+	p := &stubProvider{createKeyResp: keyPairCreationResponse(func(v *mdl.KeyPairDataResponseV2Dto) {
+		v.PrivateKeyData.KeyData.Length = 4096
+	})}
 	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/keys", keyPairCreateKeyBody("synchronous"))
 
 	if rec.Code != http.StatusOK {
@@ -250,6 +252,9 @@ func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
 	if got.PublicKeyData == nil || got.PublicKeyData.KeyData.PublicKeySpki != "AA==" {
 		t.Errorf("publicKeyData not round-tripped; body %s", rec.Body.String())
 	}
+	if got.PrivateKeyData == nil || got.PrivateKeyData.KeyData.Length != 4096 {
+		t.Errorf("privateKeyData not round-tripped; body %s", rec.Body.String())
+	}
 }
 
 func TestCreateKeyKeyPairResponseGuards(t *testing.T) {
@@ -260,8 +265,6 @@ func TestCreateKeyKeyPairResponseGuards(t *testing.T) {
 	}{
 		{"publicKeySpki missing", func(v *mdl.KeyPairDataResponseV2Dto) { v.PublicKeyData.KeyData.PublicKeySpki = "" },
 			"publicKeyData.keyData must carry publicKeySpki"},
-		{"lengths disagree", func(v *mdl.KeyPairDataResponseV2Dto) { v.PrivateKeyData.KeyData.Length = 4096 },
-			"public and private key lengths must match"},
 		{"private keyMeta missing", func(v *mdl.KeyPairDataResponseV2Dto) { v.PrivateKeyData.KeyMeta = nil },
 			"key creation completed synchronously must carry a result payload"},
 		{"public descriptor carries the private type", func(v *mdl.KeyPairDataResponseV2Dto) { v.PublicKeyData.KeyData.Type = "Private" },

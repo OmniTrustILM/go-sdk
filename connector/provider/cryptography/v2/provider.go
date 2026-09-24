@@ -54,8 +54,9 @@ type Provider interface {
 	//     ExecutionMode, TokenAttributes, TokenProfileAttributes and
 	//     CreateKeyAttributes. Non-equivalent reuse returns
 	//     ErrKeyCreationConflict.
-	//   - validate publicKeySpki's DER encoding and its agreement with the
-	//     declared algorithm and length, and MetadataAttribute
+	//   - validate publicKeySpki's DER encoding and algorithm, plus RSA public
+	//     length against its modulus
+	//   - validate MetadataAttribute
 	//
 	// A connector that cannot execute asynchronously must leave
 	// FEATUREFLAG_ASYNCHRONOUS unadvertised; Core requires 202 for that mode.

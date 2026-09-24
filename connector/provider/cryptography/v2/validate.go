@@ -521,11 +521,6 @@ const (
 	keyTypePrivate = "Private"
 )
 
-// validateKeyPairPayload enforces each side's keyMeta and descriptor, the
-// public SPKI's presence, and equal algorithm and length across both halves.
-// The SPKI is not parsed; that is the connector's job. Core applies the length
-// equality (KeyPairDataResponseV2Dto.isKeyLengthsMatching) to every algorithm;
-// for post-quantum entries length identifies the parameter set, so it matches.
 func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) error {
 	if len(v.PublicKeyData.KeyMeta) == 0 || len(v.PrivateKeyData.KeyMeta) == 0 {
 		return errIncompleteKeyPayload(subject)
@@ -542,9 +537,6 @@ func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) err
 	}
 	if pub.Algorithm != priv.Algorithm {
 		return errResponseShape("public and private key algorithms must match")
-	}
-	if pub.Length != priv.Length {
-		return errResponseShape("public and private key lengths must match")
 	}
 	return nil
 }

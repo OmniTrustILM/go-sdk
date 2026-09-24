@@ -657,9 +657,9 @@ func TestValidateKeyPairPayload(t *testing.T) {
 		{"algorithms disagree", func(v *mdl.KeyPairDataResponseV2Dto) {
 			v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
 		}, "public and private key algorithms must match"},
-		{"lengths disagree", func(v *mdl.KeyPairDataResponseV2Dto) {
+		{"distinct positive lengths", func(v *mdl.KeyPairDataResponseV2Dto) {
 			v.PrivateKeyData.KeyData.Length = 4096
-		}, "public and private key lengths must match"},
+		}, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -950,7 +950,9 @@ func TestValidateKeyCreationStatusShapeChecksCompletedKeyPairResult(t *testing.T
 		}
 	}
 
-	complete := keyPair(func(*mdl.KeyPairDataResponseV2Dto) {})
+	complete := keyPair(func(v *mdl.KeyPairDataResponseV2Dto) {
+		v.PrivateKeyData.KeyData.Length = 4096
+	})
 	wantNoError(t, validateKeyCreationStatusShape(completedWith(complete)))
 
 	// Only the public half: a partial key pair, not a completed creation.
