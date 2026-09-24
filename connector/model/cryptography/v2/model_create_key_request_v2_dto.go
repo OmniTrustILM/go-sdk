@@ -26,13 +26,11 @@ type CreateKeyRequestV2Dto struct {
 	TokenAttributes []RequestAttribute `json:"tokenAttributes"`
 	// Token profile attributes
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
-	// Key usages selected on the token profile
-	KeyUsages []KeyUsage `json:"keyUsages"`
 	// Type of key to create
 	KeyRequestType KeyRequestType `json:"keyRequestType"`
 	// Caller-selected execution mode. The connector must not switch modes implicitly.
 	ExecutionMode OperationExecutionMode `json:"executionMode"`
-	// Identifier of a key creation operation. Replays must use the same keyRequestType, executionMode, tokenAttributes, tokenProfileAttributes, keyUsages, and createKeyAttributes. An asynchronous replay returns HTTP 202 with the original operationMeta. A synchronous replay returns HTTP 200 with the original result. Non-equivalent reuse returns RESOURCE_ALREADY_EXISTS (HTTP 409). 
+	// Identifier of a key creation operation. Replays must use the same keyRequestType, executionMode, tokenAttributes, tokenProfileAttributes, and createKeyAttributes. An asynchronous replay returns HTTP 202 with the original operationMeta. A synchronous replay returns HTTP 200 with the original result. Non-equivalent reuse returns RESOURCE_ALREADY_EXISTS (HTTP 409). 
 	KeyCreationId string `json:"keyCreationId"`
 	// Attributes to create the key
 	CreateKeyAttributes []RequestAttribute `json:"createKeyAttributes"`
@@ -44,11 +42,10 @@ type _CreateKeyRequestV2Dto CreateKeyRequestV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewCreateKeyRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyUsages []KeyUsage, keyRequestType KeyRequestType, executionMode OperationExecutionMode, keyCreationId string, createKeyAttributes []RequestAttribute) *CreateKeyRequestV2Dto {
+func NewCreateKeyRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyRequestType KeyRequestType, executionMode OperationExecutionMode, keyCreationId string, createKeyAttributes []RequestAttribute) *CreateKeyRequestV2Dto {
 	this := CreateKeyRequestV2Dto{}
 	this.TokenAttributes = tokenAttributes
 	this.TokenProfileAttributes = tokenProfileAttributes
-	this.KeyUsages = keyUsages
 	this.KeyRequestType = keyRequestType
 	this.ExecutionMode = executionMode
 	this.KeyCreationId = keyCreationId
@@ -110,30 +107,6 @@ func (o *CreateKeyRequestV2Dto) GetTokenProfileAttributesOk() ([]RequestAttribut
 // SetTokenProfileAttributes sets field value
 func (o *CreateKeyRequestV2Dto) SetTokenProfileAttributes(v []RequestAttribute) {
 	o.TokenProfileAttributes = v
-}
-
-// GetKeyUsages returns the KeyUsages field value
-func (o *CreateKeyRequestV2Dto) GetKeyUsages() []KeyUsage {
-	if o == nil {
-		var ret []KeyUsage
-		return ret
-	}
-
-	return o.KeyUsages
-}
-
-// GetKeyUsagesOk returns a tuple with the KeyUsages field value
-// and a boolean to check if the value has been set.
-func (o *CreateKeyRequestV2Dto) GetKeyUsagesOk() ([]KeyUsage, bool) {
-	if o == nil {
-		return nil, false
-	}
-	return o.KeyUsages, true
-}
-
-// SetKeyUsages sets field value
-func (o *CreateKeyRequestV2Dto) SetKeyUsages(v []KeyUsage) {
-	o.KeyUsages = v
 }
 
 // GetKeyRequestType returns the KeyRequestType field value
@@ -244,7 +217,6 @@ func (o CreateKeyRequestV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["tokenAttributes"] = o.TokenAttributes
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
-	toSerialize["keyUsages"] = o.KeyUsages
 	toSerialize["keyRequestType"] = o.KeyRequestType
 	toSerialize["executionMode"] = o.ExecutionMode
 	toSerialize["keyCreationId"] = o.KeyCreationId
@@ -259,7 +231,6 @@ func (o *CreateKeyRequestV2Dto) UnmarshalJSON(data []byte) (err error) {
 	requiredProperties := []string{
 		"tokenAttributes",
 		"tokenProfileAttributes",
-		"keyUsages",
 		"keyRequestType",
 		"executionMode",
 		"keyCreationId",

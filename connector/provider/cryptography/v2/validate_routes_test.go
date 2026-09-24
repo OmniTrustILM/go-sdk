@@ -40,13 +40,10 @@ func assertProblem(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int,
 	return problem
 }
 
-// Leading scope every operation request body carries. Both fill keyUsages
-// (and keyMeta, where the DTO declares it) with one element because the
-// contract marks them minItems: 1 and validate.go's request guards reject an
-// empty one with 422 — a body meant to reach a later rule must satisfy the
-// earlier ones. oneKeyUsage and oneMetadataAttribute live in routes_test.go.
+// Leading scope every operation request body carries. The one keyMeta entry
+// lets a body pass the earlier guards and reach the rule under test.
 const (
-	tokenScopedPrefix = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage
+	tokenScopedPrefix = `{"tokenAttributes":[],"tokenProfileAttributes":[]`
 	keyScopedPrefix   = tokenScopedPrefix + `,"keyMeta":` + oneMetadataAttribute
 )
 
@@ -192,6 +189,22 @@ func TestRoutesRejectEmptyBatchLists(t *testing.T) {
 	}
 }
 
+func TestKeyScopedRoutesRejectEmptyKeyMeta(t *testing.T) {
+	for _, route := range tokenProfileScopedRoutes {
+		if !strings.Contains(route.body, oneMetadataAttribute) {
+			continue
+		}
+		t.Run(route.path, func(t *testing.T) {
+			body := strings.Replace(route.body, oneMetadataAttribute, "[]", 1)
+
+			rec := post(t, newTestServer(t, &stubProvider{}), route.path, body)
+
+			problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+			assertDetail(t, problem, "keyMeta must not be empty")
+		})
+	}
+}
+
 // An asynchronous sign with "data":[] must be refused at the boundary with
 // 422, not accepted with 202: an accepted empty batch surfaces later as a 500
 // "items must not be empty" from the status call, blaming the connector for a
@@ -216,7 +229,7 @@ func TestAsyncSignWithEmptyDataIsRejectedAtTheBoundary(t *testing.T) {
 	}
 }
 
-// TestStatusAndCancelRoutesRejectEmptyOperationMeta covers the sixth
+// TestStatusAndCancelRoutesRejectEmptyOperationMeta covers the operationMeta
 // minItems: 1 list, on the DTO all six status/cancel routes decode.
 func TestStatusAndCancelRoutesRejectEmptyOperationMeta(t *testing.T) {
 	srv := newTestServer(t, &stubProvider{},
@@ -241,81 +254,70 @@ func TestStatusAndCancelRoutesRejectEmptyOperationMeta(t *testing.T) {
 	}
 }
 
-// --- Request side: keyUsages (minItems: 1 and uniqueItems: true) --------------
+// --- Request side: token-profile key usages -----------------------------------
 
-// TestRoutesRejectInvalidKeyUsages covers both keyUsages rules on every route
-// that carries the property — nine request DTOs declare it, so a guard missing
-// from one handler would otherwise go unnoticed while the others pass.
-// keyUsages is the first guard each of these handlers runs, so nothing later
-// in the body can pre-empt the rule under test.
-func TestRoutesRejectInvalidKeyUsages(t *testing.T) {
-	tokenProfileScoped := func(u string) string {
-		return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u + `}`
+// tokenProfileScopedRoutes holds every route whose request extends the
+// token-profile scope. wantStatus is tokenNotFoundProvider's answer: 404 from
+// a provider route, 200 from an unregistered attribute route.
+var tokenProfileScopedRoutes = []struct {
+	path       string
+	body       string
+	wantStatus int
+}{
+	{"/v2/cryptographyProvider/tokens/keyRequestTypes", tokenProfileScopedBody, http.StatusNotFound},
+	{"/v2/cryptographyProvider/operations/random/attributes", tokenProfileScopedBody, http.StatusOK},
+	{"/v2/cryptographyProvider/operations/encrypt/attributes", keyScopedRequestBody, http.StatusOK},
+	{"/v2/cryptographyProvider/operations/decrypt/attributes", keyScopedRequestBody, http.StatusOK},
+	{"/v2/cryptographyProvider/operations/sign/attributes", keyScopedRequestBody, http.StatusOK},
+	{"/v2/cryptographyProvider/operations/verify/attributes", keyScopedRequestBody, http.StatusOK},
+	{"/v2/cryptographyProvider/operations/encrypt", cipherDataBody, http.StatusNotFound},
+	{"/v2/cryptographyProvider/operations/decrypt", cipherDataBody, http.StatusNotFound},
+	{"/v2/cryptographyProvider/keys/create/attributes", createKeyAttributesRequestBody, http.StatusOK},
+	{"/v2/cryptographyProvider/keys", createKeyBody("synchronous"), http.StatusNotFound},
+	{"/v2/cryptographyProvider/keys/destroy", destroyKeyBody("synchronous"), http.StatusNotFound},
+	{"/v2/cryptographyProvider/operations/sign", signDataBody("synchronous"), http.StatusNotFound},
+	{"/v2/cryptographyProvider/operations/verify", verifyDataBody, http.StatusNotFound},
+	{"/v2/cryptographyProvider/operations/random", randomDataBody, http.StatusNotFound},
+}
+
+// tokenNotFoundProvider fails every token-profile-scoped call with
+// ErrTokenNotFound. A 404 therefore proves the request reached the provider.
+func tokenNotFoundProvider() *stubProvider {
+	err := cryptography.ErrTokenNotFound
+	return &stubProvider{
+		keyRequestTypesErr: err,
+		createKeyErr:       err,
+		destroyKeyErr:      err,
+		signDataErr:        err,
+		verifyDataErr:      err,
+		encryptDataErr:     err,
+		decryptDataErr:     err,
+		randomDataErr:      err,
 	}
-	keyScoped := func(u string) string {
-		return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u +
-			`,"keyMeta":` + oneMetadataAttribute + `}`
-	}
-	cipherData := func(u string) string {
-		return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u +
-			`,"keyMeta":` + oneMetadataAttribute + `,"cipherAttributes":[],"cipherData":[{"identifier":"a","data":"AA=="}]}`
-	}
-	routes := []struct {
-		path string
-		body func(usages string) string
-	}{
-		{"/v2/cryptographyProvider/tokens/keyRequestTypes", tokenProfileScoped},
-		{"/v2/cryptographyProvider/operations/random/attributes", tokenProfileScoped},
-		{"/v2/cryptographyProvider/operations/encrypt/attributes", keyScoped},
-		{"/v2/cryptographyProvider/operations/decrypt/attributes", keyScoped},
-		{"/v2/cryptographyProvider/operations/sign/attributes", keyScoped},
-		{"/v2/cryptographyProvider/operations/verify/attributes", keyScoped},
-		{"/v2/cryptographyProvider/operations/encrypt", cipherData},
-		{"/v2/cryptographyProvider/operations/decrypt", cipherData},
-		{"/v2/cryptographyProvider/keys/create/attributes", func(u string) string {
-			return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u + `,"keyRequestType":"secret"}`
-		}},
-		{"/v2/cryptographyProvider/keys", func(u string) string {
-			return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u +
-				`,"keyRequestType":"secret","executionMode":"synchronous","keyCreationId":"k1","createKeyAttributes":[]}`
-		}},
-		{"/v2/cryptographyProvider/keys/destroy", func(u string) string {
-			return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u +
-				`,"keyMeta":` + oneMetadataAttribute + `,"executionMode":"synchronous"}`
-		}},
-		{"/v2/cryptographyProvider/operations/sign", func(u string) string {
-			return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u +
-				`,"keyMeta":` + oneMetadataAttribute + `,"executionMode":"synchronous","signatureAttributes":[],"data":[{"identifier":"a","data":"AA=="}]}`
-		}},
-		{"/v2/cryptographyProvider/operations/verify", func(u string) string {
-			return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u +
-				`,"keyMeta":` + oneMetadataAttribute + `,"signatureAttributes":[],"data":[{"identifier":"a","data":"AA=="}],"signatures":[{"identifier":"a","data":"BB=="}]}`
-		}},
-		{"/v2/cryptographyProvider/operations/random", func(u string) string {
-			return `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + u +
-				`,"length":1,"operationAttributes":[]}`
-		}},
-	}
-	violations := []struct {
-		name       string
-		usages     string
-		wantDetail string
-	}{
-		{"empty", `[]`, "keyUsages must not be empty"},
-		{"duplicate", `["sign","sign"]`, "keyUsages must not contain duplicates"},
-	}
-	for _, route := range routes {
+}
+
+func TestRoutesAcceptRequestsWithoutKeyUsages(t *testing.T) {
+	for _, route := range tokenProfileScopedRoutes {
 		t.Run(route.path, func(t *testing.T) {
-			for _, tc := range violations {
-				t.Run(tc.name, func(t *testing.T) {
-					srv := newTestServer(t, &stubProvider{})
+			rec := post(t, newTestServer(t, tokenNotFoundProvider()), route.path, route.body)
 
-					rec := post(t, srv, route.path, route.body(tc.usages))
-
-					problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
-					assertDetail(t, problem, tc.wantDetail)
-				})
+			if rec.Code != route.wantStatus {
+				t.Errorf("status = %d, want %d; body %s", rec.Code, route.wantStatus, rec.Body.String())
 			}
+		})
+	}
+}
+
+// Token-profile key usages are Core policy. The request DTOs reject them as
+// an unknown property.
+func TestRoutesRejectRequestsCarryingKeyUsages(t *testing.T) {
+	for _, route := range tokenProfileScopedRoutes {
+		t.Run(route.path, func(t *testing.T) {
+			body := strings.Replace(route.body, "{", `{"keyUsages":["sign"],`, 1)
+
+			rec := post(t, newTestServer(t, tokenNotFoundProvider()), route.path, body)
+
+			assertProblem(t, rec, http.StatusBadRequest, "INVALID_JSON")
 		})
 	}
 }

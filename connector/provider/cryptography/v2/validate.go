@@ -107,22 +107,6 @@ func validateNonEmptyBatch(n int, field string) error {
 	return nil
 }
 
-// validateKeyUsages enforces both constraints every request DTO puts on
-// keyUsages: minItems: 1 and uniqueItems: true.
-func validateKeyUsages(usages []mdl.KeyUsage) error {
-	if err := validateNonEmptyBatch(len(usages), "keyUsages"); err != nil {
-		return err
-	}
-	seen := make(map[mdl.KeyUsage]struct{}, len(usages))
-	for _, u := range usages {
-		if _, dup := seen[u]; dup {
-			return errValidationFailed("keyUsages must not contain duplicates")
-		}
-		seen[u] = struct{}{}
-	}
-	return nil
-}
-
 // firstError returns the first non-nil error in errs, so a handler states its
 // request guards as one ordered list. All arguments are evaluated eagerly; the
 // guards are pure and cheap, and none depends on an earlier one.

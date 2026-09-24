@@ -26,8 +26,6 @@ type CipherDataRequestV2Dto struct {
 	TokenAttributes []RequestAttribute `json:"tokenAttributes"`
 	// Token profile attributes
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
-	// Key usages selected on the token profile
-	KeyUsages []KeyUsage `json:"keyUsages"`
 	// Connector-defined metadata identifying the key, as returned when the key was created, listed or identified. Supply the metadata unchanged in subsequent requests for the key. Metadata must identify the key durably—it must remain valid across connector restarts and sessions; ephemeral handles must not be used.
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
 	// Batch-wide cipher settings.
@@ -42,11 +40,10 @@ type _CipherDataRequestV2Dto CipherDataRequestV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewCipherDataRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyUsages []KeyUsage, keyMeta []MetadataAttribute, cipherAttributes []RequestAttribute, cipherData []CipherDataV2Dto) *CipherDataRequestV2Dto {
+func NewCipherDataRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyMeta []MetadataAttribute, cipherAttributes []RequestAttribute, cipherData []CipherDataV2Dto) *CipherDataRequestV2Dto {
 	this := CipherDataRequestV2Dto{}
 	this.TokenAttributes = tokenAttributes
 	this.TokenProfileAttributes = tokenProfileAttributes
-	this.KeyUsages = keyUsages
 	this.KeyMeta = keyMeta
 	this.CipherAttributes = cipherAttributes
 	this.CipherData = cipherData
@@ -107,30 +104,6 @@ func (o *CipherDataRequestV2Dto) GetTokenProfileAttributesOk() ([]RequestAttribu
 // SetTokenProfileAttributes sets field value
 func (o *CipherDataRequestV2Dto) SetTokenProfileAttributes(v []RequestAttribute) {
 	o.TokenProfileAttributes = v
-}
-
-// GetKeyUsages returns the KeyUsages field value
-func (o *CipherDataRequestV2Dto) GetKeyUsages() []KeyUsage {
-	if o == nil {
-		var ret []KeyUsage
-		return ret
-	}
-
-	return o.KeyUsages
-}
-
-// GetKeyUsagesOk returns a tuple with the KeyUsages field value
-// and a boolean to check if the value has been set.
-func (o *CipherDataRequestV2Dto) GetKeyUsagesOk() ([]KeyUsage, bool) {
-	if o == nil {
-		return nil, false
-	}
-	return o.KeyUsages, true
-}
-
-// SetKeyUsages sets field value
-func (o *CipherDataRequestV2Dto) SetKeyUsages(v []KeyUsage) {
-	o.KeyUsages = v
 }
 
 // GetKeyMeta returns the KeyMeta field value
@@ -217,7 +190,6 @@ func (o CipherDataRequestV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["tokenAttributes"] = o.TokenAttributes
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
-	toSerialize["keyUsages"] = o.KeyUsages
 	toSerialize["keyMeta"] = o.KeyMeta
 	toSerialize["cipherAttributes"] = o.CipherAttributes
 	toSerialize["cipherData"] = o.CipherData
@@ -231,7 +203,6 @@ func (o *CipherDataRequestV2Dto) UnmarshalJSON(data []byte) (err error) {
 	requiredProperties := []string{
 		"tokenAttributes",
 		"tokenProfileAttributes",
-		"keyUsages",
 		"keyMeta",
 		"cipherAttributes",
 		"cipherData",

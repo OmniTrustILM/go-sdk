@@ -204,14 +204,12 @@ func metaID(meta []mdl.MetadataAttribute) (string, bool) {
 
 // --- keyCreationId equivalence ---------------------------------------------
 
-// createKeyEquivalence mirrors the six fields CreateKey defines request
-// equivalence over.
+// createKeyEquivalence holds the fields a keyCreationId replay must match.
 type createKeyEquivalence struct {
 	KeyRequestType         mdl.KeyRequestType         `json:"keyRequestType"`
 	ExecutionMode          mdl.OperationExecutionMode `json:"executionMode"`
 	TokenAttributes        []mdl.RequestAttribute     `json:"tokenAttributes"`
 	TokenProfileAttributes []mdl.RequestAttribute     `json:"tokenProfileAttributes"`
-	KeyUsages              []mdl.KeyUsage             `json:"keyUsages"`
 	CreateKeyAttributes    []mdl.RequestAttribute     `json:"createKeyAttributes"`
 }
 
@@ -223,7 +221,6 @@ func fingerprintCreateKey(req *mdl.CreateKeyRequestV2Dto) string {
 		ExecutionMode:          req.ExecutionMode,
 		TokenAttributes:        req.TokenAttributes,
 		TokenProfileAttributes: req.TokenProfileAttributes,
-		KeyUsages:              req.KeyUsages,
 		CreateKeyAttributes:    req.CreateKeyAttributes,
 	}
 	b, err := json.Marshal(eq)
@@ -439,7 +436,7 @@ func (s *Store) KeyRequestTypes(ctx context.Context, req *mdl.TokenProfileScoped
 
 // CreateKey creates a secret key or key pair, synchronously or asynchronously
 // per req.ExecutionMode. req.KeyCreationId makes this idempotent: a retry
-// whose six equivalence fields fingerprint the same as the original replays
+// whose equivalence fields fingerprint the same as the original replays
 // its result (or tracking handle); a non-equivalent reuse of the same id is a
 // conflict. A key pair reports ECDSA at 256 bits; a secret key reports
 // Unknown.

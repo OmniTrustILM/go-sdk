@@ -26,8 +26,6 @@ type RandomDataRequestV2Dto struct {
 	TokenAttributes []RequestAttribute `json:"tokenAttributes"`
 	// Token profile attributes
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
-	// Key usages selected on the token profile
-	KeyUsages []KeyUsage `json:"keyUsages"`
 	// Number of random bytes to generate, capped at 1 MiB
 	Length int32 `json:"length"`
 	// Random generator attributes
@@ -40,11 +38,10 @@ type _RandomDataRequestV2Dto RandomDataRequestV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewRandomDataRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, keyUsages []KeyUsage, length int32, operationAttributes []RequestAttribute) *RandomDataRequestV2Dto {
+func NewRandomDataRequestV2Dto(tokenAttributes []RequestAttribute, tokenProfileAttributes []RequestAttribute, length int32, operationAttributes []RequestAttribute) *RandomDataRequestV2Dto {
 	this := RandomDataRequestV2Dto{}
 	this.TokenAttributes = tokenAttributes
 	this.TokenProfileAttributes = tokenProfileAttributes
-	this.KeyUsages = keyUsages
 	this.Length = length
 	this.OperationAttributes = operationAttributes
 	return &this
@@ -104,30 +101,6 @@ func (o *RandomDataRequestV2Dto) GetTokenProfileAttributesOk() ([]RequestAttribu
 // SetTokenProfileAttributes sets field value
 func (o *RandomDataRequestV2Dto) SetTokenProfileAttributes(v []RequestAttribute) {
 	o.TokenProfileAttributes = v
-}
-
-// GetKeyUsages returns the KeyUsages field value
-func (o *RandomDataRequestV2Dto) GetKeyUsages() []KeyUsage {
-	if o == nil {
-		var ret []KeyUsage
-		return ret
-	}
-
-	return o.KeyUsages
-}
-
-// GetKeyUsagesOk returns a tuple with the KeyUsages field value
-// and a boolean to check if the value has been set.
-func (o *RandomDataRequestV2Dto) GetKeyUsagesOk() ([]KeyUsage, bool) {
-	if o == nil {
-		return nil, false
-	}
-	return o.KeyUsages, true
-}
-
-// SetKeyUsages sets field value
-func (o *RandomDataRequestV2Dto) SetKeyUsages(v []KeyUsage) {
-	o.KeyUsages = v
 }
 
 // GetLength returns the Length field value
@@ -190,7 +163,6 @@ func (o RandomDataRequestV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["tokenAttributes"] = o.TokenAttributes
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
-	toSerialize["keyUsages"] = o.KeyUsages
 	toSerialize["length"] = o.Length
 	toSerialize["operationAttributes"] = o.OperationAttributes
 	return toSerialize, nil
@@ -203,7 +175,6 @@ func (o *RandomDataRequestV2Dto) UnmarshalJSON(data []byte) (err error) {
 	requiredProperties := []string{
 		"tokenAttributes",
 		"tokenProfileAttributes",
-		"keyUsages",
 		"length",
 		"operationAttributes",
 	}

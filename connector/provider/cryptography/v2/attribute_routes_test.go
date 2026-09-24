@@ -18,8 +18,8 @@ import (
 // package (tokenScopedBody and tokenProfileScopedBody are declared in
 // routes_test.go and reused here as-is).
 const (
-	createKeyAttributesRequestBody = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage + `,"keyRequestType":"secret"}`
-	keyScopedRequestBody           = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyUsages":` + oneKeyUsage + `,"keyMeta":` + oneMetadataAttribute + `}`
+	createKeyAttributesRequestBody = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyRequestType":"secret"}`
+	keyScopedRequestBody           = `{"tokenAttributes":[],"tokenProfileAttributes":[],"keyMeta":` + oneMetadataAttribute + `}`
 )
 
 // attrRequest issues method against srv for path with an optional body
