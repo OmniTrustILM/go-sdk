@@ -238,7 +238,10 @@ func TestCreateKeyResponseMustAnswerTheRequestedKeyRequestType(t *testing.T) {
 
 func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
 	p := &stubProvider{createKeyResp: keyPairCreationResponse(func(v *mdl.KeyPairDataResponseV2Dto) {
-		v.PrivateKeyData.KeyData.Length = 4096
+		v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
+		v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
+		v.PublicKeyData.KeyData.Length = 512
+		v.PrivateKeyData.KeyData.Length = 256
 	})}
 	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/keys", keyPairCreateKeyBody("synchronous"))
 
@@ -249,10 +252,12 @@ func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode body: %v; body %s", err, rec.Body.String())
 	}
-	if got.PublicKeyData == nil || got.PublicKeyData.KeyData.PublicKeySpki != "AA==" {
+	if got.PublicKeyData == nil || got.PublicKeyData.KeyData.PublicKeySpki != "AA==" ||
+		got.PublicKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA || got.PublicKeyData.KeyData.Length != 512 {
 		t.Errorf("publicKeyData not round-tripped; body %s", rec.Body.String())
 	}
-	if got.PrivateKeyData == nil || got.PrivateKeyData.KeyData.Length != 4096 {
+	if got.PrivateKeyData == nil || got.PrivateKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA ||
+		got.PrivateKeyData.KeyData.Length != 256 {
 		t.Errorf("privateKeyData not round-tripped; body %s", rec.Body.String())
 	}
 }
