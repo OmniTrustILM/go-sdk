@@ -221,7 +221,7 @@ var wrappers = []wrapper{
 	{
 		// authority-v3: anonymous oneOf inside FieldMapping.fields[] items.
 		// The spec's discriminator sits on the MappedField allOf base
-		// (propertyName "fieldType", FieldType enum rdn/san/extension); each
+		// (propertyName "fieldType"); each
 		// variant is allOf(MappedField + specifics), so fieldType selects the
 		// variant. Patching by discriminator is stricter than the generator's
 		// match-counting fallback (a contradictory payload like
