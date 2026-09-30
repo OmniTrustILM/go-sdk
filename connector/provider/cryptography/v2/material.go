@@ -131,7 +131,7 @@ func ProtectKeyMaterial(privateKeyInfoDER []byte, passphrase string) (mdl.Encryp
 	padded := pad(privateKeyInfoDER)
 	defer clear(padded)
 	ciphertext := make([]byte, len(padded))
-	cipher.NewCBCEncrypter(block, iv).CryptBlocks(ciphertext, padded)
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(ciphertext, padded) // NOSONAR - the pinned PBES2 profile is AES-256-CBC
 	der, err := marshalEnvelope(salt, iv, ciphertext, protectIterations)
 	if err != nil {
 		return mdl.EncryptedKeyMaterialV2Dto{}, err
@@ -232,7 +232,7 @@ func (e *envelope) open(passphrase string) ([]byte, error) {
 		return nil, err
 	}
 	plaintext := make([]byte, len(e.ciphertext))
-	cipher.NewCBCDecrypter(block, e.iv).CryptBlocks(plaintext, e.ciphertext)
+	cipher.NewCBCDecrypter(block, e.iv).CryptBlocks(plaintext, e.ciphertext) // NOSONAR - the pinned PBES2 profile is AES-256-CBC
 	key, ok := unpad(plaintext)
 	if !ok || !isPrivateKeyInfo(key) {
 		clear(plaintext)
