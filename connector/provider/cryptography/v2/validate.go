@@ -3,6 +3,7 @@ package cryptography
 import (
 	"encoding/base64"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -19,10 +20,11 @@ import (
 // Checks that need crypto knowledge or connector-specific attribute equality
 // are delegated to the Provider methods and documented there.
 
-// maxKeyCreationIdLen mirrors the spec's maxLength: 256 on keyCreationId. JSON
-// Schema maxLength counts code points, so the check counts runes; Java's @Size
-// counts UTF-16 code units, so Core may still reject supplementary-plane ids.
-const maxKeyCreationIdLen = 256
+// maxIdempotencyKeyLen mirrors the spec's maxLength: 256 on keyCreationId and
+// keyImportId. JSON Schema maxLength counts code points, so the check counts
+// runes; Java's @Size counts UTF-16 code units, so Core may still reject
+// supplementary-plane ids.
+const maxIdempotencyKeyLen = 256
 
 // maxRandomDataLength mirrors RandomDataRequestV2Dto.length's documented 1 MiB
 // cap, which the generated DTO does not enforce.
@@ -73,16 +75,54 @@ func validateModeNotSwitched(mode mdl.OperationExecutionMode, accepted bool, wha
 	return nil
 }
 
-// validateKeyCreationId enforces the contract's @NotBlank and
-// @Size(max = 256) on CreateKeyRequestV2Dto.keyCreationId.
-func validateKeyCreationId(id string) error {
+// validateIdempotencyKey enforces the contract's @NotBlank and
+// @Size(max = 256) on keyCreationId and keyImportId. field names the id in
+// the error message.
+func validateIdempotencyKey(id, field string) error {
 	if strings.TrimSpace(id) == "" {
-		return errValidationFailed("keyCreationId is required and must not be blank")
+		return errValidationFailed(field + " is required and must not be blank")
 	}
-	if utf8.RuneCountInString(id) > maxKeyCreationIdLen {
-		return errValidationFailed("keyCreationId must not exceed 256 characters")
+	if utf8.RuneCountInString(id) > maxIdempotencyKeyLen {
+		return errValidationFailed(field + " must not exceed 256 characters")
 	}
 	return nil
+}
+
+// canonicalUUID is keyReference's @Pattern, anchored as Java matches it.
+var canonicalUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// validateKeyReference enforces the import's @NotBlank and @Pattern on
+// keyReference.
+func validateKeyReference(reference string) error {
+	if strings.TrimSpace(reference) == "" {
+		return errValidationFailed("keyReference is required")
+	}
+	return validateOptionalKeyReference(&reference)
+}
+
+// validateOptionalKeyReference enforces the export's @Pattern on keyReference,
+// which the request may leave out.
+func validateOptionalKeyReference(reference *string) error {
+	if reference != nil && !canonicalUUID.MatchString(*reference) {
+		return errValidationFailed("keyReference must be a canonical UUID")
+	}
+	return nil
+}
+
+// validatePassphrase enforces @NotBlank on a key transfer's passphrase.
+func validatePassphrase(passphrase string) error {
+	if strings.TrimSpace(passphrase) == "" {
+		return errValidationFailed("passphrase is required")
+	}
+	return nil
+}
+
+// validateRequestMaterial refuses material that is not base64 as an
+// unreadable body, and an envelope outside the pinned profile as a field
+// validation failure, as the contract states.
+func validateRequestMaterial(material mdl.EncryptedKeyMaterialV2Dto) error {
+	_, err := readEnvelope(material)
+	return err
 }
 
 // validateUniqueIdentifiers enforces the contract's @UniqueIdentifiers on a
@@ -403,19 +443,26 @@ func validateDestroyShape(accepted, hasMeta bool) error {
 // payload (validateKeyCreationPayload). A completed result nested in a status
 // response is held to the synchronous rules by validateKeyCreationStatusShape.
 func validateKeyCreationShape(accepted bool, out *mdl.KeyCreationResponse) error {
+	return validateKeyResultShape(accepted, out, "key creation")
+}
+
+// validateKeyResultShape holds validateKeyCreationShape's rules for any
+// operation answered with a created-key result, a key import too. what names
+// the operation in the messages.
+func validateKeyResultShape(accepted bool, out *mdl.KeyCreationResponse, what string) error {
 	if err := validateKeyCreationCommon(out); err != nil {
 		return err
 	}
 	if accepted {
 		if !keyCreationHasMeta(out) {
-			return errResponseShape("key creation accepted for asynchronous execution must carry operationMeta")
+			return errResponseShape(what + " accepted for asynchronous execution must carry operationMeta")
 		}
 		if keyCreationHasPayload(out) {
-			return errResponseShape("key creation accepted for asynchronous execution must not carry a result payload")
+			return errResponseShape(what + " accepted for asynchronous execution must not carry a result payload")
 		}
 		return nil
 	}
-	return validateSynchronousKeyCreation(out, "key creation completed synchronously")
+	return validateSynchronousKeyCreation(out, what+" completed synchronously")
 }
 
 // validateKeyCreationCommon holds the mode-independent rules: exactly one
@@ -450,7 +497,7 @@ func validateKeyCreationMetadata(out *mdl.KeyCreationResponse) error {
 			return err
 		}
 		if v.KeyData != nil {
-			return validateMetadataElements(v.KeyData.Metadata, "keyData.metadata")
+			return validateMetadataElements(v.KeyData.Metadata, keyDataMetadataField)
 		}
 		return nil
 	}
@@ -520,6 +567,9 @@ const (
 	keyTypePublic  = "Public"
 	keyTypePrivate = "Private"
 )
+
+// keyDataMetadataField names the key descriptor's metadata in guard messages.
+const keyDataMetadataField = "keyData.metadata"
 
 func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) error {
 	if len(v.PublicKeyData.KeyMeta) == 0 || len(v.PrivateKeyData.KeyMeta) == 0 {
@@ -684,6 +734,19 @@ func keyCreationStatusShape(out *mdl.KeyCreationStatusResponse) (status mdl.Oper
 // held to the synchronous-creation rules; presence alone would admit an
 // incomplete payload or a forbidden operationMeta.
 func validateKeyCreationStatusShape(out *mdl.KeyCreationStatusResponse) error {
+	return validateKeyStatusShape(out, "key creation")
+}
+
+// validateKeyImportStatusShape is the import status and result routes'
+// response guard.
+func validateKeyImportStatusShape(out *mdl.KeyCreationStatusResponse) error {
+	return validateKeyStatusShape(out, "key import")
+}
+
+// validateKeyStatusShape holds validateKeyCreationStatusShape's rules for any
+// operation tracked with a created-key status, a key import too. what names
+// the operation in the messages.
+func validateKeyStatusShape(out *mdl.KeyCreationStatusResponse, what string) error {
 	if err := validateSingleKeyCreationStatusArm(out); err != nil {
 		return err
 	}
@@ -701,7 +764,7 @@ func validateKeyCreationStatusShape(out *mdl.KeyCreationStatusResponse) error {
 		if err := validateKeyCreationCommon(result); err != nil {
 			return err
 		}
-		return validateSynchronousKeyCreation(result, "completed key creation result")
+		return validateSynchronousKeyCreation(result, "completed "+what+" result")
 	}
 	return nil
 }
@@ -771,4 +834,156 @@ func signatureResultIdentifiers(items []mdl.SignatureResultItemV2Dto) []string {
 		out[i] = item.Identifier
 	}
 	return out
+}
+
+// keyTypeDeclaration is one importable or exportable key type, whichever list
+// declared it.
+type keyTypeDeclaration struct {
+	keyRequestType mdl.KeyRequestType
+	algorithms     []mdl.KeyAlgorithm
+}
+
+func importableDeclarations(types []mdl.ImportableKeyTypeV2Dto) []keyTypeDeclaration {
+	out := make([]keyTypeDeclaration, len(types))
+	for i, t := range types {
+		out[i] = keyTypeDeclaration{keyRequestType: t.KeyRequestType, algorithms: t.Algorithms}
+	}
+	return out
+}
+
+func exportableDeclarations(types []mdl.ExportableKeyTypeV2Dto) []keyTypeDeclaration {
+	out := make([]keyTypeDeclaration, len(types))
+	for i, t := range types {
+		out[i] = keyTypeDeclaration{keyRequestType: t.KeyRequestType, algorithms: t.Algorithms}
+	}
+	return out
+}
+
+// validateKeyTypeDeclarations enforces what the contract states for a key
+// type list: each key request type known and declared once, with at least one
+// algorithm, none repeated, and none unknown or Unknown. what names the list
+// in the messages.
+func validateKeyTypeDeclarations(declarations []keyTypeDeclaration, what string) error {
+	seen := make(map[mdl.KeyRequestType]bool, len(declarations))
+	for _, declaration := range declarations {
+		if !declaration.keyRequestType.IsValid() {
+			return errResponseShape(what + " must name known key request types")
+		}
+		if seen[declaration.keyRequestType] {
+			return errResponseShape(what + " must declare each key request type once")
+		}
+		seen[declaration.keyRequestType] = true
+		if err := validateDeclaredAlgorithms(declaration.algorithms, what); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDeclaredAlgorithms(algorithms []mdl.KeyAlgorithm, what string) error {
+	if len(algorithms) == 0 {
+		return errResponseShape(what + " must declare at least one algorithm per key type")
+	}
+	seen := make(map[mdl.KeyAlgorithm]bool, len(algorithms))
+	for _, algorithm := range algorithms {
+		if !algorithm.IsValid() || algorithm == mdl.KEYALGORITHM_UNKNOWN {
+			return errResponseShape(what + " must declare known algorithms other than Unknown")
+		}
+		if seen[algorithm] {
+			return errResponseShape(what + " must not repeat an algorithm")
+		}
+		seen[algorithm] = true
+	}
+	return nil
+}
+
+// validateExportShape is exportKey's response guard: one descriptor of the
+// exported key that Core can check against its record, keyReference echoed
+// only when the request carried one, and the envelope within the pinned
+// profile.
+func validateExportShape(req *mdl.ExportKeyRequestV2Dto, out *mdl.ExportKeyResponseV2Dto) error {
+	return firstError(
+		validateExportedDescriptor(req.KeyRequestType, &out.KeyData),
+		validateExportedKeyReference(req.KeyReference, out.KeyReference),
+		validateResponseMaterial(out.Material),
+	)
+}
+
+// validateExportedDescriptor holds keyData to what the contract accepts: a
+// key pair described by its public key, a secret key by its algorithm and
+// length, and never a private-key descriptor, which says nothing Core could
+// check.
+func validateExportedDescriptor(requested mdl.KeyRequestType, keyData *mdl.KeyDataV2) error {
+	arms := 0
+	for _, set := range []bool{keyData.PublicKeyDataV2Dto != nil, keyData.SecretKeyDataV2Dto != nil, keyData.PrivateKeyDataV2Dto != nil} {
+		if set {
+			arms++
+		}
+	}
+	switch {
+	case arms == 0:
+		return errResponseShape("keyData must describe the exported key")
+	case arms > 1:
+		return errResponseShape("keyData must describe the exported key once")
+	case keyData.PrivateKeyDataV2Dto != nil:
+		return errResponseShape("keyData must describe either a public key or a secret key")
+	case requested == mdl.KEYREQUESTTYPE_KEY_PAIR:
+		return validateExportedPublicKey(keyData.PublicKeyDataV2Dto)
+	default:
+		return validateExportedSecretKey(keyData.SecretKeyDataV2Dto)
+	}
+}
+
+func validateExportedPublicKey(publicKey *mdl.PublicKeyDataV2Dto) error {
+	if publicKey == nil {
+		return errResponseShape("keyData must describe a key pair by its public key")
+	}
+	if err := firstError(
+		validateKeyDescriptor(publicKey.Type, keyTypePublic, publicKey.Algorithm, publicKey.Length, "keyData"),
+		validateMetadataElements(publicKey.Metadata, keyDataMetadataField),
+	); err != nil {
+		return err
+	}
+	if publicKey.PublicKeySpki == "" {
+		return errResponseShape("keyData must carry publicKeySpki")
+	}
+	return nil
+}
+
+func validateExportedSecretKey(secretKey *mdl.SecretKeyDataV2Dto) error {
+	if secretKey == nil {
+		return errResponseShape("keyData must describe a secret key")
+	}
+	return firstError(
+		validateKeyDescriptor(secretKey.Type, keyTypeSecret, secretKey.Algorithm, secretKey.Length, "keyData"),
+		validateMetadataElements(secretKey.Metadata, keyDataMetadataField),
+	)
+}
+
+// validateExportedKeyReference holds the echo rule: no keyReference when the
+// request carried none, and a canonical UUID when one comes back. Whether it
+// is the key's own is Core's check.
+func validateExportedKeyReference(requested, answered *string) error {
+	if answered == nil {
+		return nil
+	}
+	if requested == nil {
+		return errResponseShape("keyReference must be absent when the request carried none")
+	}
+	if !canonicalUUID.MatchString(*answered) {
+		return errResponseShape("keyReference must be a canonical UUID")
+	}
+	return nil
+}
+
+// validateResponseMaterial holds exported material to the pinned profile.
+func validateResponseMaterial(material mdl.EncryptedKeyMaterialV2Dto) error {
+	der, err := base64.StdEncoding.DecodeString(material.EncryptedPrivateKeyInfo)
+	if err != nil {
+		return errResponseShape("material must be base64")
+	}
+	if _, err := parseEnvelope(der); err != nil {
+		return errResponseShape(err.Error())
+	}
+	return nil
 }

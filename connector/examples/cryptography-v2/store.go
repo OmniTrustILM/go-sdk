@@ -50,6 +50,9 @@ type Store struct {
 	asyncDestroys map[string]*asyncDestroyOp // destroy-key operation handle -> op
 	asyncSigns    map[string]*asyncSignOp    // sign operation handle -> op
 
+	imports       map[string]*importRecord // keyImportId -> record, for idempotent retries and results
+	importHandles map[string]*importRecord // import operation handle -> record
+
 	// asyncDelay overrides defaultAsyncOperationDelay for this Store.
 	asyncDelay time.Duration
 }
@@ -63,6 +66,8 @@ func NewStore(asyncDelay time.Duration) *Store {
 		asyncCreates:  make(map[string]*asyncCreateOp),
 		asyncDestroys: make(map[string]*asyncDestroyOp),
 		asyncSigns:    make(map[string]*asyncSignOp),
+		imports:       make(map[string]*importRecord),
+		importHandles: make(map[string]*importRecord),
 		asyncDelay:    asyncDelay,
 	}
 }
@@ -80,18 +85,27 @@ var (
 	_ cryptography.SignAttributeProvider         = (*Store)(nil)
 	_ cryptography.VerifyAttributeProvider       = (*Store)(nil)
 	_ cryptography.RandomDataAttributeProvider   = (*Store)(nil)
+	_ cryptography.KeyImportProvider             = (*Store)(nil)
+	_ cryptography.AsyncKeyImportProvider        = (*Store)(nil)
+	_ cryptography.KeyExportProvider             = (*Store)(nil)
 )
 
 // --- Records --------------------------------------------------------------
 
-// keyRecord is what the Store remembers about a created secret key or key
-// pair. destroyed is a soft delete: the record survives so a replayed
-// keyCreationId can rebuild its response, while every operation on the key
-// is rejected.
+// keyRecord is what the Store remembers about a created or imported secret
+// key or key pair. destroyed is a soft delete: the record survives so a
+// replayed keyCreationId or keyImportId can rebuild its response, while every
+// operation on the key is rejected. spki is a key pair's public key.
+// privateKeyInfo is kept only for an imported key that may be exported; a
+// created pair's private key is derived from its handle (see keyPairFor).
 type keyRecord struct {
-	algorithm mdl.KeyAlgorithm
-	length    int32
-	destroyed bool
+	algorithm      mdl.KeyAlgorithm
+	length         int32
+	spki           string
+	exportable     bool
+	keyReference   string
+	privateKeyInfo []byte
+	destroyed      bool
 }
 
 // creationRecord makes CreateKey idempotent per keyCreationId. An equivalent
@@ -223,7 +237,13 @@ func fingerprintCreateKey(req *mdl.CreateKeyRequestV2Dto) string {
 		TokenProfileAttributes: req.TokenProfileAttributes,
 		CreateKeyAttributes:    req.CreateKeyAttributes,
 	}
-	b, err := json.Marshal(eq)
+	return fingerprintOf(eq)
+}
+
+// fingerprintOf hashes the JSON of an equivalence record into a stable
+// string.
+func fingerprintOf(equivalence any) string {
+	b, err := json.Marshal(equivalence)
 	if err != nil {
 		// Fall back to a fingerprint no retry can match, so the failure
 		// surfaces as a 409 rather than a wrong replay.
@@ -310,25 +330,30 @@ func fakeDecrypt(keyID, ciphertext string) (string, error) {
 
 // --- Public-key encoding ----------------------------------------------------
 
-// spkiFor encodes a deterministic P-256 public key for keyID as a
-// base64 DER SubjectPublicKeyInfo. Core parses this field and checks it
-// against the declared algorithm and length, so it must be real DER.
-func spkiFor(keyID string) string {
+// keyPairFor derives the deterministic P-256 key pair behind a created key
+// pair's handle, so the Store can export it without keeping it.
+func keyPairFor(keyID string) *ecdh.PrivateKey {
 	seed := sha256.Sum256([]byte("spki:" + keyID))
 	for {
 		priv, err := ecdh.P256().NewPrivateKey(seed[:])
-		if err != nil {
-			// Scalar outside [1, N-1]; rehash to keep the result a total
-			// function of keyID.
-			seed = sha256.Sum256(seed[:])
-			continue
+		if err == nil {
+			return priv
 		}
-		der, err := x509.MarshalPKIXPublicKey(priv.PublicKey())
-		if err != nil {
-			panic(fmt.Sprintf("spkiFor: marshal P-256 public key: %v", err))
-		}
-		return base64.StdEncoding.EncodeToString(der)
+		// Scalar outside [1, N-1]; rehash to keep the result a total
+		// function of keyID.
+		seed = sha256.Sum256(seed[:])
 	}
+}
+
+// spkiFor encodes the public key of keyPairFor(keyID) as a base64 DER
+// SubjectPublicKeyInfo. Core parses this field and checks it against the
+// declared algorithm and length, so it must be real DER.
+func spkiFor(keyID string) string {
+	der, err := x509.MarshalPKIXPublicKey(keyPairFor(keyID).PublicKey())
+	if err != nil {
+		panic(fmt.Sprintf("spkiFor: marshal P-256 public key: %v", err))
+	}
+	return base64.StdEncoding.EncodeToString(der)
 }
 
 // randomBytes returns n bytes from the system entropy source, panicking if
@@ -357,12 +382,12 @@ func buildSecretKeyPayload(keyID string, algorithm mdl.KeyAlgorithm, length int3
 // required on a synchronous 200 and inside a completed status result. Both
 // halves carry pairID as their handle, so later calls resolve to the one
 // keyRecord tracking the pair.
-func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length int32) *mdl.KeyPairDataResponseV2Dto {
+func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length int32, spki string) *mdl.KeyPairDataResponseV2Dto {
 	return &mdl.KeyPairDataResponseV2Dto{
 		KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR,
 		PublicKeyData: &mdl.PublicKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metaAttr(pairID, "publicKeyHandle", "Public key handle")},
-			KeyData: *mdl.NewPublicKeyDataV2Dto(algorithm, length, spkiFor(pairID)),
+			KeyData: *mdl.NewPublicKeyDataV2Dto(algorithm, length, spki),
 		},
 		PrivateKeyData: &mdl.PrivateKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metaAttr(pairID, "privateKeyHandle", "Private key handle")},
@@ -374,9 +399,10 @@ func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length int32
 
 // syncKeyCreationResponse wraps the appropriate builder in the
 // KeyCreationResponse oneOf, selecting the variant by kind.
-func syncKeyCreationResponse(kind mdl.KeyRequestType, keyID string, algorithm mdl.KeyAlgorithm, length int32) *mdl.KeyCreationResponse {
+func syncKeyCreationResponse(kind mdl.KeyRequestType, keyID string, rec *keyRecord) *mdl.KeyCreationResponse {
+	algorithm, length := rec.algorithm, rec.length
 	if kind == mdl.KEYREQUESTTYPE_KEY_PAIR {
-		return &mdl.KeyCreationResponse{KeyPairDataResponseV2Dto: buildKeyPairPayload(keyID, algorithm, length)}
+		return &mdl.KeyCreationResponse{KeyPairDataResponseV2Dto: buildKeyPairPayload(keyID, algorithm, length, rec.spki)}
 	}
 	return &mdl.KeyCreationResponse{SecretKeyDataResponseV2Dto: buildSecretKeyPayload(keyID, algorithm, length)}
 }
@@ -403,8 +429,7 @@ func (s *Store) replayCreateKey(rec *creationRecord) *mdl.KeyCreationResponse {
 	if rec.accepted {
 		return acceptedKeyCreationResponse(rec.keyRequestType, rec.handle)
 	}
-	kr := s.keys[rec.keyID]
-	return syncKeyCreationResponse(rec.keyRequestType, rec.keyID, kr.algorithm, kr.length)
+	return syncKeyCreationResponse(rec.keyRequestType, rec.keyID, s.keys[rec.keyID])
 }
 
 // --- Provider: token and profile introspection ------------------------------
@@ -439,8 +464,17 @@ func (s *Store) KeyRequestTypes(ctx context.Context, req *mdl.TokenProfileScoped
 // whose equivalence fields fingerprint the same as the original replays
 // its result (or tracking handle); a non-equivalent reuse of the same id is a
 // conflict. A key pair reports ECDSA at 256 bits; a secret key reports
-// Unknown.
+// Unknown. The reserved keyExportable attribute states whether the key may be
+// exported later.
 func (s *Store) CreateKey(ctx context.Context, req *mdl.CreateKeyRequestV2Dto) (*mdl.KeyCreationResponse, bool, error) {
+	exportable, err := cryptography.SelectedKeyExportable(req.CreateKeyAttributes)
+	if err != nil {
+		return nil, false, err
+	}
+	// Its secret keys are placeholders with nothing to export.
+	if exportable && req.KeyRequestType != mdl.KEYREQUESTTYPE_KEY_PAIR {
+		return nil, false, cryptography.ErrExportableNotSupported
+	}
 	fp := fingerprintCreateKey(req)
 
 	s.mu.Lock()
@@ -461,7 +495,11 @@ func (s *Store) CreateKey(ctx context.Context, req *mdl.CreateKeyRequestV2Dto) (
 		algorithm = mdl.KEYALGORITHM_ECDSA
 	}
 	length := int32(256)
-	s.keys[keyID] = &keyRecord{algorithm: algorithm, length: length}
+	record := &keyRecord{algorithm: algorithm, length: length, exportable: exportable}
+	if req.KeyRequestType == mdl.KEYREQUESTTYPE_KEY_PAIR {
+		record.spki = spkiFor(keyID)
+	}
+	s.keys[keyID] = record
 
 	rec := &creationRecord{fingerprint: fp, keyID: keyID, keyRequestType: req.KeyRequestType}
 
@@ -481,7 +519,7 @@ func (s *Store) CreateKey(ctx context.Context, req *mdl.CreateKeyRequestV2Dto) (
 	}
 
 	s.creations[req.KeyCreationId] = rec
-	return syncKeyCreationResponse(req.KeyRequestType, keyID, algorithm, length), false, nil
+	return syncKeyCreationResponse(req.KeyRequestType, keyID, record), false, nil
 }
 
 // DestroyKey destroys a key, synchronously or asynchronously per
@@ -502,6 +540,8 @@ func (s *Store) DestroyKey(ctx context.Context, req *mdl.DestroyKeyRequestV2Dto)
 		return nil, false, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
 	}
 	rec.destroyed = true
+	clear(rec.privateKeyInfo)
+	rec.privateKeyInfo = nil
 
 	if req.ExecutionMode == mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS {
 		handle := uuid.NewString()
@@ -674,7 +714,7 @@ func (s *Store) CreateKeyStatus(ctx context.Context, req *mdl.OperationTrackingR
 	if op.keyRequestType == mdl.KEYREQUESTTYPE_KEY_PAIR {
 		resp := &mdl.KeyPairOperationStatusResponseV2Dto{Status: status, Reason: reason, KeyRequestType: op.keyRequestType}
 		if status == mdl.OPERATIONSTATUS_COMPLETED {
-			resp.Result = buildKeyPairPayload(op.keyID, op.algorithm, op.length)
+			resp.Result = buildKeyPairPayload(op.keyID, op.algorithm, op.length, s.keys[op.keyID].spki)
 		}
 		return &mdl.KeyCreationStatusResponse{KeyPairOperationStatusResponseV2Dto: resp}, nil
 	}
@@ -816,10 +856,10 @@ func (s *Store) TokenProfileAttributes(ctx context.Context, req *mdl.TokenScoped
 	return nil, nil
 }
 
-// CreateKeyAttributes reports the key creation attribute schema: none for
-// this example.
+// CreateKeyAttributes reports the key creation attribute schema: the reserved
+// keyExportable attribute, which a connector declaring key export publishes.
 func (s *Store) CreateKeyAttributes(ctx context.Context, req *mdl.CreateKeyAttributesRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	return nil, nil
+	return []mdl.BaseAttributeDto{cryptography.KeyExportableDefinition()}, nil
 }
 
 // EncryptAttributes reports the encryption attribute schema: none for this

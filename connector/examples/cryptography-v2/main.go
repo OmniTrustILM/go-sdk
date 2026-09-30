@@ -14,10 +14,12 @@
 //	APP_ASYNC_DELAY     async operation delay   default 500ms  (time.ParseDuration syntax)
 //
 // The connector exposes /v2/health, /v2/health/{readiness,liveness}, /v2/info,
-// /v1/metrics, and all 24 Cryptography Provider v2 routes under
-// /v2/cryptographyProvider. It registers AsyncKeyProvider and
-// AsyncSignProvider and advertises the "asynchronous" feature flag, which
-// Core requires before routing asynchronous operations here.
+// /v1/metrics, and every Cryptography Provider v2 route under
+// /v2/cryptographyProvider. It registers the async, key import and key export
+// providers and advertises the "asynchronous", "keyImport" and "keyExport"
+// feature flags, which Core requires before routing those operations here.
+// It imports and exports ECDSA P-256 key pairs; its created key pairs are
+// real P-256 keys derived from their handles, so they export too.
 //
 // Unknown JSON properties always answer 400: every Cryptography Provider v2
 // request DTO disallows them unconditionally.
@@ -54,6 +56,9 @@ func main() {
 	handler, err := cryptography.NewHandler(store,
 		cryptography.WithAsyncKeys(store),
 		cryptography.WithAsyncSign(store),
+		cryptography.WithKeyImport(store),
+		cryptography.WithAsyncKeyImport(store),
+		cryptography.WithKeyExport(store),
 		cryptography.WithTokenAttributes(store),
 		cryptography.WithTokenProfileAttributes(store),
 		cryptography.WithCreateKeyAttributes(store),
@@ -62,7 +67,11 @@ func main() {
 		cryptography.WithSignAttributes(store),
 		cryptography.WithVerifyAttributes(store),
 		cryptography.WithRandomDataAttributes(store),
-		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS))),
+		cryptography.Base(handlerbase.WithFeatures(
+			string(mdl.FEATUREFLAG_ASYNCHRONOUS),
+			string(mdl.FEATUREFLAG_KEY_IMPORT),
+			string(mdl.FEATUREFLAG_KEY_EXPORT),
+		)),
 	)
 	if err != nil {
 		logger.Error("build cryptography handler", "err", err)
@@ -76,7 +85,7 @@ func main() {
 			ID:          connectorID,
 			Name:        connectorName,
 			Version:     connectorVersion,
-			Description: "Reference v2 cryptography connector backed by an in-memory key store. Not for production; performs no real cryptography.",
+			Description: "Reference v2 cryptography connector backed by an in-memory key store. Not for production: its signatures and ciphertext are placeholders.",
 		}),
 		shared.WithMetrics(shared.DefaultPrometheus(shared.BuildInfo{
 			Version: connectorVersion,

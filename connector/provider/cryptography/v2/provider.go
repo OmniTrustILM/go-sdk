@@ -1,10 +1,11 @@
 // Package cryptography implements the Cryptography Provider v2 connector
 // interface: token status and attribute schemas, key creation and destruction
 // with caller-selected execution modes, batch sign and verify, encrypt and
-// decrypt, and random-data generation.
+// decrypt, random-data generation, and the import and export of protected
+// key material.
 //
-// Every operation carries its scope in the request body, so all 24 route
-// patterns are literal and this package composes with any other provider
+// Every operation carries its scope in the request body, so every route
+// pattern is literal and this package composes with any other provider
 // package on one mux.
 package cryptography
 
@@ -132,4 +133,87 @@ type AsyncSignProvider interface {
 	// 204; ErrCancelPastPointOfNoReturn renders 422; ErrOperationNotTracked
 	// renders 404.
 	CancelSignData(ctx context.Context, req *mdl.OperationTrackingRequestV2Dto) error
+}
+
+// KeyImportProvider is implemented by connectors that import protected key
+// material into their technology. Register it with WithKeyImport and
+// advertise FeatureFlag.KEY_IMPORT via Base(handlerbase.WithFeatures(...));
+// the flag is ENFORCED, so Core sends imports only to a connector that
+// advertises it.
+//
+// An import request carries the key and the passphrase that opens it, so it
+// is as sensitive as the key itself: never log it, and keep neither the
+// material, the passphrase nor the opened key once the key is stored.
+type KeyImportProvider interface {
+	// ImportableKeyTypes lists the key types the token context can import,
+	// each once, with the algorithms accepted for it. Unknown cannot be
+	// declared.
+	ImportableKeyTypes(ctx context.Context, req *mdl.TokenProfileScopedRequestV2Dto) ([]mdl.ImportableKeyTypeV2Dto, error)
+
+	// ImportKey imports req.Material, with CreateKey's accepted semantics and
+	// response shape. The handler has checked the envelope against the pinned
+	// profile; open it with OpenKeyMaterial. Implementers must:
+	//   - check req.KeyRequestType against the importable key types before
+	//     decrypting anything, and refuse a mismatch with
+	//     ErrKeyTypeNotImportable
+	//   - refuse material of another type or algorithm than declared with
+	//     ErrKeyMaterialMismatch, and an exportable key the token cannot keep
+	//     exportable with ErrExportableNotSupported
+	//   - bind req.KeyReference to the key in the technology, or keep a
+	//     durable record of it
+	//   - honor req.KeyImportId as an idempotency key over ExecutionMode,
+	//     KeyRequestType, KeyReference, TokenAttributes,
+	//     TokenProfileAttributes, ImportKeyAttributes, Exportable and the
+	//     imported key itself, not the envelope, which changes on every
+	//     submission. Non-equivalent reuse returns ErrKeyImportConflict.
+	ImportKey(ctx context.Context, req *mdl.ImportKeyRequestV2Dto) (resp *mdl.KeyCreationResponse, accepted bool, err error)
+
+	// ImportKeyResult reports the recorded state of the import
+	// req.KeyImportId names, running or final, whichever mode it ran in.
+	// Records are kept at least 24 hours after an import reaches a final
+	// state; an import never accepted returns ErrOperationNotTracked.
+	ImportKeyResult(ctx context.Context, req *mdl.ImportKeyResultRequestV2Dto) (*mdl.KeyCreationStatusResponse, error)
+}
+
+// AsyncKeyImportProvider is implemented by connectors that accept key imports
+// for asynchronous execution. Register it with WithAsyncKeyImport; a
+// connector that advertises both FeatureFlag.ASYNCHRONOUS and
+// FeatureFlag.KEY_IMPORT must. AsyncKeyProvider's handle rules apply here too.
+type AsyncKeyImportProvider interface {
+	// ImportKeyStatus reports the state of an async key import, with
+	// CreateKeyStatus's semantics.
+	ImportKeyStatus(ctx context.Context, req *mdl.OperationTrackingRequestV2Dto) (*mdl.KeyCreationStatusResponse, error)
+
+	// CancelImportKey aborts an in-flight async key import, with
+	// CancelCreateKey's semantics.
+	CancelImportKey(ctx context.Context, req *mdl.OperationTrackingRequestV2Dto) error
+}
+
+// KeyExportProvider is implemented by connectors that export keys as
+// protected key material. Register it with WithKeyExport and advertise
+// FeatureFlag.KEY_EXPORT; the flag is ENFORCED. A connector that declares it
+// publishes KeyExportableDefinition in its create-key attribute schema and
+// sets the technology's extractability from SelectedKeyExportable when it
+// creates a key.
+//
+// The request carries the passphrase and the response the envelope it
+// protects: never log either.
+type KeyExportProvider interface {
+	// ExportableKeyTypes lists the key types the token context can export,
+	// each once, with the algorithms accepted for it. Unknown cannot be
+	// declared.
+	ExportableKeyTypes(ctx context.Context, req *mdl.TokenProfileScopedRequestV2Dto) ([]mdl.ExportableKeyTypeV2Dto, error)
+
+	// ExportKey exports the key req.KeyMeta identifies, protected with
+	// ProtectKeyMaterial under req.Passphrase. Always synchronous.
+	// Implementers must:
+	//   - refuse a key not created or imported as exportable with
+	//     ErrKeyNotExportable, a key type the token will not release with
+	//     ErrKeyTypeNotExportable, and a key of another type than
+	//     req.KeyRequestType with ErrKeyMaterialMismatch
+	//   - describe the exported key in KeyData from the material itself: a key
+	//     pair by its public key, a secret key by its algorithm and length
+	//   - echo the key's own reference when req.KeyReference is set, and
+	//     return none when it is not
+	ExportKey(ctx context.Context, req *mdl.ExportKeyRequestV2Dto) (*mdl.ExportKeyResponseV2Dto, error)
 }
