@@ -35,6 +35,7 @@ const (
 	RESOURCE_ACME_ACCOUNTS Resource = "acmeAccounts"
 	RESOURCE_ACME_PROFILES Resource = "acmeProfiles"
 	RESOURCE_CBOMS Resource = "cboms"
+	RESOURCE_CRYPTO_ASSETS Resource = "cryptoAssets"
 	RESOURCE_SCEP_PROFILES Resource = "scepProfiles"
 	RESOURCE_CMP_PROFILES Resource = "cmpProfiles"
 	RESOURCE_AUTHORITIES Resource = "authorities"
@@ -52,6 +53,7 @@ const (
 	RESOURCE_KEYS Resource = "keys"
 	RESOURCE_APPROVAL_PROFILES Resource = "approvalProfiles"
 	RESOURCE_APPROVALS Resource = "approvals"
+	RESOURCE_COMMENTS Resource = "comments"
 	RESOURCE_NOTIFICATION_PROFILES Resource = "notificationProfiles"
 	RESOURCE_NOTIFICATION_INSTANCES Resource = "notificationInstances"
 	RESOURCE_RULES Resource = "rules"
@@ -60,6 +62,7 @@ const (
 	RESOURCE_RESOURCES Resource = "resources"
 	RESOURCE_RESOURCE_EVENTS Resource = "resourceEvents"
 	RESOURCE_SEARCH_FILTERS Resource = "searchFilters"
+	RESOURCE_LIST_VIEWS Resource = "listViews"
 	RESOURCE_KEY_ITEMS Resource = "keyItems"
 	RESOURCE_PLATFORM_ENUMS Resource = "platformEnums"
 	RESOURCE_NOTIFICATIONS Resource = "notifications"
@@ -103,6 +106,7 @@ var AllowedResourceEnumValues = []Resource{
 	"acmeAccounts",
 	"acmeProfiles",
 	"cboms",
+	"cryptoAssets",
 	"scepProfiles",
 	"cmpProfiles",
 	"authorities",
@@ -120,6 +124,7 @@ var AllowedResourceEnumValues = []Resource{
 	"keys",
 	"approvalProfiles",
 	"approvals",
+	"comments",
 	"notificationProfiles",
 	"notificationInstances",
 	"rules",
@@ -128,6 +133,7 @@ var AllowedResourceEnumValues = []Resource{
 	"resources",
 	"resourceEvents",
 	"searchFilters",
+	"listViews",
 	"keyItems",
 	"platformEnums",
 	"notifications",

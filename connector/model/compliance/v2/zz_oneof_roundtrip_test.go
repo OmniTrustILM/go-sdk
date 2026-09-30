@@ -493,7 +493,7 @@ func TestOneOfResponseAttribute(t *testing.T) {
 		&ResponseAttribute{}, `{"version":"v9","uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
 }
 
-// 7. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp),
+// 7. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp/jsonSchema),
 // default RegexpAttributeConstraint.
 func TestOneOfBaseAttributeConstraint(t *testing.T) {
 	cases := []oneOfCase{
@@ -517,6 +517,13 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 			newWrapper: func() oneOfWrapper { return &BaseAttributeConstraint{} },
 			wantType:   &RegexpAttributeConstraint{},
 			discSubstr: []string{`"type":"regExp"`},
+		},
+		{
+			name:       "jsonSchema",
+			payload:    `{"type":"jsonSchema","data":"{\"type\":\"string\"}"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeConstraint{} },
+			wantType:   &JsonSchemaAttributeConstraint{},
+			discSubstr: []string{`"type":"jsonSchema"`},
 		},
 	}
 	runDiscriminatorCases(t, "BaseAttributeConstraint", cases)
@@ -652,7 +659,7 @@ func TestOneOfSecretContent(t *testing.T) {
 		&SecretContent{}, `{"type":"bogus","content":"c"}`)
 }
 
-// 10. FieldMappingFieldsInner — discriminator "fieldType" (rdn/san/extension).
+// 10. FieldMappingFieldsInner — discriminator "fieldType" (rdn/san/extension/keyUsage/extendedKeyUsage).
 // Anonymous oneOf inside FieldMapping.fields[]; each variant is an allOf of the
 // MappedField base (which carries fieldType) plus variant-specific fields.
 func TestOneOfFieldMappingFieldsInner(t *testing.T) {
@@ -677,6 +684,20 @@ func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
 			wantType:   &ExtensionMappedField{},
 			discSubstr: []string{`"fieldType":"extension"`},
+		},
+		{
+			name:       "keyUsage",
+			payload:    `{"fieldType":"keyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &KeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"keyUsage"`},
+		},
+		{
+			name:       "extendedKeyUsage",
+			payload:    `{"fieldType":"extendedKeyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &ExtendedKeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"extendedKeyUsage"`},
 		},
 	}
 	runDiscriminatorCases(t, "FieldMappingFieldsInner", cases)

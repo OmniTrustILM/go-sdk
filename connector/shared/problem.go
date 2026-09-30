@@ -81,8 +81,9 @@ const (
 // Each mirrors ConnectorInterface.getCode() upstream, which is the segment the
 // platform's own renderer uses.
 const (
-	ifaceAuthority = "authority"
-	ifaceDiscovery = "discovery"
+	ifaceAuthority    = "authority"
+	ifaceCryptography = "cryptography"
+	ifaceDiscovery    = "discovery"
 )
 
 // Known extension property keys conditionally promoted to top-level
@@ -152,6 +153,7 @@ var (
 		"OPERATION_PAST_POINT_OF_NO_RETURN": {category: CategoryConnector, retryable: false},
 		"OPERATION_NOT_TRACKED":             {category: CategoryConnector, retryable: false},
 		"ATTRIBUTE_DEFINITION_NOT_FOUND":    {category: CategoryConnector, retryable: false},
+		"CONTEXT_MISMATCH":                  {category: CategoryConnector, retryable: false},
 
 		// Document handling, raised by the content-signing formatting
 		// contract. Cross-interface upstream, so no iface segment.
@@ -167,6 +169,14 @@ var (
 		"RENEWAL_SOURCE_NOT_FOUND": {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
 		"CSR_SUBJECT_MISMATCH":     {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
 		"CERTIFICATE_MISMATCH":     {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
+
+		// connector/cryptography, non-retryable
+		"KEY_TYPE_NOT_IMPORTABLE":  {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
+		"KEY_TYPE_NOT_EXPORTABLE":  {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
+		"KEY_MATERIAL_MISMATCH":    {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
+		"KEY_DECRYPTION_FAILED":    {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
+		"EXPORTABLE_NOT_SUPPORTED": {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
+		"KEY_NOT_EXPORTABLE":       {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 
 		// connector/discovery, non-retryable: a lost checkpoint cannot be
 		// resumed, so the caller restarts the run rather than retrying.

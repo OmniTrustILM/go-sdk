@@ -10,7 +10,7 @@
     },
     "license": {
       "name": "Apache License, Version 2.0",
-      "url": "https://github.com/OmniTrustILM/ilm/blob/main/LICENSE.md"
+      "url": "https://github.com/OmniTrustILM/interface-documentation/blob/main/LICENSE.md"
     },
     "version": "2.20.0-SNAPSHOT",
     "x-logo": {
@@ -18,106 +18,7 @@
     },
     "x-metrics-profile": {
       "version": 1,
-      "required": [
-        {
-          "unit": "1",
-          "name": "app_build_info",
-          "type": "gauge",
-          "labels": [
-            "version",
-            "commit",
-            "runtime"
-          ]
-        },
-        {
-          "unit": "seconds",
-          "name": "process_start_time_seconds",
-          "type": "gauge",
-          "labels": []
-        },
-        {
-          "unit": "seconds",
-          "name": "process_cpu_seconds_total",
-          "type": "counter",
-          "labels": []
-        },
-        {
-          "unit": "bytes",
-          "name": "process_resident_memory_bytes",
-          "type": "gauge",
-          "labels": []
-        },
-        {
-          "unit": "requests",
-          "name": "http_requests_total",
-          "type": "counter",
-          "labels": [
-            "method",
-            "route",
-            "status"
-          ]
-        },
-        {
-          "buckets_ref": "http_server_latency_buckets_seconds",
-          "labels": [
-            "method",
-            "route"
-          ],
-          "type": "histogram",
-          "unit": "seconds",
-          "name": "http_request_duration_seconds"
-        },
-        {
-          "unit": "requests",
-          "name": "http_server_in_flight_requests",
-          "type": "gauge",
-          "labels": [
-            "route"
-          ]
-        },
-        {
-          "unit": "requests",
-          "name": "http_client_requests_total",
-          "type": "counter",
-          "labels": [
-            "method",
-            "target",
-            "status"
-          ]
-        },
-        {
-          "buckets_ref": "http_client_latency_buckets_seconds",
-          "labels": [
-            "method",
-            "target"
-          ],
-          "type": "histogram",
-          "unit": "seconds",
-          "name": "http_client_request_duration_seconds"
-        },
-        {
-          "unit": "events",
-          "name": "connector_events_total",
-          "type": "counter",
-          "labels": [
-            "event",
-            "outcome"
-          ]
-        }
-      ],
       "histograms": {
-        "http_client_latency_buckets_seconds": [
-          0.01,
-          0.025,
-          0.05,
-          0.1,
-          0.25,
-          0.5,
-          1.0,
-          2.5,
-          5.0,
-          10.0
-        ],
         "http_server_latency_buckets_seconds": [
           0.005,
           0.01,
@@ -130,8 +31,107 @@
           2.5,
           5.0,
           10.0
+        ],
+        "http_client_latency_buckets_seconds": [
+          0.01,
+          0.025,
+          0.05,
+          0.1,
+          0.25,
+          0.5,
+          1.0,
+          2.5,
+          5.0,
+          10.0
         ]
-      }
+      },
+      "required": [
+        {
+          "type": "gauge",
+          "name": "app_build_info",
+          "unit": "1",
+          "labels": [
+            "version",
+            "commit",
+            "runtime"
+          ]
+        },
+        {
+          "type": "gauge",
+          "name": "process_start_time_seconds",
+          "unit": "seconds",
+          "labels": []
+        },
+        {
+          "type": "counter",
+          "name": "process_cpu_seconds_total",
+          "unit": "seconds",
+          "labels": []
+        },
+        {
+          "type": "gauge",
+          "name": "process_resident_memory_bytes",
+          "unit": "bytes",
+          "labels": []
+        },
+        {
+          "type": "counter",
+          "name": "http_requests_total",
+          "unit": "requests",
+          "labels": [
+            "method",
+            "route",
+            "status"
+          ]
+        },
+        {
+          "labels": [
+            "method",
+            "route"
+          ],
+          "buckets_ref": "http_server_latency_buckets_seconds",
+          "name": "http_request_duration_seconds",
+          "unit": "seconds",
+          "type": "histogram"
+        },
+        {
+          "type": "gauge",
+          "name": "http_server_in_flight_requests",
+          "unit": "requests",
+          "labels": [
+            "route"
+          ]
+        },
+        {
+          "type": "counter",
+          "name": "http_client_requests_total",
+          "unit": "requests",
+          "labels": [
+            "method",
+            "target",
+            "status"
+          ]
+        },
+        {
+          "labels": [
+            "method",
+            "target"
+          ],
+          "buckets_ref": "http_client_latency_buckets_seconds",
+          "name": "http_client_request_duration_seconds",
+          "unit": "seconds",
+          "type": "histogram"
+        },
+        {
+          "type": "counter",
+          "name": "connector_events_total",
+          "unit": "events",
+          "labels": [
+            "event",
+            "outcome"
+          ]
+        }
+      ]
     }
   },
   "externalDocs": {
@@ -207,8 +207,18 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -296,8 +306,18 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -382,8 +402,18 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -471,8 +501,18 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -557,6 +597,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -587,8 +637,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -646,6 +696,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -676,8 +736,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -742,6 +802,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED), or the signatureAlgorithm selection names an algorithm the key does not support (errorCode PARAMETER_UNSUPPORTED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -772,8 +842,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED), or the signatureAlgorithm selection names an algorithm the key does not support (errorCode PARAMETER_UNSUPPORTED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -838,6 +908,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -858,8 +938,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -918,7 +998,7 @@
             }
           },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Cancellation cannot be processed: the operation is already terminal or past the point of no return (errorCode OPERATION_PAST_POINT_OF_NO_RETURN), or the request body violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -939,6 +1019,16 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -996,6 +1086,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1026,8 +1126,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1082,6 +1182,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1112,8 +1222,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1171,6 +1281,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1201,8 +1321,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1257,6 +1377,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1287,8 +1417,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1346,6 +1476,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1376,8 +1516,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1432,6 +1572,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1462,8 +1612,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1521,6 +1671,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1551,8 +1711,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1627,6 +1787,16 @@
               }
             }
           },
+          "422": {
+            "description": "- `EXPORTABLE_NOT_SUPPORTED` — the reserved `keyExportable` attribute asked for an exportable key\n  and this token cannot hold one. A connector must refuse rather than create a key whose flag it\n  cannot deliver.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1657,8 +1827,897 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/import": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "Import key",
+        "description": "Import protected key material synchronously or asynchronously.\n\nThe `passphrase` protects this request alone and is generated by the platform, so it is never a user\npassword. The connector decrypts `material`, stores the key bound to `keyReference`, and keeps no copy of\nthe material or the passphrase. The response describes what was stored without carrying any of it: the\nderived public key of an imported key pair, the algorithm and length of an imported secret key.\n",
+        "operationId": "importKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportKeyRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Imported synchronously, or existing equivalent operation returned synchronously",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyCreationResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Import accepted asynchronously, or equivalent operation replayed asynchronously; body carries the original operationMeta tracking handle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyCreationResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`RESOURCE_ALREADY_EXISTS` — `keyImportId` was reused with a request that is not equivalent to the first one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "- `KEY_TYPE_NOT_IMPORTABLE` — the key type or algorithm cannot be imported into this token.\n- `KEY_MATERIAL_MISMATCH` — the decrypted material is not the declared key type or algorithm.\n- `KEY_DECRYPTION_FAILED` — the material could not be decrypted with the supplied passphrase.\n- `EXPORTABLE_NOT_SUPPORTED` — the token cannot hold a key that stays exportable.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule, such as key material outside\n  the pinned protection profile.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/import/status": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "Get async key import status",
+        "description": "Get status of an async key import using only its tracking handle",
+        "operationId": "getImportKeyStatus",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationTrackingRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Key import status retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyCreationStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/import/result": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "Resolve a key import outcome",
+        "description": "Return the recorded state of an import identified by its `keyImportId`, so a caller that lost the original\nresponse can complete its own records or remove a key it cannot account for.\n\n- An import that is still running is reported with its current status rather than withheld, so a caller can\n  poll here without holding the original tracking handle.\n- Records are kept for at least 24 hours after an import reaches a final state.\n- Within that period a missing record means the import was never accepted, which is the only case answered\n  with HTTP 404.\n",
+        "operationId": "getImportKeyResult",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportKeyResultRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded import state retrieved, whether the import is still running or final",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyCreationStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/import/keyTypes": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "List importable key types",
+        "description": "List the key types the connector can import for the supplied token context, each with the algorithms it accepts, so material the token cannot hold is recognised before it is sent. Each key type appears at most once.",
+        "operationId": "listImportableKeyTypes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenProfileScopedRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Importable key types retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportableKeyTypeV2Dto"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/import/cancel": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "Cancel async key import",
+        "description": "Cancel an in-flight async key import using only its tracking handle",
+        "operationId": "cancelImportKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationTrackingRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Aborted"
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "- `OPERATION_PAST_POINT_OF_NO_RETURN` — the import is already terminal, or past the point where it\n  can be abandoned.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/import/attributes": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "List key import attributes",
+        "description": "Returns the attribute schema used to import the requested key type. Definitions must not contain resolved credentials or secret values.",
+        "operationId": "listImportKeyAttributes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportKeyAttributesRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Schema retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BaseAttributeDto"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/export": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "Export key",
+        "description": "Export the key `keyMeta` identifies as protected key material.\n\nExport is synchronous, so no protected material is ever held in asynchronous tracking state. The connector\nprotects the material under the supplied `passphrase`, derives `keyData` from the material it is returning\nso the caller can check it against its own record of the key, and keeps no copy of the material or the\npassphrase.\n\nOnly a key created or imported as exportable can be exported.\n",
+        "operationId": "exportKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportKeyRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Exported; body carries the protected key material",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportKeyResponseV2Dto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "- `KEY_NOT_EXPORTABLE` — the key was not created or imported as exportable.\n- `KEY_TYPE_NOT_EXPORTABLE` — the key type or algorithm cannot be exported from this token.\n- `KEY_MATERIAL_MISMATCH` — the key the metadata identifies is not the declared key type.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule, such as an absent passphrase.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/export/keyTypes": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "List exportable key types",
+        "description": "List the key types the connector can export from the supplied token context, each with the algorithms it accepts, so a key the technology will never release is recognised before a user asks for it. Each key type appears at most once.",
+        "operationId": "listExportableKeyTypes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenProfileScopedRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Exportable key types retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExportableKeyTypeV2Dto"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/cryptographyProvider/keys/export/attributes": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "List key export attributes",
+        "description": "Returns the attribute schema used to export the key the metadata identifies. Definitions must not contain resolved credentials or secret values.",
+        "operationId": "listExportKeyAttributes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyScopedRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Schema retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BaseAttributeDto"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1723,6 +2782,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1753,8 +2822,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1819,6 +2888,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1839,8 +2918,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1899,7 +2978,7 @@
             }
           },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Cancellation cannot be processed: the operation is already terminal or past the point of no return (errorCode OPERATION_PAST_POINT_OF_NO_RETURN), or the request body violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1920,6 +2999,16 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1984,6 +3073,16 @@
               }
             }
           },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2004,8 +3103,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2064,7 +3163,7 @@
             }
           },
           "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+            "description": "Cancellation cannot be processed: the operation is already terminal or past the point of no return (errorCode OPERATION_PAST_POINT_OF_NO_RETURN), or the request body violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2085,6 +3184,16 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2116,7 +3225,7 @@
           "Key Management v2"
         ],
         "summary": "List key creation attributes",
-        "description": "List attributes for creating the requested key type. Definitions must not contain resolved credentials or secret values.",
+        "description": "List attributes for creating the requested key type. Definitions must not contain resolved credentials or\nsecret values.\n\nA connector that declares `keyExport` must include the reserved `keyExportable` attribute here: a v3\ndata attribute named `keyExportable` with boolean content, exactly one content item, required, defaulting\nto `false`. That is how the exportable intent reaches key creation, so the create request needs no field\nof its own for it, and it takes part in `keyCreationId` replay equivalence like any other create-key\nattribute. A connector that does not declare `keyExport` must not publish it and is never sent it, and\nmust create keys non-extractable wherever the technology expresses the distinction.\n",
         "operationId": "listCreateKeyAttributes",
         "requestBody": {
           "content": {
@@ -2138,6 +3247,16 @@
                   "items": {
                     "$ref": "#/components/schemas/BaseAttributeDto"
                   }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -2172,8 +3291,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request validation failed (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2893,7 +4012,8 @@
         "enum": [
           "regExp",
           "range",
-          "dateTime"
+          "dateTime",
+          "jsonSchema"
         ]
       },
       "AttributeContentType": {
@@ -2960,7 +4080,8 @@
           "mapping": {
             "regExp": "#/components/schemas/RegexpAttributeConstraint",
             "range": "#/components/schemas/RangeAttributeConstraint",
-            "dateTime": "#/components/schemas/DateTimeAttributeConstraint"
+            "dateTime": "#/components/schemas/DateTimeAttributeConstraint",
+            "jsonSchema": "#/components/schemas/JsonSchemaAttributeConstraint"
           }
         },
         "oneOf": [
@@ -2972,13 +4093,12 @@
           },
           {
             "$ref": "#/components/schemas/DateTimeAttributeConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/JsonSchemaAttributeConstraint"
           }
         ],
         "properties": {
-          "description": {
-            "type": "string",
-            "description": "Description of the constraint"
-          },
           "type": {
             "$ref": "#/components/schemas/AttributeConstraintType",
             "description": "Attribute Constraint Type"
@@ -2986,6 +4106,10 @@
           "errorMessage": {
             "type": "string",
             "description": "Error message to be displayed for wrong data"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the constraint"
           }
         },
         "required": [
@@ -3712,6 +4836,33 @@
           "data"
         ]
       },
+      "JsonSchemaAttributeConstraint": {
+        "type": "object",
+        "description": "JSON Schema attribute constraint restricting a string value to JSON conforming to an inline JSON Schema (draft 2020-12)",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of the constraint"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Error message to be displayed for wrong data"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttributeConstraintType",
+            "description": "Attribute Constraint Type"
+          },
+          "data": {
+            "type": "string",
+            "description": "Inline JSON Schema document the value must conform to",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "data",
+          "type"
+        ]
+      },
       "JwtTokenSecretContent": {
         "type": "object",
         "description": "Secret representing JWT Token",
@@ -4332,6 +5483,12 @@
       "ResponseAttributeV3": {
         "type": "object",
         "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BaseAttributeContentDtoV3"
+            }
+          },
           "uuid": {
             "type": "string",
             "format": "uuid",
@@ -4649,13 +5806,20 @@
           "DOCUMENT_TOO_LARGE",
           "SIGNATURE_NOT_FOUND",
           "PARAMETER_UNSUPPORTED",
+          "CONTEXT_MISMATCH",
           "CSR_MALFORMED",
           "REVOCATION_NOT_ALLOWED",
           "REGISTRATION_NOT_FOUND",
           "RENEWAL_SOURCE_NOT_FOUND",
           "CSR_SUBJECT_MISMATCH",
           "CERTIFICATE_MISMATCH",
-          "CHECKPOINT_LOST"
+          "CHECKPOINT_LOST",
+          "KEY_TYPE_NOT_IMPORTABLE",
+          "KEY_TYPE_NOT_EXPORTABLE",
+          "KEY_MATERIAL_MISMATCH",
+          "KEY_DECRYPTION_FAILED",
+          "EXPORTABLE_NOT_SUPPORTED",
+          "KEY_NOT_EXPORTABLE"
         ]
       },
       "ProblemDetailExtended": {
@@ -4668,7 +5832,10 @@
             "example": "https://docs.otilm.com/problems/common/validation-failed"
           },
           "title": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Short human-readable summary of the problem type",
             "example": "Validation failed"
           },
@@ -4681,18 +5848,27 @@
             "minimum": 100
           },
           "detail": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Human-readable explanation specific to this occurrence",
             "example": "One or more fields failed validation."
           },
           "instance": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uri",
             "description": "URI reference identifying the occurrence (e.g., request path or operation ID).",
             "example": "https://api.example.org/foo/bar/123"
           },
           "properties": {
-            "type": "object",
+            "type": [
+              "object",
+              "null"
+            ],
             "additionalProperties": {},
             "description": "Generic map of properties that are not known ahead of time"
           },
@@ -4754,15 +5930,6 @@
           }
         ],
         "properties": {
-          "uuid": {
-            "type": "string",
-            "description": "UUID of the Attribute for unique identification",
-            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
-          },
-          "description": {
-            "type": "string",
-            "description": "Optional description of the Attribute, should contain helper text on what is expected"
-          },
           "name": {
             "type": "string",
             "description": "Name of the Attribute that is used for identification",
@@ -4773,6 +5940,15 @@
           "type": {
             "$ref": "#/components/schemas/AttributeType",
             "description": "Type of the Attribute"
+          },
+          "uuid": {
+            "type": "string",
+            "description": "UUID of the Attribute for unique identification",
+            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description of the Attribute, should contain helper text on what is expected"
           }
         },
         "required": [
@@ -5099,6 +6275,17 @@
           "version"
         ]
       },
+      "ExtendedKeyUsageMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          }
+        ],
+        "description": "Maps an attribute to the Extended Key Usage extension; the permitted purposes are the attribute's content, resolved against the EXTENDED_KEY_USAGE OID registry",
+        "required": [
+          "fieldType"
+        ]
+      },
       "ExtensionMappedField": {
         "allOf": [
           {
@@ -5150,7 +6337,13 @@
             "items": {
               "oneOf": [
                 {
+                  "$ref": "#/components/schemas/ExtendedKeyUsageMappedField"
+                },
+                {
                   "$ref": "#/components/schemas/ExtensionMappedField"
+                },
+                {
+                  "$ref": "#/components/schemas/KeyUsageMappedField"
                 },
                 {
                   "$ref": "#/components/schemas/RdnMappedField"
@@ -5181,7 +6374,9 @@
         "enum": [
           "rdn",
           "san",
-          "extension"
+          "extension",
+          "keyUsage",
+          "extendedKeyUsage"
         ]
       },
       "GeneralNameType": {
@@ -5225,7 +6420,8 @@
             "type": "array",
             "description": "List of all different types of attributes",
             "items": {
-              "$ref": "#/components/schemas/BaseAttributeDtoV2"
+              "$ref": "#/components/schemas/BaseAttributeDtoV2",
+              "description": "Base Attribute definition"
             }
           },
           "type": {
@@ -5438,11 +6634,29 @@
           "uuid"
         ]
       },
+      "KeyUsageMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          }
+        ],
+        "description": "Maps an attribute to the Key Usage extension; the permitted bits are the attribute's content, taken from CertificateKeyUsage",
+        "required": [
+          "fieldType"
+        ]
+      },
       "MappedField": {
         "type": "object",
         "description": "Describes a single target field within an object; concrete type is determined by fieldType",
         "discriminator": {
-          "propertyName": "fieldType"
+          "propertyName": "fieldType",
+          "mapping": {
+            "rdn": "#/components/schemas/RdnMappedField",
+            "san": "#/components/schemas/SanMappedField",
+            "extension": "#/components/schemas/ExtensionMappedField",
+            "keyUsage": "#/components/schemas/KeyUsageMappedField",
+            "extendedKeyUsage": "#/components/schemas/ExtendedKeyUsageMappedField"
+          }
         },
         "properties": {
           "fieldType": {
@@ -6332,6 +7546,7 @@
           "ML-KEM",
           "CRYSTALS-Dilithium",
           "SPHINCS+",
+          "AES",
           "Unknown"
         ]
       },
@@ -6602,6 +7817,425 @@
           "type"
         ]
       },
+      "EncryptedKeyMaterialV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Protected key material as a DER-encoded PKCS#8 `EncryptedPrivateKeyInfo`, protected with PBES2 using PBKDF2-HMAC-SHA256 and AES-256-CBC. See `encryptedPrivateKeyInfo` for the full profile.",
+        "properties": {
+          "encryptedPrivateKeyInfo": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64-encoded DER PKCS#8 `EncryptedPrivateKeyInfo` (RFC 5958). The decrypted plaintext is `PrivateKeyInfo`\nsyntax whose algorithm identifier states the key kind.\n\nExactly one protection profile is accepted, and it must be readable from the envelope alone:\n\n- **Scheme** — PBES2 (RFC 8018) with PBKDF2-HMAC-SHA256 as the key derivation, its parameters `NULL` as\n  RFC 8018 requires, and AES-256-CBC as the encryption.\n- **Salt** — at least 16 bytes, from a cryptographically secure random source, never reused.\n- **Initialisation vector** — exactly 16 bytes, from a cryptographically secure random source, never reused.\n- **Iterations** — between 100000 and 10000000; 600000 is recommended.\n- **Key length** — either absent, which the encryption scheme already implies, or exactly 32. Absent is the\n  common case: OpenSSL does not emit it.\n- **Ciphertext** — a non-empty whole number of 16-byte blocks.\n- **Total length** — at most 65536 bytes of DER.\n\nEvery way an envelope can fall short of this — bytes longer than the maximum, bytes that are not canonical\nDER, and a canonical envelope outside the profile — is refused as a field validation failure on this field\n(`VALIDATION_FAILED`), so a caller is told which rule it broke rather than that its body was unreadable.\n\nThe profile carries no integrity protection of its own, so a successful decrypt is evidence about the\npassphrase, not about who produced the envelope.\n"
+          }
+        },
+        "required": [
+          "encryptedPrivateKeyInfo"
+        ]
+      },
+      "ImportKeyRequestV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Key material to import, already re-protected by the platform.\n\nThe platform opens whatever a user supplied, re-protects the key under a passphrase it generates for this\nrequest alone and sends it here, so a connector always receives the same protection profile and never sees a\nuser-chosen password. Certificates are not part of this contract: the platform keeps them.\n",
+        "properties": {
+          "tokenAttributes": {
+            "type": "array",
+            "description": "Token attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "tokenProfileAttributes": {
+            "type": "array",
+            "description": "Token profile attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "keyImportId": {
+            "type": "string",
+            "description": "Identifier of a key import operation, so a retry cannot create a second key in the technology.\n\nA replay is the same operation only when every one of these matches the first submission: `executionMode`,\n`keyRequestType`, `keyReference`, `tokenAttributes`, `tokenProfileAttributes`,\n`importKeyAttributes`, `exportable`, and the imported key itself. Because the platform re-protects the\nmaterial for every submission, the key's identity decides equivalence rather than the envelope bytes.\n\n- An asynchronous replay answers HTTP 202 with the original `operationMeta`.\n- A synchronous replay answers HTTP 200 with the original result.\n- Reuse with anything else changed answers `RESOURCE_ALREADY_EXISTS` (HTTP 409).\n",
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "keyReference": {
+            "type": "string",
+            "description": "Durable identity the platform assigns to the imported key.\n\nThe connector must bind it in the technology wherever the technology supports one — a PKCS#11 `CKA_ID` and\nlabel, a keystore alias, a KMIP attribute, a cloud resource tag. Where the technology carries no such\nchannel, the connector must keep its own durable record from this reference to whatever handle the\ntechnology did give it. Either way the binding is what lets a key be found again after a lost response, so\nit must survive connector restarts and must not be derived from anything request-scoped.\n\nThe connector does not return the reference: the platform supplied it, and resolves a lost import through\n`POST /v2/cryptographyProvider/keys/import/result` instead.\n",
+            "minLength": 1,
+            "pattern": "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+          },
+          "executionMode": {
+            "$ref": "#/components/schemas/OperationExecutionMode",
+            "description": "Caller-selected execution mode. The connector must not switch modes implicitly: a `synchronous` request is answered with HTTP 200 and a result, an `asynchronous` request with HTTP 202 and a tracking handle."
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of key the material carries. The connector checks it against the importable key types it advertises for the token context before it decrypts anything, and refuses a mismatch with `KEY_TYPE_NOT_IMPORTABLE`."
+          },
+          "importKeyAttributes": {
+            "type": "array",
+            "description": "Attributes to import the key, following the schema from `POST /v2/cryptographyProvider/keys/import/attributes`. A connector must not define an attribute that carries key material, a passphrase or a certificate: the material travels only in `material`.",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "material": {
+            "$ref": "#/components/schemas/EncryptedKeyMaterialV2Dto",
+            "description": "Protected key material to import. Its `encryptedPrivateKeyInfo` states the one protection profile the contract accepts.",
+            "writeOnly": true
+          },
+          "passphrase": {
+            "type": "string",
+            "description": "Passphrase protecting `material`. The platform generates it for this request alone, it is never a\nuser-supplied password, and the connector must discard it once the material is decrypted.\n",
+            "minLength": 1,
+            "writeOnly": true
+          },
+          "exportable": {
+            "type": "boolean",
+            "description": "Whether the imported key may later be exported. The platform states it explicitly and only sends `true` to a\nconnector that declares key export for the key type. A connector that cannot honour it must refuse the\nimport with `EXPORTABLE_NOT_SUPPORTED` rather than import a key whose flag it cannot deliver.\n"
+          }
+        },
+        "required": [
+          "executionMode",
+          "exportable",
+          "importKeyAttributes",
+          "keyImportId",
+          "keyReference",
+          "keyRequestType",
+          "material",
+          "passphrase",
+          "tokenAttributes",
+          "tokenProfileAttributes"
+        ]
+      },
+      "KeyCreationStatusResponse": {
+        "type": "object",
+        "description": "Status of an asynchronous key-creation operation selected by key request type",
+        "discriminator": {
+          "propertyName": "keyRequestType",
+          "mapping": {
+            "secret": "#/components/schemas/SecretKeyOperationStatusResponseV2Dto",
+            "keyPair": "#/components/schemas/KeyPairOperationStatusResponseV2Dto"
+          }
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SecretKeyOperationStatusResponseV2Dto"
+          },
+          {
+            "$ref": "#/components/schemas/KeyPairOperationStatusResponseV2Dto"
+          }
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/KeyCreationResponse"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OperationStatus"
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType"
+          }
+        }
+      },
+      "KeyPairOperationStatusResponseV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/OperationStatus",
+            "description": "Operation status as known to the connector"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Failure or cancellation detail when status is `failed` or `cancelled`"
+          },
+          "result": {
+            "$ref": "#/components/schemas/KeyPairDataResponseV2Dto",
+            "description": "Created key-pair result. Present only when status is `completed`."
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of key requested",
+            "enum": [
+              "keyPair"
+            ]
+          }
+        },
+        "required": [
+          "keyRequestType",
+          "status"
+        ]
+      },
+      "SecretKeyOperationStatusResponseV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/OperationStatus",
+            "description": "Operation status as known to the connector"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Failure or cancellation detail when status is `failed` or `cancelled`"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SecretKeyDataResponseV2Dto",
+            "description": "Created secret-key result. Present only when status is `completed`."
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of key requested",
+            "enum": [
+              "secret"
+            ]
+          }
+        },
+        "required": [
+          "keyRequestType",
+          "status"
+        ]
+      },
+      "ImportKeyResultRequestV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Identifies the import whose outcome is being resolved.\n\nThe connector answers from its own record of the operation, so a caller that lost the original response can\ncomplete its bookkeeping or remove a key it cannot account for.\n",
+        "properties": {
+          "tokenAttributes": {
+            "type": "array",
+            "description": "Token attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "keyImportId": {
+            "type": "string",
+            "description": "Identifier of the key import operation to resolve",
+            "maxLength": 256,
+            "minLength": 1
+          }
+        },
+        "required": [
+          "keyImportId",
+          "tokenAttributes"
+        ]
+      },
+      "ImportableKeyTypeV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Key type a connector can import, with the algorithms it accepts for that type",
+        "properties": {
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Key type the declaration applies to"
+          },
+          "algorithms": {
+            "type": "array",
+            "description": "Algorithms accepted for this key type. `Unknown` cannot be declared: the platform decides before it sends anything, which it cannot do from an algorithm the connector could not name.",
+            "items": {
+              "$ref": "#/components/schemas/KeyAlgorithm"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "algorithms",
+          "keyRequestType"
+        ]
+      },
+      "ImportKeyAttributesRequestV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Token context and key type to read the import attribute schema for",
+        "properties": {
+          "tokenAttributes": {
+            "type": "array",
+            "description": "Token attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "tokenProfileAttributes": {
+            "type": "array",
+            "description": "Token profile attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of key to import"
+          }
+        },
+        "required": [
+          "keyRequestType",
+          "tokenAttributes",
+          "tokenProfileAttributes"
+        ]
+      },
+      "ExportKeyRequestV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The key to export and the passphrase that will protect it.\n\nExport is synchronous and its output is always protected: the connector answers with the key as a PKCS#8\nEncryptedPrivateKeyInfo under the passphrase supplied here. Certificates are not part of this contract: the\nplatform assembles any user-facing container around the envelope it receives.\n",
+        "properties": {
+          "tokenAttributes": {
+            "type": "array",
+            "description": "Token attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "tokenProfileAttributes": {
+            "type": "array",
+            "description": "Token profile attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "keyMeta": {
+            "type": "array",
+            "description": "Connector-defined metadata identifying the key, as returned when the key was created, listed or identified. Supply the metadata unchanged in subsequent requests for the key. Metadata must identify the key durably—it must remain valid across connector restarts and sessions; ephemeral handles must not be used.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            },
+            "minItems": 1
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of key the metadata identifies. The connector must refuse the export with `KEY_MATERIAL_MISMATCH` when the key it finds is of another type, so a mismatch is caught before any material is decrypted."
+          },
+          "keyReference": {
+            "type": "string",
+            "description": "Durable identity the platform holds for the key, present only for keys that carry one.\n\n- When it is supplied, the connector must read it from the key it exports and echo it unchanged.\n- When it is absent, the connector must not return one.\n\nEither way the platform can confirm the material it received belongs to the key it asked for.\n",
+            "pattern": "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+          },
+          "exportKeyAttributes": {
+            "type": "array",
+            "description": "Attributes to export the key, following the schema from `POST /v2/cryptographyProvider/keys/export/attributes`. A connector must not define an attribute that carries key material, a passphrase or a certificate: the passphrase travels only in `passphrase`, and the material only in the `material` of the response.",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "passphrase": {
+            "type": "string",
+            "description": "Passphrase that protects the returned material. The resulting envelope has to open in external tools, so the\npassphrase is used exactly as supplied, encoded as UTF-8 in Unicode normalization form C. A minimum length\nis platform policy, applied before the request is sent.\n",
+            "minLength": 1,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "exportKeyAttributes",
+          "keyMeta",
+          "keyRequestType",
+          "passphrase",
+          "tokenAttributes",
+          "tokenProfileAttributes"
+        ]
+      },
+      "ExportKeyResponseV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The exported key, protected, with a description of what it is.\n\nThe key never leaves the connector in the clear: it travels as the same protected envelope the import contract\naccepts. A descriptor accompanies it so the caller can check what it received against its own record before\nassembling anything around material it cannot open.\n",
+        "properties": {
+          "material": {
+            "$ref": "#/components/schemas/EncryptedKeyMaterialV2Dto",
+            "description": "Exported key material, protected under the `passphrase` from the request.",
+            "readOnly": true
+          },
+          "keyReference": {
+            "type": "string",
+            "description": "Durable identity the request supplied, echoed unchanged. Absent when the request carried no `keyReference`.",
+            "pattern": "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            "readOnly": true
+          },
+          "keyData": {
+            "$ref": "#/components/schemas/KeyDataV2",
+            "description": "Non-sensitive descriptor of the key the connector exported, derived from the material it is returning.\n\n- A key pair is described by its public key, whose `publicKeySpki` the platform compares with the record it\n  already holds for that key.\n- A secret key is described by its algorithm and length; a secret key never carries key material here.\n- A private-key descriptor is not accepted: it would say nothing the platform could check.\n\nThis is the connector's account of what it exported, checked against what the platform expected. It is not\nproof that the envelope holds that key, because the platform does not open the envelope: whoever opens it\nderives the key and can verify it against the certificate.\n",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "keyData",
+          "material"
+        ]
+      },
+      "KeyDataV2": {
+        "type": "object",
+        "description": "Type-specific key descriptor. Secret and private keys never contain key material.",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "Secret": "#/components/schemas/SecretKeyDataV2Dto",
+            "Public": "#/components/schemas/PublicKeyDataV2Dto",
+            "Private": "#/components/schemas/PrivateKeyDataV2Dto"
+          }
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SecretKeyDataV2Dto"
+          },
+          {
+            "$ref": "#/components/schemas/PublicKeyDataV2Dto"
+          },
+          {
+            "$ref": "#/components/schemas/PrivateKeyDataV2Dto"
+          }
+        ],
+        "properties": {
+          "length": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "type": {
+            "$ref": "#/components/schemas/KeyTypeV2"
+          },
+          "algorithm": {
+            "$ref": "#/components/schemas/KeyAlgorithm"
+          },
+          "metadata": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            }
+          }
+        }
+      },
+      "KeyTypeV2": {
+        "type": "string",
+        "description": "Key type supported by the v2 connector contract",
+        "enum": [
+          "Secret",
+          "Public",
+          "Private"
+        ]
+      },
+      "ExportableKeyTypeV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Key type a connector can export, with the algorithms it accepts for that type",
+        "properties": {
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Key type the declaration applies to"
+          },
+          "algorithms": {
+            "type": "array",
+            "description": "Algorithms accepted for this key type. `Unknown` cannot be declared: the platform decides before it sends anything, which it cannot do from an algorithm the connector could not name.",
+            "items": {
+              "$ref": "#/components/schemas/KeyAlgorithm"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "algorithms",
+          "keyRequestType"
+        ]
+      },
       "DestroyKeyRequestV2Dto": {
         "type": "object",
         "additionalProperties": false,
@@ -6668,97 +8302,6 @@
           }
         },
         "required": [
-          "status"
-        ]
-      },
-      "KeyCreationStatusResponse": {
-        "type": "object",
-        "description": "Status of an asynchronous key-creation operation selected by key request type",
-        "discriminator": {
-          "propertyName": "keyRequestType",
-          "mapping": {
-            "secret": "#/components/schemas/SecretKeyOperationStatusResponseV2Dto",
-            "keyPair": "#/components/schemas/KeyPairOperationStatusResponseV2Dto"
-          }
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/SecretKeyOperationStatusResponseV2Dto"
-          },
-          {
-            "$ref": "#/components/schemas/KeyPairOperationStatusResponseV2Dto"
-          }
-        ],
-        "properties": {
-          "keyRequestType": {
-            "$ref": "#/components/schemas/KeyRequestType"
-          },
-          "status": {
-            "$ref": "#/components/schemas/OperationStatus"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "result": {
-            "$ref": "#/components/schemas/KeyCreationResponse"
-          }
-        }
-      },
-      "KeyPairOperationStatusResponseV2Dto": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/OperationStatus",
-            "description": "Operation status as known to the connector"
-          },
-          "reason": {
-            "type": "string",
-            "description": "Failure or cancellation detail when status is `failed` or `cancelled`"
-          },
-          "result": {
-            "$ref": "#/components/schemas/KeyPairDataResponseV2Dto",
-            "description": "Created key-pair result. Present only when status is `completed`."
-          },
-          "keyRequestType": {
-            "$ref": "#/components/schemas/KeyRequestType",
-            "description": "Type of key requested",
-            "enum": [
-              "keyPair"
-            ]
-          }
-        },
-        "required": [
-          "keyRequestType",
-          "status"
-        ]
-      },
-      "SecretKeyOperationStatusResponseV2Dto": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/OperationStatus",
-            "description": "Operation status as known to the connector"
-          },
-          "reason": {
-            "type": "string",
-            "description": "Failure or cancellation detail when status is `failed` or `cancelled`"
-          },
-          "result": {
-            "$ref": "#/components/schemas/SecretKeyDataResponseV2Dto",
-            "description": "Created secret-key result. Present only when status is `completed`."
-          },
-          "keyRequestType": {
-            "$ref": "#/components/schemas/KeyRequestType",
-            "description": "Type of key requested",
-            "enum": [
-              "secret"
-            ]
-          }
-        },
-        "required": [
-          "keyRequestType",
           "status"
         ]
       },
@@ -6898,6 +8441,7 @@
           "acmeAccounts",
           "acmeProfiles",
           "cboms",
+          "cryptoAssets",
           "scepProfiles",
           "cmpProfiles",
           "authorities",
@@ -6924,6 +8468,7 @@
           "resources",
           "resourceEvents",
           "searchFilters",
+          "listViews",
           "keyItems",
           "platformEnums",
           "notifications",
@@ -7060,6 +8605,8 @@
           "stateless",
           "openMetrics",
           "asynchronous",
+          "keyImport",
+          "keyExport",
           "secretVersioning",
           "secretRotation",
           "contentSigning",

@@ -184,9 +184,10 @@ var wrappers = []wrapper{
 		discriminator: "type",
 		defaultDisc:   "regExp", // Java defaultImpl = RegexpAttributeConstraint
 		cases: map[string]string{
-			"dateTime": "DateTimeAttributeConstraint",
-			"range":    "RangeAttributeConstraint",
-			"regExp":   "RegexpAttributeConstraint",
+			"dateTime":   "DateTimeAttributeConstraint",
+			"jsonSchema": "JsonSchemaAttributeConstraint",
+			"range":      "RangeAttributeConstraint",
+			"regExp":     "RegexpAttributeConstraint",
 		},
 	},
 	{
@@ -231,9 +232,11 @@ var wrappers = []wrapper{
 		specSchema:    "MappedField",
 		discriminator: "fieldType",
 		cases: map[string]string{
-			"extension": "ExtensionMappedField",
-			"rdn":       "RdnMappedField",
-			"san":       "SanMappedField",
+			"extendedKeyUsage": "ExtendedKeyUsageMappedField",
+			"extension":        "ExtensionMappedField",
+			"keyUsage":         "KeyUsageMappedField",
+			"rdn":              "RdnMappedField",
+			"san":              "SanMappedField",
 		},
 	},
 	{
@@ -256,6 +259,18 @@ var wrappers = []wrapper{
 		cases: map[string]string{
 			"secret":  "SecretKeyOperationStatusResponseV2Dto",
 			"keyPair": "KeyPairOperationStatusResponseV2Dto",
+		},
+	},
+	{
+		// The descriptor of an exported key (ExportKeyResponseV2Dto.keyData),
+		// discriminated on the descriptor's own `type`.
+		fileSuffix:    "model_key_data_v2.go",
+		typeName:      "KeyDataV2",
+		discriminator: "type",
+		cases: map[string]string{
+			"Private": "PrivateKeyDataV2Dto",
+			"Public":  "PublicKeyDataV2Dto",
+			"Secret":  "SecretKeyDataV2Dto",
 		},
 	},
 }

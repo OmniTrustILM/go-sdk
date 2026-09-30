@@ -32,7 +32,10 @@ const (
 	CONNECTORINTERFACE_NOTIFICATION ConnectorInterface = "notification"
 	CONNECTORINTERFACE_SECRET ConnectorInterface = "secret"
 	CONNECTORINTERFACE_SIGNATURE_FORMATTING ConnectorInterface = "signatureFormatting"
-	CONNECTORINTERFACE_SIGNING ConnectorInterface = "signing"
+	CONNECTORINTERFACE_CADES_FORMATTING ConnectorInterface = "cadesFormatting"
+	CONNECTORINTERFACE_JADES_FORMATTING ConnectorInterface = "jadesFormatting"
+	CONNECTORINTERFACE_PADES_FORMATTING ConnectorInterface = "padesFormatting"
+	CONNECTORINTERFACE_XADES_FORMATTING ConnectorInterface = "xadesFormatting"
 )
 
 // All allowed values of ConnectorInterface enum
@@ -49,7 +52,10 @@ var AllowedConnectorInterfaceEnumValues = []ConnectorInterface{
 	"notification",
 	"secret",
 	"signatureFormatting",
-	"signing",
+	"cadesFormatting",
+	"jadesFormatting",
+	"padesFormatting",
+	"xadesFormatting",
 }
 
 func (v *ConnectorInterface) UnmarshalJSON(src []byte) error {

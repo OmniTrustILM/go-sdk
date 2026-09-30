@@ -8,6 +8,10 @@
 # (see tools/fixoneof/main.go) and enforces the properties the specs pin
 # to a single value (see tools/fixoneof/pins.go).
 #
+# The specs in connector/spec are the connector documents published by
+# OmniTrustILM/interface-documentation (api.otilm.com), converted to JSON;
+# attributes-v2.json is the /v2/attributes subset of authority-v3.json.
+#
 # Each table row is "spec_file:target_dir:package_name".
 set -euo pipefail
 
@@ -43,6 +47,10 @@ for entry in "${SPECS[@]}"; do
         -o "/local/$target" \
         --additional-properties=disallowAdditionalPropertiesIfNotPresent=false,packageName=$pkg,enumClassPrefix=true,outputAsLibrary=true \
         --global-property models,supportingFiles,apis=false,modelTests=false,modelDocs=false
+    # Besides the models and utils.go, the generator writes a separate module
+    # (go.mod), an API client and repository scaffolding; none of it belongs to
+    # the SDK, and a go.mod would split the package out of this module.
+    find "$target" -mindepth 1 -maxdepth 1 ! -name 'model_*.go' ! -name 'utils.go' ! -name 'zz_*' -exec rm -rf {} +
 done
 
 echo "==> patching oneOf UnmarshalJSON across connector/model"

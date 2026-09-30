@@ -24,13 +24,13 @@ type ProblemDetailExtended struct {
 	// RFC 9457 type URI identifying the problem type
 	Type string `json:"type"`
 	// Short human-readable summary of the problem type
-	Title *string `json:"title,omitempty"`
+	Title NullableString `json:"title,omitempty"`
 	// HTTP status code (MUST match the actual response code)
 	Status int32 `json:"status"`
 	// Human-readable explanation specific to this occurrence
-	Detail *string `json:"detail,omitempty"`
+	Detail NullableString `json:"detail,omitempty"`
 	// URI reference identifying the occurrence (e.g., request path or operation ID).
-	Instance *string `json:"instance,omitempty"`
+	Instance NullableString `json:"instance,omitempty"`
 	// Generic map of properties that are not known ahead of time
 	Properties map[string]interface{} `json:"properties,omitempty"`
 	// Application specific error code
@@ -94,36 +94,46 @@ func (o *ProblemDetailExtended) SetType(v string) {
 	o.Type = v
 }
 
-// GetTitle returns the Title field value if set, zero value otherwise.
+// GetTitle returns the Title field value if set, zero value otherwise (both if not set or set to explicit null).
 func (o *ProblemDetailExtended) GetTitle() string {
-	if o == nil || IsNil(o.Title) {
+	if o == nil || IsNil(o.Title.Get()) {
 		var ret string
 		return ret
 	}
-	return *o.Title
+	return *o.Title.Get()
 }
 
 // GetTitleOk returns a tuple with the Title field value if set, nil otherwise
 // and a boolean to check if the value has been set.
+// NOTE: If the value is an explicit nil, `nil, true` will be returned
 func (o *ProblemDetailExtended) GetTitleOk() (*string, bool) {
-	if o == nil || IsNil(o.Title) {
+	if o == nil {
 		return nil, false
 	}
-	return o.Title, true
+	return o.Title.Get(), o.Title.IsSet()
 }
 
 // HasTitle returns a boolean if a field has been set.
 func (o *ProblemDetailExtended) HasTitle() bool {
-	if o != nil && !IsNil(o.Title) {
+	if o != nil && o.Title.IsSet() {
 		return true
 	}
 
 	return false
 }
 
-// SetTitle gets a reference to the given string and assigns it to the Title field.
+// SetTitle gets a reference to the given NullableString and assigns it to the Title field.
 func (o *ProblemDetailExtended) SetTitle(v string) {
-	o.Title = &v
+	o.Title.Set(&v)
+}
+// SetTitleNil sets the value for Title to be an explicit nil
+func (o *ProblemDetailExtended) SetTitleNil() {
+	o.Title.Set(nil)
+}
+
+// UnsetTitle ensures that no value is present for Title, not even an explicit nil
+func (o *ProblemDetailExtended) UnsetTitle() {
+	o.Title.Unset()
 }
 
 // GetStatus returns the Status field value
@@ -150,68 +160,88 @@ func (o *ProblemDetailExtended) SetStatus(v int32) {
 	o.Status = v
 }
 
-// GetDetail returns the Detail field value if set, zero value otherwise.
+// GetDetail returns the Detail field value if set, zero value otherwise (both if not set or set to explicit null).
 func (o *ProblemDetailExtended) GetDetail() string {
-	if o == nil || IsNil(o.Detail) {
+	if o == nil || IsNil(o.Detail.Get()) {
 		var ret string
 		return ret
 	}
-	return *o.Detail
+	return *o.Detail.Get()
 }
 
 // GetDetailOk returns a tuple with the Detail field value if set, nil otherwise
 // and a boolean to check if the value has been set.
+// NOTE: If the value is an explicit nil, `nil, true` will be returned
 func (o *ProblemDetailExtended) GetDetailOk() (*string, bool) {
-	if o == nil || IsNil(o.Detail) {
+	if o == nil {
 		return nil, false
 	}
-	return o.Detail, true
+	return o.Detail.Get(), o.Detail.IsSet()
 }
 
 // HasDetail returns a boolean if a field has been set.
 func (o *ProblemDetailExtended) HasDetail() bool {
-	if o != nil && !IsNil(o.Detail) {
+	if o != nil && o.Detail.IsSet() {
 		return true
 	}
 
 	return false
 }
 
-// SetDetail gets a reference to the given string and assigns it to the Detail field.
+// SetDetail gets a reference to the given NullableString and assigns it to the Detail field.
 func (o *ProblemDetailExtended) SetDetail(v string) {
-	o.Detail = &v
+	o.Detail.Set(&v)
+}
+// SetDetailNil sets the value for Detail to be an explicit nil
+func (o *ProblemDetailExtended) SetDetailNil() {
+	o.Detail.Set(nil)
 }
 
-// GetInstance returns the Instance field value if set, zero value otherwise.
+// UnsetDetail ensures that no value is present for Detail, not even an explicit nil
+func (o *ProblemDetailExtended) UnsetDetail() {
+	o.Detail.Unset()
+}
+
+// GetInstance returns the Instance field value if set, zero value otherwise (both if not set or set to explicit null).
 func (o *ProblemDetailExtended) GetInstance() string {
-	if o == nil || IsNil(o.Instance) {
+	if o == nil || IsNil(o.Instance.Get()) {
 		var ret string
 		return ret
 	}
-	return *o.Instance
+	return *o.Instance.Get()
 }
 
 // GetInstanceOk returns a tuple with the Instance field value if set, nil otherwise
 // and a boolean to check if the value has been set.
+// NOTE: If the value is an explicit nil, `nil, true` will be returned
 func (o *ProblemDetailExtended) GetInstanceOk() (*string, bool) {
-	if o == nil || IsNil(o.Instance) {
+	if o == nil {
 		return nil, false
 	}
-	return o.Instance, true
+	return o.Instance.Get(), o.Instance.IsSet()
 }
 
 // HasInstance returns a boolean if a field has been set.
 func (o *ProblemDetailExtended) HasInstance() bool {
-	if o != nil && !IsNil(o.Instance) {
+	if o != nil && o.Instance.IsSet() {
 		return true
 	}
 
 	return false
 }
 
-// SetInstance gets a reference to the given string and assigns it to the Instance field.
+// SetInstance gets a reference to the given NullableString and assigns it to the Instance field.
 func (o *ProblemDetailExtended) SetInstance(v string) {
-	o.Instance = &v
+	o.Instance.Set(&v)
+}
+// SetInstanceNil sets the value for Instance to be an explicit nil
+func (o *ProblemDetailExtended) SetInstanceNil() {
+	o.Instance.Set(nil)
+}
+
+// UnsetInstance ensures that no value is present for Instance, not even an explicit nil
+func (o *ProblemDetailExtended) UnsetInstance() {
+	o.Instance.Unset()
 }
 
 // GetProperties returns the Properties field value if set, zero value otherwise.
@@ -393,15 +423,15 @@ func (o ProblemDetailExtended) MarshalJSON() ([]byte, error) {
 func (o ProblemDetailExtended) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
-	if !IsNil(o.Title) {
-		toSerialize["title"] = o.Title
+	if o.Title.IsSet() {
+		toSerialize["title"] = o.Title.Get()
 	}
 	toSerialize["status"] = o.Status
-	if !IsNil(o.Detail) {
-		toSerialize["detail"] = o.Detail
+	if o.Detail.IsSet() {
+		toSerialize["detail"] = o.Detail.Get()
 	}
-	if !IsNil(o.Instance) {
-		toSerialize["instance"] = o.Instance
+	if o.Instance.IsSet() {
+		toSerialize["instance"] = o.Instance.Get()
 	}
 	if !IsNil(o.Properties) {
 		toSerialize["properties"] = o.Properties

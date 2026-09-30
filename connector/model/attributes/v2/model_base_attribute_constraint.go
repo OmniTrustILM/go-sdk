@@ -18,6 +18,7 @@ import (
 // BaseAttributeConstraint - Base Attribute Constraint definition
 type BaseAttributeConstraint struct {
 	DateTimeAttributeConstraint *DateTimeAttributeConstraint
+	JsonSchemaAttributeConstraint *JsonSchemaAttributeConstraint
 	RangeAttributeConstraint *RangeAttributeConstraint
 	RegexpAttributeConstraint *RegexpAttributeConstraint
 }
@@ -26,6 +27,13 @@ type BaseAttributeConstraint struct {
 func DateTimeAttributeConstraintAsBaseAttributeConstraint(v *DateTimeAttributeConstraint) BaseAttributeConstraint {
 	return BaseAttributeConstraint{
 		DateTimeAttributeConstraint: v,
+	}
+}
+
+// JsonSchemaAttributeConstraintAsBaseAttributeConstraint is a convenience function that returns JsonSchemaAttributeConstraint wrapped in BaseAttributeConstraint
+func JsonSchemaAttributeConstraintAsBaseAttributeConstraint(v *JsonSchemaAttributeConstraint) BaseAttributeConstraint {
+	return BaseAttributeConstraint{
+		JsonSchemaAttributeConstraint: v,
 	}
 }
 
@@ -60,6 +68,7 @@ func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
 		disc = "regExp" // absent type defaults to this per the Java wire contract
 	}
 	dst.DateTimeAttributeConstraint = nil
+	dst.JsonSchemaAttributeConstraint = nil
 	dst.RangeAttributeConstraint = nil
 	dst.RegexpAttributeConstraint = nil
 	switch disc {
@@ -69,6 +78,13 @@ func (dst *BaseAttributeConstraint) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("BaseAttributeConstraint: decode DateTimeAttributeConstraint: %w", err)
 		}
 		dst.DateTimeAttributeConstraint = &v
+		return nil
+	case "jsonSchema":
+		var v JsonSchemaAttributeConstraint
+		if err := json.Unmarshal(data, &v); err != nil {
+			return fmt.Errorf("BaseAttributeConstraint: decode JsonSchemaAttributeConstraint: %w", err)
+		}
+		dst.JsonSchemaAttributeConstraint = &v
 		return nil
 	case "range":
 		var v RangeAttributeConstraint
@@ -96,6 +112,10 @@ func (src BaseAttributeConstraint) MarshalJSON() ([]byte, error) {
 		return json.Marshal(&src.DateTimeAttributeConstraint)
 	}
 
+	if src.JsonSchemaAttributeConstraint != nil {
+		return json.Marshal(&src.JsonSchemaAttributeConstraint)
+	}
+
 	if src.RangeAttributeConstraint != nil {
 		return json.Marshal(&src.RangeAttributeConstraint)
 	}
@@ -116,6 +136,10 @@ func (obj *BaseAttributeConstraint) GetActualInstance() (interface{}) {
 		return obj.DateTimeAttributeConstraint
 	}
 
+	if obj.JsonSchemaAttributeConstraint != nil {
+		return obj.JsonSchemaAttributeConstraint
+	}
+
 	if obj.RangeAttributeConstraint != nil {
 		return obj.RangeAttributeConstraint
 	}
@@ -132,6 +156,10 @@ func (obj *BaseAttributeConstraint) GetActualInstance() (interface{}) {
 func (obj BaseAttributeConstraint) GetActualInstanceValue() (interface{}) {
 	if obj.DateTimeAttributeConstraint != nil {
 		return *obj.DateTimeAttributeConstraint
+	}
+
+	if obj.JsonSchemaAttributeConstraint != nil {
+		return *obj.JsonSchemaAttributeConstraint
 	}
 
 	if obj.RangeAttributeConstraint != nil {
