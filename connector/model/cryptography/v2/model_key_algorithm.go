@@ -29,6 +29,7 @@ const (
 	KEYALGORITHM_ML_KEM KeyAlgorithm = "ML-KEM"
 	KEYALGORITHM_CRYSTALS_DILITHIUM KeyAlgorithm = "CRYSTALS-Dilithium"
 	KEYALGORITHM_SPHINCS KeyAlgorithm = "SPHINCS+"
+	KEYALGORITHM_AES KeyAlgorithm = "AES"
 	KEYALGORITHM_UNKNOWN KeyAlgorithm = "Unknown"
 )
 
@@ -42,6 +43,7 @@ var AllowedKeyAlgorithmEnumValues = []KeyAlgorithm{
 	"ML-KEM",
 	"CRYSTALS-Dilithium",
 	"SPHINCS+",
+	"AES",
 	"Unknown",
 }
 

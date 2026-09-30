@@ -488,7 +488,7 @@ func TestOneOfResponseAttribute(t *testing.T) {
 		&ResponseAttribute{}, `{"version":"v9","uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
 }
 
-// 7. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp);
+// 7. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp/jsonSchema);
 // missing type defaults to RegexpAttributeConstraint.
 func TestOneOfBaseAttributeConstraint(t *testing.T) {
 	cases := []oneOfCase{
@@ -513,6 +513,13 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 			wantType:   &RegexpAttributeConstraint{},
 			discSubstr: []string{`"type":"regExp"`},
 		},
+		{
+			name:       "jsonSchema",
+			payload:    `{"type":"jsonSchema","data":"{\"type\":\"string\"}"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeConstraint{} },
+			wantType:   &JsonSchemaAttributeConstraint{},
+			discSubstr: []string{`"type":"jsonSchema"`},
+		},
 	}
 	runDiscriminatorCases(t, "BaseAttributeConstraint", cases)
 
@@ -526,7 +533,7 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 }
 
 // 7b. FieldMappingFieldsInner — discriminator "fieldType" on the MappedField
-// allOf base (FieldType enum extension/rdn/san).
+// allOf base (FieldType enum extension/rdn/san/keyUsage/extendedKeyUsage).
 func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -549,6 +556,20 @@ func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
 			wantType:   &SanMappedField{},
 			discSubstr: []string{`"fieldType":"san"`, `"generalNameType":"dns"`},
+		},
+		{
+			name:       "keyUsage",
+			payload:    `{"fieldType":"keyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &KeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"keyUsage"`},
+		},
+		{
+			name:       "extendedKeyUsage",
+			payload:    `{"fieldType":"extendedKeyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &ExtendedKeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"extendedKeyUsage"`},
 		},
 	}
 	runDiscriminatorCases(t, "FieldMappingFieldsInner", cases)

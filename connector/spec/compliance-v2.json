@@ -6,13 +6,13 @@
     "contact": {
       "name": "ILM",
       "url": "https://www.otilm.com",
-      "email": "info@otilm.com"
+      "email": "ilm@omnitrust.com"
     },
     "license": {
       "name": "Apache License, Version 2.0",
-      "url": "https://github.com/OmniTrustILM/ilm/blob/main/LICENSE.md"
+      "url": "https://github.com/OmniTrustILM/interface-documentation/blob/main/LICENSE.md"
     },
-    "version": "2.18.1-SNAPSHOT",
+    "version": "2.20.0-SNAPSHOT",
     "x-logo": {
       "url": "images/ilm-logo.svg"
     }
@@ -288,6 +288,23 @@
               }
             }
           },
+          "422": {
+            "description": "Unprocessable entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "example": [
+                  "Error Message 1",
+                  "Error Message 2"
+                ]
+              }
+            }
+          },
           "400": {
             "description": "Bad Request",
             "content": {
@@ -318,23 +335,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorMessageDto"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "example": [
-                  "Error Message 1",
-                  "Error Message 2"
-                ]
               }
             }
           },
@@ -402,6 +402,26 @@
           "200": {
             "description": "Attribute validation completed"
           },
+          "422": {
+            "description": "Attribute validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "examples": [
+                      "Attribute Validation error message"
+                    ]
+                  }
+                },
+                "example": [
+                  "Error Message 1",
+                  "Error Message 2"
+                ]
+              }
+            }
+          },
           "400": {
             "description": "Bad Request",
             "content": {
@@ -432,23 +452,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorMessageDto"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Attribute validation failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "example": [
-                  "Error Message 1",
-                  "Error Message 2"
-                ]
               }
             }
           },
@@ -1258,7 +1261,8 @@
         "enum": [
           "regExp",
           "range",
-          "dateTime"
+          "dateTime",
+          "jsonSchema"
         ]
       },
       "AttributeContentType": {
@@ -1325,7 +1329,8 @@
           "mapping": {
             "regExp": "#/components/schemas/RegexpAttributeConstraint",
             "range": "#/components/schemas/RangeAttributeConstraint",
-            "dateTime": "#/components/schemas/DateTimeAttributeConstraint"
+            "dateTime": "#/components/schemas/DateTimeAttributeConstraint",
+            "jsonSchema": "#/components/schemas/JsonSchemaAttributeConstraint"
           }
         },
         "oneOf": [
@@ -1337,6 +1342,9 @@
           },
           {
             "$ref": "#/components/schemas/DateTimeAttributeConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/JsonSchemaAttributeConstraint"
           }
         ],
         "properties": {
@@ -1489,14 +1497,14 @@
             "$ref": "#/components/schemas/AttributeType",
             "description": "Type of the Attribute"
           },
-          "description": {
-            "type": "string",
-            "description": "Optional description of the Attribute, should contain helper text on what is expected"
-          },
           "uuid": {
             "type": "string",
             "description": "UUID of the Attribute for unique identification",
             "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description of the Attribute, should contain helper text on what is expected"
           }
         },
         "required": [
@@ -2398,6 +2406,17 @@
           "data"
         ]
       },
+      "ExtendedKeyUsageMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          }
+        ],
+        "description": "Maps an attribute to the Extended Key Usage extension; the permitted purposes are the attribute's content, resolved against the EXTENDED_KEY_USAGE OID registry",
+        "required": [
+          "fieldType"
+        ]
+      },
       "ExtensionMappedField": {
         "allOf": [
           {
@@ -2449,7 +2468,13 @@
             "items": {
               "oneOf": [
                 {
+                  "$ref": "#/components/schemas/ExtendedKeyUsageMappedField"
+                },
+                {
                   "$ref": "#/components/schemas/ExtensionMappedField"
+                },
+                {
+                  "$ref": "#/components/schemas/KeyUsageMappedField"
                 },
                 {
                   "$ref": "#/components/schemas/RdnMappedField"
@@ -2480,7 +2505,9 @@
         "enum": [
           "rdn",
           "san",
-          "extension"
+          "extension",
+          "keyUsage",
+          "extendedKeyUsage"
         ]
       },
       "FileAttributeContentData": {
@@ -2649,7 +2676,8 @@
             "type": "array",
             "description": "List of all different types of attributes",
             "items": {
-              "$ref": "#/components/schemas/BaseAttributeDtoV2"
+              "$ref": "#/components/schemas/BaseAttributeDtoV2",
+              "description": "Base Attribute definition"
             }
           },
           "type": {
@@ -2903,6 +2931,33 @@
           "data"
         ]
       },
+      "JsonSchemaAttributeConstraint": {
+        "type": "object",
+        "description": "JSON Schema attribute constraint restricting a string value to JSON conforming to an inline JSON Schema (draft 2020-12)",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of the constraint"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Error message to be displayed for wrong data"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttributeConstraintType",
+            "description": "Attribute Constraint Type"
+          },
+          "data": {
+            "type": "string",
+            "description": "Inline JSON Schema document the value must conform to",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "data",
+          "type"
+        ]
+      },
       "JwtTokenSecretContent": {
         "type": "object",
         "description": "Secret representing JWT Token",
@@ -2967,6 +3022,17 @@
           "PKCS12"
         ]
       },
+      "KeyUsageMappedField": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MappedField"
+          }
+        ],
+        "description": "Maps an attribute to the Key Usage extension; the permitted bits are the attribute's content, taken from CertificateKeyUsage",
+        "required": [
+          "fieldType"
+        ]
+      },
       "KeyValueSecretContent": {
         "type": "object",
         "description": "Secret representing key-value pairs",
@@ -2994,7 +3060,14 @@
         "type": "object",
         "description": "Describes a single target field within an object; concrete type is determined by fieldType",
         "discriminator": {
-          "propertyName": "fieldType"
+          "propertyName": "fieldType",
+          "mapping": {
+            "rdn": "#/components/schemas/RdnMappedField",
+            "san": "#/components/schemas/SanMappedField",
+            "extension": "#/components/schemas/ExtensionMappedField",
+            "keyUsage": "#/components/schemas/KeyUsageMappedField",
+            "extendedKeyUsage": "#/components/schemas/ExtendedKeyUsageMappedField"
+          }
         },
         "properties": {
           "fieldType": {
@@ -3399,6 +3472,7 @@
           "acmeAccounts",
           "acmeProfiles",
           "cboms",
+          "cryptoAssets",
           "scepProfiles",
           "cmpProfiles",
           "authorities",
@@ -3416,6 +3490,7 @@
           "keys",
           "approvalProfiles",
           "approvals",
+          "comments",
           "notificationProfiles",
           "notificationInstances",
           "rules",
@@ -3424,6 +3499,7 @@
           "resources",
           "resourceEvents",
           "searchFilters",
+          "listViews",
           "keyItems",
           "platformEnums",
           "notifications",
@@ -3698,6 +3774,12 @@
       "ResponseAttributeV3": {
         "type": "object",
         "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BaseAttributeContentDtoV3"
+            }
+          },
           "uuid": {
             "type": "string",
             "format": "uuid",

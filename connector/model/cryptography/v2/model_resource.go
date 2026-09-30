@@ -36,6 +36,7 @@ const (
 	RESOURCE_ACME_ACCOUNTS Resource = "acmeAccounts"
 	RESOURCE_ACME_PROFILES Resource = "acmeProfiles"
 	RESOURCE_CBOMS Resource = "cboms"
+	RESOURCE_CRYPTO_ASSETS Resource = "cryptoAssets"
 	RESOURCE_SCEP_PROFILES Resource = "scepProfiles"
 	RESOURCE_CMP_PROFILES Resource = "cmpProfiles"
 	RESOURCE_AUTHORITIES Resource = "authorities"
@@ -62,6 +63,7 @@ const (
 	RESOURCE_RESOURCES Resource = "resources"
 	RESOURCE_RESOURCE_EVENTS Resource = "resourceEvents"
 	RESOURCE_SEARCH_FILTERS Resource = "searchFilters"
+	RESOURCE_LIST_VIEWS Resource = "listViews"
 	RESOURCE_KEY_ITEMS Resource = "keyItems"
 	RESOURCE_PLATFORM_ENUMS Resource = "platformEnums"
 	RESOURCE_NOTIFICATIONS Resource = "notifications"
@@ -105,6 +107,7 @@ var AllowedResourceEnumValues = []Resource{
 	"acmeAccounts",
 	"acmeProfiles",
 	"cboms",
+	"cryptoAssets",
 	"scepProfiles",
 	"cmpProfiles",
 	"authorities",
@@ -131,6 +134,7 @@ var AllowedResourceEnumValues = []Resource{
 	"resources",
 	"resourceEvents",
 	"searchFilters",
+	"listViews",
 	"keyItems",
 	"platformEnums",
 	"notifications",

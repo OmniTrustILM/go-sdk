@@ -417,7 +417,7 @@ func TestOneOfResponseAttribute(t *testing.T) {
 		`{"version":"v9","uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
 }
 
-// BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp);
+// BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp/jsonSchema);
 // missing type defaults to RegexpAttributeConstraint.
 func TestOneOfBaseAttributeConstraint(t *testing.T) {
 	runCases(t, "BaseAttributeConstraint", []oneOfCase{
@@ -442,6 +442,13 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 			wantType:   &RegexpAttributeConstraint{},
 			discSubstr: []string{`"type":"regExp"`},
 		},
+		{
+			name:       "jsonSchema",
+			payload:    `{"type":"jsonSchema","data":"{\"type\":\"string\"}"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeConstraint{} },
+			wantType:   &JsonSchemaAttributeConstraint{},
+			discSubstr: []string{`"type":"jsonSchema"`},
+		},
 	})
 	// A missing type defaults to RegexpAttributeConstraint; its leaf then requires
 	// `type`, so a bare default payload cannot round-trip.
@@ -451,7 +458,7 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 }
 
 // FieldMappingFieldsInner — discriminator "fieldType" on the MappedField allOf
-// base (FieldType enum extension/rdn/san).
+// base (FieldType enum extension/rdn/san/keyUsage/extendedKeyUsage).
 func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 	runCases(t, "FieldMappingFieldsInner", []oneOfCase{
 		{
@@ -474,6 +481,20 @@ func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
 			wantType:   &SanMappedField{},
 			discSubstr: []string{`"fieldType":"san"`, `"generalNameType":"dns"`},
+		},
+		{
+			name:       "keyUsage",
+			payload:    `{"fieldType":"keyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &KeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"keyUsage"`},
+		},
+		{
+			name:       "extendedKeyUsage",
+			payload:    `{"fieldType":"extendedKeyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &ExtendedKeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"extendedKeyUsage"`},
 		},
 	})
 	assertUnknown(t, "FieldMappingFieldsInner", &FieldMappingFieldsInner{}, `{"fieldType":"bogus"}`)

@@ -23,6 +23,7 @@ const (
 	ATTRIBUTECONSTRAINTTYPE_REG_EXP AttributeConstraintType = "regExp"
 	ATTRIBUTECONSTRAINTTYPE_RANGE AttributeConstraintType = "range"
 	ATTRIBUTECONSTRAINTTYPE_DATE_TIME AttributeConstraintType = "dateTime"
+	ATTRIBUTECONSTRAINTTYPE_JSON_SCHEMA AttributeConstraintType = "jsonSchema"
 )
 
 // All allowed values of AttributeConstraintType enum
@@ -30,6 +31,7 @@ var AllowedAttributeConstraintTypeEnumValues = []AttributeConstraintType{
 	"regExp",
 	"range",
 	"dateTime",
+	"jsonSchema",
 }
 
 func (v *AttributeConstraintType) UnmarshalJSON(src []byte) error {

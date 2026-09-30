@@ -324,6 +324,8 @@ func TestResolveProblemTypeURI(t *testing.T) {
 		{name: "registered common code", errorCode: "VALIDATION_FAILED", want: "https://docs.otilm.com/problems/common/VALIDATION_FAILED"},
 		{name: "registered authority code", errorCode: "CSR_MALFORMED", want: "https://docs.otilm.com/problems/connector/authority/CSR_MALFORMED"},
 		{name: "registered discovery code", errorCode: "CHECKPOINT_LOST", want: "https://docs.otilm.com/problems/connector/discovery/CHECKPOINT_LOST"},
+		{name: "registered cryptography code", errorCode: "KEY_TYPE_NOT_IMPORTABLE", want: "https://docs.otilm.com/problems/connector/cryptography/KEY_TYPE_NOT_IMPORTABLE"},
+		{name: "registered replay-context code with no interface", errorCode: "CONTEXT_MISMATCH", want: "https://docs.otilm.com/problems/connector/CONTEXT_MISMATCH"},
 		{name: "registered connector code with no interface", errorCode: "DOCUMENT_TOO_LARGE", want: "https://docs.otilm.com/problems/connector/DOCUMENT_TOO_LARGE"},
 		{name: "unregistered code falls back to common", errorCode: "WIDGET_EXPLODED", want: "https://docs.otilm.com/problems/common/WIDGET_EXPLODED"},
 		{name: "about:blank resolves", errorCode: "VALIDATION_FAILED", typeURI: "about:blank", want: "https://docs.otilm.com/problems/common/VALIDATION_FAILED"},

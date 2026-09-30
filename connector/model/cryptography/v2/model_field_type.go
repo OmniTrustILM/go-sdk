@@ -24,6 +24,8 @@ const (
 	FIELDTYPE_RDN FieldType = "rdn"
 	FIELDTYPE_SAN FieldType = "san"
 	FIELDTYPE_EXTENSION FieldType = "extension"
+	FIELDTYPE_KEY_USAGE FieldType = "keyUsage"
+	FIELDTYPE_EXTENDED_KEY_USAGE FieldType = "extendedKeyUsage"
 )
 
 // All allowed values of FieldType enum
@@ -31,6 +33,8 @@ var AllowedFieldTypeEnumValues = []FieldType{
 	"rdn",
 	"san",
 	"extension",
+	"keyUsage",
+	"extendedKeyUsage",
 }
 
 func (v *FieldType) UnmarshalJSON(src []byte) error {

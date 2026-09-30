@@ -24,6 +24,8 @@ const (
 	FEATUREFLAG_STATELESS FeatureFlag = "stateless"
 	FEATUREFLAG_OPEN_METRICS FeatureFlag = "openMetrics"
 	FEATUREFLAG_ASYNCHRONOUS FeatureFlag = "asynchronous"
+	FEATUREFLAG_KEY_IMPORT FeatureFlag = "keyImport"
+	FEATUREFLAG_KEY_EXPORT FeatureFlag = "keyExport"
 	FEATUREFLAG_SECRET_VERSIONING FeatureFlag = "secretVersioning"
 	FEATUREFLAG_SECRET_ROTATION FeatureFlag = "secretRotation"
 	FEATUREFLAG_CONTENT_SIGNING FeatureFlag = "contentSigning"
@@ -44,6 +46,8 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"stateless",
 	"openMetrics",
 	"asynchronous",
+	"keyImport",
+	"keyExport",
 	"secretVersioning",
 	"secretRotation",
 	"contentSigning",

@@ -7,15 +7,15 @@
 //
 // Purpose: prove that every oneOf wrapper decoder in this package round-trips
 // every variant. The package ships the platform attribute unions shared with
-// every other connector spec, plus the two key-creation unions specific to
-// Cryptography Provider v2. All but one of them have a discriminator-aware
-// UnmarshalJSON patched in by tools/fixoneof (see
-// that tool's `wrappers` table); the generator's stock "try every variant,
-// count strict matches" decoder fails on those because multiple variants
-// share the same Go struct shape and all pass strict decode at once. These
-// tests lock in the patched behaviour so a future regen that forgets to
-// re-run fixoneof — or a fixoneof change that breaks a variant — fails
-// loudly here.
+// every other connector spec, plus the two key-creation unions and the
+// key-data descriptor union specific to Cryptography Provider v2. All but one
+// of them have a discriminator-aware UnmarshalJSON patched in by
+// tools/fixoneof (see that tool's `wrappers` table); the generator's stock
+// "try every variant, count strict matches" decoder fails on those because
+// multiple variants share the same Go struct shape and all pass strict
+// decode at once. These tests lock in the patched behaviour so a future
+// regen that forgets to re-run fixoneof — or a fixoneof change that breaks a
+// variant — fails loudly here.
 //
 // Dispatch model (mirrors the Java wire contract encoded in tools/fixoneof):
 //
@@ -28,13 +28,15 @@
 //   - RequestAttribute switches on the string `version` ("v2"/"v3"), missing
 //     defaults to RequestAttributeV2. ResponseAttribute switches on the same
 //     string `version` but has NO default.
-//   - BaseAttributeConstraint switches on `type` (dateTime/range/regExp),
+//   - BaseAttributeConstraint switches on `type` (dateTime/range/regExp/jsonSchema),
 //     missing defaults to RegexpAttributeConstraint.
 //   - BaseAttributeContentDtoV3 (contentType), SecretContent (type),
 //     ResourceObjectContentData (resource) and FieldMappingFieldsInner
 //     (fieldType) switch on their respective string discriminators.
 //   - KeyCreationResponse and KeyCreationStatusResponse switch on the string
 //     `keyRequestType` ("secret" / "keyPair").
+//   - KeyDataV2 switches on the descriptor's string `type`
+//     ("Secret" / "Public" / "Private").
 //
 // For every variant of every discriminator wrapper the table below asserts:
 //   a. json.Unmarshal(payload) into the wrapper succeeds,
@@ -562,7 +564,7 @@ func TestOneOfResponseAttribute(t *testing.T) {
 		&ResponseAttribute{}, `{"version":"v9","uuid":"u","name":"n","label":"L","type":"data","contentType":"string"}`)
 }
 
-// 8. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp).
+// 8. BaseAttributeConstraint — discriminator "type" (dateTime/range/regExp/jsonSchema).
 func TestOneOfBaseAttributeConstraint(t *testing.T) {
 	cases := []oneOfCase{
 		{
@@ -585,6 +587,13 @@ func TestOneOfBaseAttributeConstraint(t *testing.T) {
 			newWrapper: func() oneOfWrapper { return &BaseAttributeConstraint{} },
 			wantType:   &RegexpAttributeConstraint{},
 			discSubstr: []string{`"type":"regExp"`},
+		},
+		{
+			name:       "jsonSchema",
+			payload:    `{"type":"jsonSchema","data":"{\"type\":\"string\"}"}`,
+			newWrapper: func() oneOfWrapper { return &BaseAttributeConstraint{} },
+			wantType:   &JsonSchemaAttributeConstraint{},
+			discSubstr: []string{`"type":"jsonSchema"`},
 		},
 	}
 	runDiscriminatorCases(t, "BaseAttributeConstraint", cases)
@@ -727,7 +736,7 @@ func TestOneOfSecretContent(t *testing.T) {
 		&SecretContent{}, `{"type":"bogus","content":"c"}`)
 }
 
-// 11. FieldMappingFieldsInner — discriminator "fieldType" (rdn/san/extension).
+// 11. FieldMappingFieldsInner — discriminator "fieldType" (rdn/san/extension/keyUsage/extendedKeyUsage).
 // The anonymous oneOf inside FieldMapping.fields[]; each variant is
 // allOf(MappedField + specifics) with fieldType selecting the variant.
 func TestOneOfFieldMappingFieldsInner(t *testing.T) {
@@ -752,6 +761,20 @@ func TestOneOfFieldMappingFieldsInner(t *testing.T) {
 			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
 			wantType:   &ExtensionMappedField{},
 			discSubstr: []string{`"fieldType":"extension"`},
+		},
+		{
+			name:       "keyUsage",
+			payload:    `{"fieldType":"keyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &KeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"keyUsage"`},
+		},
+		{
+			name:       "extendedKeyUsage",
+			payload:    `{"fieldType":"extendedKeyUsage"}`,
+			newWrapper: func() oneOfWrapper { return &FieldMappingFieldsInner{} },
+			wantType:   &ExtendedKeyUsageMappedField{},
+			discSubstr: []string{`"fieldType":"extendedKeyUsage"`},
 		},
 	}
 	runDiscriminatorCases(t, "FieldMappingFieldsInner", cases)
@@ -924,6 +947,42 @@ func TestOneOfKeyCreationStatusResponse(t *testing.T) {
 func TestOneOfKeyCreationStatusResponseUnknownKeyRequestType(t *testing.T) {
 	assertUnknownDiscriminator(t, "KeyCreationStatusResponse", &KeyCreationStatusResponse{},
 		`{"keyRequestType":"quantum","status":"completed"}`)
+}
+
+// 15. KeyDataV2 — discriminator "type" (Secret/Public/Private).
+//
+// The descriptor an export returns (ExportKeyResponseV2Dto.keyData). Each
+// variant pins its own `type`, so the discriminator alone selects it.
+func TestOneOfKeyDataV2(t *testing.T) {
+	cases := []oneOfCase{
+		{
+			name:       "Secret",
+			payload:    `{"type":"Secret","algorithm":"AES","length":256}`,
+			newWrapper: func() oneOfWrapper { return &KeyDataV2{} },
+			wantType:   &SecretKeyDataV2Dto{},
+			discSubstr: []string{`"type":"Secret"`},
+		},
+		{
+			name:       "Public",
+			payload:    `{"type":"Public","algorithm":"RSA","length":3072,"publicKeySpki":"MIIB"}`,
+			newWrapper: func() oneOfWrapper { return &KeyDataV2{} },
+			wantType:   &PublicKeyDataV2Dto{},
+			discSubstr: []string{`"type":"Public"`},
+		},
+		{
+			name:       "Private",
+			payload:    `{"type":"Private","algorithm":"RSA","length":3072}`,
+			newWrapper: func() oneOfWrapper { return &KeyDataV2{} },
+			wantType:   &PrivateKeyDataV2Dto{},
+			discSubstr: []string{`"type":"Private"`},
+		},
+	}
+	runDiscriminatorCases(t, "KeyDataV2", cases)
+}
+
+func TestOneOfKeyDataV2UnknownType(t *testing.T) {
+	assertUnknownDiscriminator(t, "KeyDataV2", &KeyDataV2{},
+		`{"type":"Hidden","algorithm":"RSA","length":3072}`)
 }
 
 // --- Pinned properties -------------------------------------------------------
