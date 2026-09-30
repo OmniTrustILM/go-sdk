@@ -11,9 +11,9 @@ import (
 
 // Every route emits exactly one connector event per request, after its
 // response guards have run, so outcome is "ok" exactly when the status is
-// below 400. The table drives all 24 routes through a bare provider — nil
-// responses, so the guarded routes fail on ErrNilResponse — with both async
-// sub-providers registered, so no route short-circuits on the 404 path.
+// below 400. The table drives every route through bare providers — nil
+// responses, so the guarded routes fail on ErrNilResponse — with every
+// sub-provider registered, so no route short-circuits on the 404 path.
 func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 	routes := []struct {
 		method string
@@ -45,9 +45,18 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 		{http.MethodPost, "/v2/cryptographyProvider/keys/destroy/cancel", operationTrackingBody, "cancel_destroy_key"},
 		{http.MethodPost, "/v2/cryptographyProvider/operations/sign/status", operationTrackingBody, "sign_data_status"},
 		{http.MethodPost, "/v2/cryptographyProvider/operations/sign/cancel", operationTrackingBody, "cancel_sign_data"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/import/keyTypes", tokenProfileScopedBody, "list_importable_key_types"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/import/attributes", importKeyAttributesBody, "list_import_key_attributes"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/import", importKeyBody(nil), "import_key"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/import/result", importKeyResultBody, "import_key_result"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/import/status", operationTrackingBody, "import_key_status"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/import/cancel", operationTrackingBody, "cancel_import_key"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/export/keyTypes", tokenProfileScopedBody, "list_exportable_key_types"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/export/attributes", keyScopedRequestBody, "list_export_key_attributes"},
+		{http.MethodPost, "/v2/cryptographyProvider/keys/export", exportKeyBody(nil), "export_key"},
 	}
-	if len(routes) != 24 {
-		t.Fatalf("test bug: table has %d routes, need 24", len(routes))
+	if len(routes) != 33 {
+		t.Fatalf("test bug: table has %d routes, need 33", len(routes))
 	}
 
 	for _, tc := range routes {
@@ -56,6 +65,9 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 			srv := newMeteredServer(t, &stubProvider{}, mc,
 				cryptography.WithAsyncKeys(&stubAsyncKeys{}),
 				cryptography.WithAsyncSign(&stubAsyncSign{}),
+				cryptography.WithKeyImport(&stubKeyImport{}),
+				cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
+				cryptography.WithKeyExport(&stubKeyExport{}),
 			)
 			var req *http.Request
 			if tc.body == "" {

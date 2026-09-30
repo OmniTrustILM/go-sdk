@@ -155,15 +155,9 @@ func SelectedSignatureAlgorithm(signatureAttributes []mdl.RequestAttribute) (Sig
 
 // signatureAlgorithmAttribute finds v3 attribute named signatureAlgorithm.
 func signatureAlgorithmAttribute(attrs []mdl.RequestAttribute) (*mdl.RequestAttributeV3, error) {
-	var found *mdl.RequestAttribute
-	for i := range attrs {
-		if requestAttributeName(attrs[i]) != SignatureAlgorithmAttributeName {
-			continue
-		}
-		if found != nil {
-			return nil, errSignatureAlgorithmRepeated
-		}
-		found = &attrs[i]
+	found, err := reservedAttribute(attrs, SignatureAlgorithmAttributeName, errSignatureAlgorithmRepeated)
+	if err != nil {
+		return nil, err
 	}
 	if found == nil {
 		return nil, errSignatureAlgorithmNotSelected
@@ -172,6 +166,22 @@ func signatureAlgorithmAttribute(attrs []mdl.RequestAttribute) (*mdl.RequestAttr
 		return nil, errSignatureAlgorithmNotV3
 	}
 	return found.RequestAttributeV3, nil
+}
+
+// reservedAttribute finds the attribute named name, refusing a second one with
+// repeated; nil when there is none.
+func reservedAttribute(attrs []mdl.RequestAttribute, name string, repeated error) (*mdl.RequestAttribute, error) {
+	var found *mdl.RequestAttribute
+	for i := range attrs {
+		if requestAttributeName(attrs[i]) != name {
+			continue
+		}
+		if found != nil {
+			return nil, repeated
+		}
+		found = &attrs[i]
+	}
+	return found, nil
 }
 
 func requestAttributeName(a mdl.RequestAttribute) string {

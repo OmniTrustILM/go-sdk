@@ -35,7 +35,25 @@ const (
 	eventCancelDestroyKey = "cancel_destroy_key"
 	eventSignDataStatus   = "sign_data_status"
 	eventCancelSignData   = "cancel_sign_data"
+
+	eventImportableKeyTypes  = "list_importable_key_types"
+	eventImportKeyAttributes = "list_import_key_attributes"
+	eventImportKey           = "import_key"
+	eventImportKeyResult     = "import_key_result"
+	eventImportKeyStatus     = "import_key_status"
+	eventCancelImportKey     = "cancel_import_key"
+
+	eventExportableKeyTypes  = "list_exportable_key_types"
+	eventExportKeyAttributes = "list_export_key_attributes"
+	eventExportKey           = "export_key"
 )
+
+// errKeyImportNotSupported is the import routes' answer without WithKeyImport,
+// the body the contract declares for "endpoint not found or not implemented".
+var errKeyImportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key import is not implemented by this connector")
+
+// errKeyExportNotSupported is the export routes' answer without WithKeyExport.
+var errKeyExportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key export is not implemented by this connector")
 
 // rejectRequest emits the outcome event and renders the problem response for a
 // failed request guard.
@@ -354,7 +372,7 @@ func (h *Handler) createKey(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := firstError(
 		validateExecutionMode(in.ExecutionMode),
-		validateKeyCreationId(in.KeyCreationId),
+		validateIdempotencyKey(in.KeyCreationId, "keyCreationId"),
 	); err != nil {
 		h.rejectRequest(w, r, eventCreateKey, err)
 		return
@@ -719,4 +737,254 @@ func (h *Handler) cancelSignData(w http.ResponseWriter, r *http.Request) {
 	}
 	shared.EmitEvent(r.Context(), eventCancelSignData, nil)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Key import ------------------------------------------------------------------
+//
+// Without WithKeyImport the import, key type and result routes answer 404
+// OPERATION_NOT_SUPPORTED before reading the body; the status and cancel routes
+// follow the async routes' rule with WithAsyncKeyImport.
+
+func (h *Handler) listImportableKeyTypes(w http.ResponseWriter, r *http.Request) {
+	if h.keyImport == nil {
+		h.rejectRequest(w, r, eventImportableKeyTypes, errKeyImportNotSupported)
+		return
+	}
+	var in mdl.TokenProfileScopedRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventImportableKeyTypes, err)
+		return
+	}
+	out, err := h.keyImport.ImportableKeyTypes(r.Context(), &in)
+	if err == nil {
+		err = validateKeyTypeDeclarations(importableDeclarations(out), "importable key types")
+	}
+	shared.EmitEvent(r.Context(), eventImportableKeyTypes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
+		h.LoggerFor(r).Error("write listImportableKeyTypes response", "err", writeErr)
+	}
+}
+
+func (h *Handler) listImportKeyAttributes(w http.ResponseWriter, r *http.Request) {
+	var in mdl.ImportKeyAttributesRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventImportKeyAttributes, err)
+		return
+	}
+	var out []mdl.BaseAttributeDto
+	var err error
+	if h.importAttrs != nil {
+		out, err = h.importAttrs.ImportKeyAttributes(r.Context(), &in)
+	}
+	if err == nil {
+		err = validateEncodable(out)
+	}
+	shared.EmitEvent(r.Context(), eventImportKeyAttributes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
+		h.LoggerFor(r).Error("write listImportKeyAttributes response", "err", writeErr)
+	}
+}
+
+// 409 ErrKeyImportConflict when keyImportId is reused non-equivalently.
+func (h *Handler) importKey(w http.ResponseWriter, r *http.Request) {
+	if h.keyImport == nil {
+		h.rejectRequest(w, r, eventImportKey, errKeyImportNotSupported)
+		return
+	}
+	var in mdl.ImportKeyRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventImportKey, err)
+		return
+	}
+	if err := firstError(
+		validateExecutionMode(in.ExecutionMode),
+		validateIdempotencyKey(in.KeyImportId, "keyImportId"),
+		validateKeyReference(in.KeyReference),
+		validatePassphrase(in.Passphrase),
+		validateRequestMaterial(in.Material),
+	); err != nil {
+		h.rejectRequest(w, r, eventImportKey, err)
+		return
+	}
+	out, accepted, err := h.keyImport.ImportKey(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.KeyCreationResponse) error {
+			return firstError(
+				validateModeNotSwitched(in.ExecutionMode, accepted, "key import"),
+				validateKeyResultShape(accepted, out, "key import"),
+				validateRequestedKeyRequestType(keyCreationRequestType(out), in.KeyRequestType),
+			)
+		})
+	}
+	shared.EmitEvent(r.Context(), eventImportKey, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, executionStatus(accepted), out); writeErr != nil {
+		h.LoggerFor(r).Error("write importKey response", "err", writeErr)
+	}
+}
+
+// 200 with the recorded state | 404 ErrOperationNotTracked for an import never accepted.
+func (h *Handler) importKeyResult(w http.ResponseWriter, r *http.Request) {
+	if h.keyImport == nil {
+		h.rejectRequest(w, r, eventImportKeyResult, errKeyImportNotSupported)
+		return
+	}
+	var in mdl.ImportKeyResultRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventImportKeyResult, err)
+		return
+	}
+	if err := validateIdempotencyKey(in.KeyImportId, "keyImportId"); err != nil {
+		h.rejectRequest(w, r, eventImportKeyResult, err)
+		return
+	}
+	out, err := h.keyImport.ImportKeyResult(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, validateKeyImportStatusShape)
+	}
+	shared.EmitEvent(r.Context(), eventImportKeyResult, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
+		h.LoggerFor(r).Error("write importKeyResult response", "err", writeErr)
+	}
+}
+
+// 200 with the import status | 404 ErrOperationNotTracked.
+func (h *Handler) importKeyStatus(w http.ResponseWriter, r *http.Request) {
+	var in mdl.OperationTrackingRequestV2Dto
+	if !h.decodeTracking(w, r, eventImportKeyStatus, h.asyncImport != nil, &in) {
+		return
+	}
+	out, err := h.asyncImport.ImportKeyStatus(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, validateKeyImportStatusShape)
+	}
+	shared.EmitEvent(r.Context(), eventImportKeyStatus, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
+		h.LoggerFor(r).Error("write importKeyStatus response", "err", writeErr)
+	}
+}
+
+// 204 aborted | 404 ErrOperationNotTracked | 422 ErrCancelPastPointOfNoReturn (terminal or past the point of no return).
+func (h *Handler) cancelImportKey(w http.ResponseWriter, r *http.Request) {
+	var in mdl.OperationTrackingRequestV2Dto
+	if !h.decodeTracking(w, r, eventCancelImportKey, h.asyncImport != nil, &in) {
+		return
+	}
+	if err := h.asyncImport.CancelImportKey(r.Context(), &in); err != nil {
+		h.rejectRequest(w, r, eventCancelImportKey, err)
+		return
+	}
+	shared.EmitEvent(r.Context(), eventCancelImportKey, nil)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Key export ------------------------------------------------------------------
+//
+// Without WithKeyExport the export and key type routes answer 404
+// OPERATION_NOT_SUPPORTED before reading the body.
+
+func (h *Handler) listExportableKeyTypes(w http.ResponseWriter, r *http.Request) {
+	if h.keyExport == nil {
+		h.rejectRequest(w, r, eventExportableKeyTypes, errKeyExportNotSupported)
+		return
+	}
+	var in mdl.TokenProfileScopedRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventExportableKeyTypes, err)
+		return
+	}
+	out, err := h.keyExport.ExportableKeyTypes(r.Context(), &in)
+	if err == nil {
+		err = validateKeyTypeDeclarations(exportableDeclarations(out), "exportable key types")
+	}
+	shared.EmitEvent(r.Context(), eventExportableKeyTypes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
+		h.LoggerFor(r).Error("write listExportableKeyTypes response", "err", writeErr)
+	}
+}
+
+func (h *Handler) listExportKeyAttributes(w http.ResponseWriter, r *http.Request) {
+	var in mdl.KeyScopedRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventExportKeyAttributes, err)
+		return
+	}
+	if err := validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"); err != nil {
+		h.rejectRequest(w, r, eventExportKeyAttributes, err)
+		return
+	}
+	var out []mdl.BaseAttributeDto
+	var err error
+	if h.exportAttrs != nil {
+		out, err = h.exportAttrs.ExportKeyAttributes(r.Context(), &in)
+	}
+	if err == nil {
+		err = validateEncodable(out)
+	}
+	shared.EmitEvent(r.Context(), eventExportKeyAttributes, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
+		h.LoggerFor(r).Error("write listExportKeyAttributes response", "err", writeErr)
+	}
+}
+
+// Always synchronous: no protected material is ever held in tracking state.
+func (h *Handler) exportKey(w http.ResponseWriter, r *http.Request) {
+	if h.keyExport == nil {
+		h.rejectRequest(w, r, eventExportKey, errKeyExportNotSupported)
+		return
+	}
+	var in mdl.ExportKeyRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventExportKey, err)
+		return
+	}
+	if err := firstError(
+		validateNonEmptyBatch(len(in.KeyMeta), "keyMeta"),
+		validateOptionalKeyReference(in.KeyReference),
+		validatePassphrase(in.Passphrase),
+	); err != nil {
+		h.rejectRequest(w, r, eventExportKey, err)
+		return
+	}
+	out, err := h.keyExport.ExportKey(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.ExportKeyResponseV2Dto) error {
+			return validateExportShape(&in, out)
+		})
+	}
+	shared.EmitEvent(r.Context(), eventExportKey, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
+		h.LoggerFor(r).Error("write exportKey response", "err", writeErr)
+	}
 }

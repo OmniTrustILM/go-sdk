@@ -30,6 +30,10 @@ type Handler struct {
 	asyncKeys AsyncKeyProvider
 	asyncSign AsyncSignProvider
 
+	keyImport   KeyImportProvider
+	asyncImport AsyncKeyImportProvider
+	keyExport   KeyExportProvider
+
 	tokenAttrs        TokenAttributeProvider
 	tokenProfileAttrs TokenProfileAttributeProvider
 	createKeyAttrs    CreateKeyAttributeProvider
@@ -38,6 +42,8 @@ type Handler struct {
 	signAttrs         SignAttributeProvider
 	verifyAttrs       VerifyAttributeProvider
 	randomAttrs       RandomDataAttributeProvider
+	importAttrs       ImportKeyAttributeProvider
+	exportAttrs       ExportKeyAttributeProvider
 }
 
 // NewHandler builds a Handler for the given Provider.
@@ -52,14 +58,31 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 	if err := handlerbase.ApplyOptions(h, opts, "cryptography"); err != nil {
 		return nil, err
 	}
-	// FeatureFlag.ASYNCHRONOUS is ENFORCED and covers the whole interface:
-	// once advertised, Core may select asynchronous execution for key
-	// creation, key destruction and signing alike, so every accepted
-	// operation needs its status and cancel routes served.
-	if slices.Contains(h.Features, string(mdl.FEATUREFLAG_ASYNCHRONOUS)) && (h.asyncKeys == nil || h.asyncSign == nil) {
-		return nil, errors.New("cryptography: asynchronous feature advertised without both WithAsyncKeys and WithAsyncSign")
+	if err := h.requireFeatureProviders(); err != nil {
+		return nil, err
 	}
 	return h, nil
+}
+
+// requireFeatureProviders refuses an ENFORCED feature advertised without the
+// providers behind the routes Core then calls. FeatureFlag.ASYNCHRONOUS covers
+// the whole interface: once advertised, Core may select asynchronous
+// execution for key creation, key destruction, signing and key import alike,
+// so every accepted operation needs its status and cancel routes served.
+func (h *Handler) requireFeatureProviders() error {
+	advertised := func(flag mdl.FeatureFlag) bool { return slices.Contains(h.Features, string(flag)) }
+	async := advertised(mdl.FEATUREFLAG_ASYNCHRONOUS)
+	switch {
+	case async && (h.asyncKeys == nil || h.asyncSign == nil):
+		return errors.New("cryptography: asynchronous feature advertised without both WithAsyncKeys and WithAsyncSign")
+	case advertised(mdl.FEATUREFLAG_KEY_IMPORT) && h.keyImport == nil:
+		return errors.New("cryptography: keyImport feature advertised without WithKeyImport")
+	case async && advertised(mdl.FEATUREFLAG_KEY_IMPORT) && h.asyncImport == nil:
+		return errors.New("cryptography: asynchronous and keyImport features advertised without WithAsyncKeyImport")
+	case advertised(mdl.FEATUREFLAG_KEY_EXPORT) && h.keyExport == nil:
+		return errors.New("cryptography: keyExport feature advertised without WithKeyExport")
+	}
+	return nil
 }
 
 // Interface satisfies shared.Registrable. Reports the "cryptography"
@@ -69,10 +92,11 @@ func (h *Handler) Interface() shared.InterfaceInfo {
 	return h.InterfaceInfo(shared.InterfaceCodeCryptography, InterfaceVersion)
 }
 
-// Mount attaches all 24 routes onto r unconditionally; the patterns are literal,
-// so this package composes with any other on one mux. The six async routes
-// answer 404 OPERATION_NOT_SUPPORTED when their sub-interface was not
-// registered.
+// Mount attaches every route onto r unconditionally; the patterns are literal,
+// so this package composes with any other on one mux. The async, key import
+// and key export routes answer 404 OPERATION_NOT_SUPPORTED when their
+// sub-interface was not registered, except the attribute routes, which answer
+// 200 with an empty array as every attribute route does.
 func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
@@ -105,4 +129,15 @@ func (h *Handler) Mount(r shared.Router) {
 
 	r.Handle(http.MethodPost, base+"/operations/sign/status", h.signDataStatus)
 	r.Handle(http.MethodPost, base+"/operations/sign/cancel", h.cancelSignData)
+
+	r.Handle(http.MethodPost, base+"/keys/import/keyTypes", h.listImportableKeyTypes)
+	r.Handle(http.MethodPost, base+"/keys/import/attributes", h.listImportKeyAttributes)
+	r.Handle(http.MethodPost, base+"/keys/import", h.importKey)
+	r.Handle(http.MethodPost, base+"/keys/import/result", h.importKeyResult)
+	r.Handle(http.MethodPost, base+"/keys/import/status", h.importKeyStatus)
+	r.Handle(http.MethodPost, base+"/keys/import/cancel", h.cancelImportKey)
+
+	r.Handle(http.MethodPost, base+"/keys/export/keyTypes", h.listExportableKeyTypes)
+	r.Handle(http.MethodPost, base+"/keys/export/attributes", h.listExportKeyAttributes)
+	r.Handle(http.MethodPost, base+"/keys/export", h.exportKey)
 }

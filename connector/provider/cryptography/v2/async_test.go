@@ -705,7 +705,7 @@ func TestCancelSignDataMapsRefusalTo422(t *testing.T) {
 // --- Decode failure: missing required operationMeta ---------------------------
 
 // TestStatusAndCancelRoutesRejectMissingOperationMeta exercises the
-// shared.DecodeJSON error branch that opens all six new handlers.
+// shared.DecodeJSON error branch that opens every status and cancel handler.
 // OperationTrackingRequestV2Dto requires operationMeta, so posting `{}`
 // fails the generated DTO's UnmarshalJSON before the handler ever calls the
 // sub-provider; shared.DecodeJSON maps that to Invalid("VALIDATION_FAILED",
@@ -714,6 +714,7 @@ func TestStatusAndCancelRoutesRejectMissingOperationMeta(t *testing.T) {
 	srv := newTestServer(t, &stubProvider{},
 		cryptography.WithAsyncKeys(&stubAsyncKeys{}),
 		cryptography.WithAsyncSign(&stubAsyncSign{}),
+		cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
 	)
 
 	for _, path := range []string{
@@ -723,6 +724,8 @@ func TestStatusAndCancelRoutesRejectMissingOperationMeta(t *testing.T) {
 		"/v2/cryptographyProvider/keys/destroy/cancel",
 		"/v2/cryptographyProvider/operations/sign/status",
 		"/v2/cryptographyProvider/operations/sign/cancel",
+		"/v2/cryptographyProvider/keys/import/status",
+		"/v2/cryptographyProvider/keys/import/cancel",
 	} {
 		t.Run(path, func(t *testing.T) {
 			rec := post(t, srv, path, `{}`)
@@ -743,10 +746,16 @@ func TestStatusAndCancelRoutesRejectMissingOperationMeta(t *testing.T) {
 
 // --- Mount routes --------------------------------------------------------------
 
-func TestMountRegistersAllTwentyFourRoutes(t *testing.T) {
+func TestMountRegistersEveryRoute(t *testing.T) {
 	for name, opts := range map[string][]cryptography.Option{
 		"without sub-interfaces": nil,
-		"fully configured":       {cryptography.WithAsyncKeys(&stubAsyncKeys{}), cryptography.WithAsyncSign(&stubAsyncSign{})},
+		"fully configured": {
+			cryptography.WithAsyncKeys(&stubAsyncKeys{}),
+			cryptography.WithAsyncSign(&stubAsyncSign{}),
+			cryptography.WithKeyImport(&stubKeyImport{}),
+			cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
+			cryptography.WithKeyExport(&stubKeyExport{}),
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h, err := cryptography.NewHandler(&stubProvider{}, opts...)
@@ -764,8 +773,8 @@ func TestMountRegistersAllTwentyFourRoutes(t *testing.T) {
 
 func assertMountedExactly(t *testing.T, patterns []string) {
 	t.Helper()
-	if len(patterns) != 24 {
-		t.Fatalf("mounted %d routes, want 24: %v", len(patterns), patterns)
+	if len(patterns) != 33 {
+		t.Fatalf("mounted %d routes, want 33: %v", len(patterns), patterns)
 	}
 
 	want := map[string]bool{
@@ -793,9 +802,18 @@ func assertMountedExactly(t *testing.T, patterns []string) {
 		"POST /v2/cryptographyProvider/keys/destroy/cancel":            true,
 		"POST /v2/cryptographyProvider/operations/sign/status":         true,
 		"POST /v2/cryptographyProvider/operations/sign/cancel":         true,
+		"POST /v2/cryptographyProvider/keys/import/keyTypes":           true,
+		"POST /v2/cryptographyProvider/keys/import/attributes":         true,
+		"POST /v2/cryptographyProvider/keys/import":                    true,
+		"POST /v2/cryptographyProvider/keys/import/result":             true,
+		"POST /v2/cryptographyProvider/keys/import/status":             true,
+		"POST /v2/cryptographyProvider/keys/import/cancel":             true,
+		"POST /v2/cryptographyProvider/keys/export/keyTypes":           true,
+		"POST /v2/cryptographyProvider/keys/export/attributes":         true,
+		"POST /v2/cryptographyProvider/keys/export":                    true,
 	}
-	if len(want) != 24 {
-		t.Fatalf("test bug: want set has %d entries, need 24", len(want))
+	if len(want) != 33 {
+		t.Fatalf("test bug: want set has %d entries, need 33", len(want))
 	}
 	for _, p := range patterns {
 		if strings.ContainsAny(p, "{}") {

@@ -125,7 +125,7 @@ func TestValidateKeyCreationId(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateKeyCreationId(tc.id)
+			err := validateIdempotencyKey(tc.id, "keyCreationId")
 			if tc.wantDetail == "" {
 				wantNoError(t, err)
 				return

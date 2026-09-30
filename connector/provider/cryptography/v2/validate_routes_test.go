@@ -197,7 +197,7 @@ func TestKeyScopedRoutesRejectEmptyKeyMeta(t *testing.T) {
 		t.Run(route.path, func(t *testing.T) {
 			body := strings.Replace(route.body, oneMetadataAttribute, "[]", 1)
 
-			rec := post(t, newTestServer(t, &stubProvider{}), route.path, body)
+			rec := post(t, tokenNotFoundServer(t), route.path, body)
 
 			problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 			assertDetail(t, problem, "keyMeta must not be empty")
@@ -230,11 +230,12 @@ func TestAsyncSignWithEmptyDataIsRejectedAtTheBoundary(t *testing.T) {
 }
 
 // TestStatusAndCancelRoutesRejectEmptyOperationMeta covers the operationMeta
-// minItems: 1 list, on the DTO all six status/cancel routes decode.
+// minItems: 1 list, on the DTO every status and cancel route decodes.
 func TestStatusAndCancelRoutesRejectEmptyOperationMeta(t *testing.T) {
 	srv := newTestServer(t, &stubProvider{},
 		cryptography.WithAsyncKeys(&stubAsyncKeys{}),
 		cryptography.WithAsyncSign(&stubAsyncSign{}),
+		cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
 	)
 
 	for _, path := range []string{
@@ -244,6 +245,8 @@ func TestStatusAndCancelRoutesRejectEmptyOperationMeta(t *testing.T) {
 		"/v2/cryptographyProvider/keys/destroy/cancel",
 		"/v2/cryptographyProvider/operations/sign/status",
 		"/v2/cryptographyProvider/operations/sign/cancel",
+		"/v2/cryptographyProvider/keys/import/status",
+		"/v2/cryptographyProvider/keys/import/cancel",
 	} {
 		t.Run(path, func(t *testing.T) {
 			rec := post(t, srv, path, `{"operationMeta":[]}`)
@@ -257,7 +260,7 @@ func TestStatusAndCancelRoutesRejectEmptyOperationMeta(t *testing.T) {
 // --- Request side: token-profile key usages -----------------------------------
 
 // tokenProfileScopedRoutes holds every route whose request extends the
-// token-profile scope. wantStatus is tokenNotFoundProvider's answer: 404 from
+// token-profile scope. wantStatus is tokenNotFoundServer's answer: 404 from
 // a provider route, 200 from an unregistered attribute route.
 var tokenProfileScopedRoutes = []struct {
 	path       string
@@ -278,6 +281,12 @@ var tokenProfileScopedRoutes = []struct {
 	{"/v2/cryptographyProvider/operations/sign", signDataBody("synchronous"), http.StatusNotFound},
 	{"/v2/cryptographyProvider/operations/verify", verifyDataBody, http.StatusNotFound},
 	{"/v2/cryptographyProvider/operations/random", randomDataBody, http.StatusNotFound},
+	{importableKeyTypesPath, tokenProfileScopedBody, http.StatusNotFound},
+	{importKeyAttrsPath, importKeyAttributesBody, http.StatusOK},
+	{importKeyPath, importKeyBody(nil), http.StatusNotFound},
+	{exportableKeyTypesPath, tokenProfileScopedBody, http.StatusNotFound},
+	{exportKeyAttrsPath, keyScopedRequestBody, http.StatusOK},
+	{exportKeyPath, exportKeyBody(nil), http.StatusNotFound},
 }
 
 // tokenNotFoundProvider fails every token-profile-scoped call with
@@ -296,10 +305,21 @@ func tokenNotFoundProvider() *stubProvider {
 	}
 }
 
+// tokenNotFoundServer serves tokenNotFoundProvider with key import and export
+// registered, failing the same way.
+func tokenNotFoundServer(t *testing.T) http.Handler {
+	t.Helper()
+	err := cryptography.ErrTokenNotFound
+	return newTestServer(t, tokenNotFoundProvider(),
+		cryptography.WithKeyImport(&stubKeyImport{keyTypesErr: err, importErr: err}),
+		cryptography.WithKeyExport(&stubKeyExport{keyTypesErr: err, exportErr: err}),
+	)
+}
+
 func TestRoutesAcceptRequestsWithoutKeyUsages(t *testing.T) {
 	for _, route := range tokenProfileScopedRoutes {
 		t.Run(route.path, func(t *testing.T) {
-			rec := post(t, newTestServer(t, tokenNotFoundProvider()), route.path, route.body)
+			rec := post(t, tokenNotFoundServer(t), route.path, route.body)
 
 			if rec.Code != route.wantStatus {
 				t.Errorf("status = %d, want %d; body %s", rec.Code, route.wantStatus, rec.Body.String())
@@ -315,7 +335,7 @@ func TestRoutesRejectRequestsCarryingKeyUsages(t *testing.T) {
 		t.Run(route.path, func(t *testing.T) {
 			body := strings.Replace(route.body, "{", `{"keyUsages":["sign"],`, 1)
 
-			rec := post(t, newTestServer(t, tokenNotFoundProvider()), route.path, body)
+			rec := post(t, tokenNotFoundServer(t), route.path, body)
 
 			assertProblem(t, rec, http.StatusBadRequest, "INVALID_JSON")
 		})

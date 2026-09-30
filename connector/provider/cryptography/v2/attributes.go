@@ -58,3 +58,18 @@ type VerifyAttributeProvider interface {
 type RandomDataAttributeProvider interface {
 	RandomDataAttributes(ctx context.Context, req *mdl.TokenProfileScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error)
 }
+
+// ImportKeyAttributeProvider serves
+// POST /v2/cryptographyProvider/keys/import/attributes. The schema must not
+// define an attribute that carries key material, a passphrase or a
+// certificate.
+type ImportKeyAttributeProvider interface {
+	ImportKeyAttributes(ctx context.Context, req *mdl.ImportKeyAttributesRequestV2Dto) ([]mdl.BaseAttributeDto, error)
+}
+
+// ExportKeyAttributeProvider serves
+// POST /v2/cryptographyProvider/keys/export/attributes, under the same rule on
+// what the schema may define.
+type ExportKeyAttributeProvider interface {
+	ExportKeyAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error)
+}

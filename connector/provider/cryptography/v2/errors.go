@@ -39,8 +39,8 @@ var (
 	// contract's enum.
 	ErrInvalidRequest = shared.BadRequest("BAD_REQUEST", "invalid request")
 
-	// ErrOperationNotSupported -> 404. Rendered by the six async routes when
-	// their sub-provider was not registered.
+	// ErrOperationNotSupported -> 404. Rendered by the status and cancel
+	// routes when their sub-provider was not registered.
 	ErrOperationNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "asynchronous execution is not implemented by this connector")
 
 	// ErrSignatureAlgorithmUnsupported -> 422. The selected signature algorithm
@@ -50,4 +50,32 @@ var (
 	// ErrNilResponse -> 500. A nil result with no error would serialize as a
 	// 200 with a null body.
 	ErrNilResponse = shared.Internal("INTERNAL_SERVER_ERROR", "provider returned no response")
+
+	// ErrKeyDecryptionFailed -> 422. The key material does not open with the
+	// supplied passphrase; OpenKeyMaterial returns it.
+	ErrKeyDecryptionFailed = shared.Invalid("KEY_DECRYPTION_FAILED", "key material could not be decrypted with the supplied passphrase")
+
+	// ErrKeyImportConflict -> 409. keyImportId reused with a request that is
+	// not equivalent to the original.
+	ErrKeyImportConflict = shared.Conflict("RESOURCE_ALREADY_EXISTS", "keyImportId already used for a different request")
+
+	// ErrKeyTypeNotImportable -> 422. The key type or algorithm cannot be
+	// imported into this token.
+	ErrKeyTypeNotImportable = shared.Invalid("KEY_TYPE_NOT_IMPORTABLE", "key type or algorithm cannot be imported into this token")
+
+	// ErrKeyMaterialMismatch -> 422. The key is not of the declared key type
+	// or algorithm.
+	ErrKeyMaterialMismatch = shared.Invalid("KEY_MATERIAL_MISMATCH", "key is not of the declared key type or algorithm")
+
+	// ErrExportableNotSupported -> 422. The token cannot hold a key that stays
+	// exportable.
+	ErrExportableNotSupported = shared.Invalid("EXPORTABLE_NOT_SUPPORTED", "token cannot hold a key that stays exportable")
+
+	// ErrKeyNotExportable -> 422. The key was not created or imported as
+	// exportable.
+	ErrKeyNotExportable = shared.Invalid("KEY_NOT_EXPORTABLE", "key was not created or imported as exportable")
+
+	// ErrKeyTypeNotExportable -> 422. The key type or algorithm cannot be
+	// exported from this token.
+	ErrKeyTypeNotExportable = shared.Invalid("KEY_TYPE_NOT_EXPORTABLE", "key type or algorithm cannot be exported from this token")
 )

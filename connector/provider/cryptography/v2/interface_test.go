@@ -2,6 +2,7 @@ package cryptography_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
@@ -151,5 +152,97 @@ func TestNewHandlerRejectsAsynchronousFeatureWithoutBothAsyncProviders(t *testin
 func TestNewHandlerRejectsNilProvider(t *testing.T) {
 	if _, err := cryptography.NewHandler(nil); err == nil {
 		t.Fatal("expected an error for a nil provider")
+	}
+}
+
+func TestNewHandlerRejectsNilImportAndExportProviders(t *testing.T) {
+	for name, option := range map[string]cryptography.Option{
+		"WithKeyImport":           cryptography.WithKeyImport(nil),
+		"WithAsyncKeyImport":      cryptography.WithAsyncKeyImport(nil),
+		"WithKeyExport":           cryptography.WithKeyExport(nil),
+		"WithImportKeyAttributes": cryptography.WithImportKeyAttributes(nil),
+		"WithExportKeyAttributes": cryptography.WithExportKeyAttributes(nil),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := cryptography.NewHandler(&stubProvider{}, option); err == nil {
+				t.Fatal("expected an error for a nil provider")
+			}
+		})
+	}
+}
+
+func features(flags ...mdl.FeatureFlag) cryptography.Option {
+	names := make([]string, len(flags))
+	for i, flag := range flags {
+		names[i] = string(flag)
+	}
+	return cryptography.Base(handlerbase.WithFeatures(names...))
+}
+
+// keyImport and keyExport are ENFORCED: Core calls the import or export
+// routes of a connector that advertises them, and asynchronous lets it run an
+// import asynchronously, so each needs the providers behind those routes.
+func TestNewHandlerRejectsATransferFeatureWithoutItsProvider(t *testing.T) {
+	async := []cryptography.Option{cryptography.WithAsyncKeys(&stubAsyncKeys{}), cryptography.WithAsyncSign(&stubAsyncSign{})}
+	cases := map[string][]cryptography.Option{
+		"keyImport without WithKeyImport": {features(mdl.FEATUREFLAG_KEY_IMPORT)},
+		"keyExport without WithKeyExport": {features(mdl.FEATUREFLAG_KEY_EXPORT)},
+		"asynchronous keyImport without WithAsyncKeyImport": append([]cryptography.Option{
+			features(mdl.FEATUREFLAG_ASYNCHRONOUS, mdl.FEATUREFLAG_KEY_IMPORT),
+			cryptography.WithKeyImport(&stubKeyImport{}),
+		}, async...),
+	}
+	for name, opts := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := cryptography.NewHandler(&stubProvider{}, opts...); err == nil {
+				t.Fatal("expected an error")
+			}
+		})
+	}
+}
+
+func TestNewHandlerAcceptsTheTransferFeaturesWithTheirProviders(t *testing.T) {
+	async := []cryptography.Option{cryptography.WithAsyncKeys(&stubAsyncKeys{}), cryptography.WithAsyncSign(&stubAsyncSign{})}
+	cases := map[string]struct {
+		opts []cryptography.Option
+		want []string
+	}{
+		"export alone": {
+			opts: []cryptography.Option{features(mdl.FEATUREFLAG_KEY_EXPORT), cryptography.WithKeyExport(&stubKeyExport{})},
+			want: []string{"keyExport"},
+		},
+		"synchronous import": {
+			opts: []cryptography.Option{features(mdl.FEATUREFLAG_KEY_IMPORT), cryptography.WithKeyImport(&stubKeyImport{})},
+			want: []string{"keyImport"},
+		},
+		"asynchronous import and export": {
+			opts: append([]cryptography.Option{
+				features(mdl.FEATUREFLAG_ASYNCHRONOUS, mdl.FEATUREFLAG_KEY_IMPORT, mdl.FEATUREFLAG_KEY_EXPORT),
+				cryptography.WithKeyImport(&stubKeyImport{}),
+				cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
+				cryptography.WithKeyExport(&stubKeyExport{}),
+			}, async...),
+			want: []string{"asynchronous", "keyImport", "keyExport"},
+		},
+		"providers without their features": {
+			opts: []cryptography.Option{
+				cryptography.WithKeyImport(&stubKeyImport{}),
+				cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
+				cryptography.WithKeyExport(&stubKeyExport{}),
+				cryptography.WithImportKeyAttributes(&stubTransferAttributes{}),
+				cryptography.WithExportKeyAttributes(&stubTransferAttributes{}),
+			},
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			h, err := cryptography.NewHandler(&stubProvider{}, tc.opts...)
+			if err != nil {
+				t.Fatalf("NewHandler: %v", err)
+			}
+			if got := h.Interface().Features; !slices.Equal(got, tc.want) {
+				t.Errorf("Features = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

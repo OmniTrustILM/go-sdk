@@ -157,3 +157,65 @@ func WithRandomDataAttributes(p RandomDataAttributeProvider) Option {
 		return nil
 	}
 }
+
+// WithKeyImport registers the provider backing the key import, importable key
+// types and import result routes. When absent they answer 404
+// OPERATION_NOT_SUPPORTED. See KeyImportProvider for the feature flag.
+func WithKeyImport(p KeyImportProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("key import provider must not be nil")
+		}
+		h.keyImport = p
+		return nil
+	}
+}
+
+// WithAsyncKeyImport registers the provider backing the key import status and
+// cancel routes. When absent those routes answer 404 OPERATION_NOT_SUPPORTED.
+func WithAsyncKeyImport(p AsyncKeyImportProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("async key import provider must not be nil")
+		}
+		h.asyncImport = p
+		return nil
+	}
+}
+
+// WithKeyExport registers the provider backing the key export and exportable
+// key types routes. When absent they answer 404 OPERATION_NOT_SUPPORTED. See
+// KeyExportProvider for the feature flag.
+func WithKeyExport(p KeyExportProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("key export provider must not be nil")
+		}
+		h.keyExport = p
+		return nil
+	}
+}
+
+// WithImportKeyAttributes registers the provider backing
+// POST /v2/cryptographyProvider/keys/import/attributes.
+func WithImportKeyAttributes(p ImportKeyAttributeProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("import key attribute provider must not be nil")
+		}
+		h.importAttrs = p
+		return nil
+	}
+}
+
+// WithExportKeyAttributes registers the provider backing
+// POST /v2/cryptographyProvider/keys/export/attributes.
+func WithExportKeyAttributes(p ExportKeyAttributeProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("export key attribute provider must not be nil")
+		}
+		h.exportAttrs = p
+		return nil
+	}
+}
