@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
 	cryptography "github.com/OmniTrustILM/go-sdk/connector/provider/cryptography/v2"
 )
 
@@ -215,6 +216,30 @@ func TestSelectedEncryptionAlgorithmRefusesAnInvalidSelection(t *testing.T) {
 			got, err := cryptography.SelectedEncryptionAlgorithm(decodeRequestAttributes(t, tc.attributes))
 
 			assertUnprocessable(t, string(got), err, tc.errorCode, tc.detail)
+		})
+	}
+}
+
+func TestSelectedEncryptionAlgorithmRefusesAMislabeledSelection(t *testing.T) {
+	cases := []struct {
+		name     string
+		mislabel func(*mdl.RequestAttributeV3)
+		detail   string
+	}{
+		{"a v3 attribute marked v2", func(s *mdl.RequestAttributeV3) { s.Version = mdl.ATTRIBUTEVERSION_V2 },
+			"encryptionAlgorithm must be a v3 attribute"},
+		{"a string item marked text", func(s *mdl.RequestAttributeV3) {
+			s.Content[0].StringAttributeContentV3.ContentType = mdl.ATTRIBUTECONTENTTYPE_TEXT
+		}, "encryptionAlgorithm must carry a string value"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			selection := cryptography.EncryptionAlgorithmSelection(cryptography.EncryptionAlgorithmRSAOAEPSHA256)
+			tc.mislabel(selection.RequestAttributeV3)
+
+			got, err := cryptography.SelectedEncryptionAlgorithm([]mdl.RequestAttribute{selection})
+
+			assertUnprocessable(t, string(got), err, "VALIDATION_FAILED", tc.detail)
 		})
 	}
 }

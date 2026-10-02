@@ -112,7 +112,7 @@ func (a algorithmAttribute[T]) find(attrs []mdl.RequestAttribute) (*mdl.RequestA
 	if !a.matchesUUIDAndName(*found) {
 		return nil, a.notSelected
 	}
-	if found.RequestAttributeV3 == nil {
+	if found.RequestAttributeV3 == nil || found.RequestAttributeV3.Version != mdl.ATTRIBUTEVERSION_V3 {
 		return nil, a.notV3
 	}
 	return found.RequestAttributeV3, nil
@@ -137,7 +137,7 @@ func (a algorithmAttribute[T]) value(selection *mdl.RequestAttributeV3) (string,
 		return "", a.notSelected
 	}
 	item := selection.Content[0].StringAttributeContentV3
-	if item == nil {
+	if item == nil || item.ContentType != mdl.ATTRIBUTECONTENTTYPE_STRING {
 		return "", a.notString
 	}
 	if item.Data == "" {

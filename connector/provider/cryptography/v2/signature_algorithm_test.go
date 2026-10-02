@@ -267,3 +267,27 @@ func TestSelectedSignatureAlgorithmRefusesAnInvalidSelection(t *testing.T) {
 		})
 	}
 }
+
+func TestSelectedSignatureAlgorithmRefusesAMislabeledSelection(t *testing.T) {
+	cases := []struct {
+		name     string
+		mislabel func(*mdl.RequestAttributeV3)
+		detail   string
+	}{
+		{"a v3 attribute marked v2", func(s *mdl.RequestAttributeV3) { s.Version = mdl.ATTRIBUTEVERSION_V2 },
+			"signatureAlgorithm must be a v3 attribute"},
+		{"a string item marked text", func(s *mdl.RequestAttributeV3) {
+			s.Content[0].StringAttributeContentV3.ContentType = mdl.ATTRIBUTECONTENTTYPE_TEXT
+		}, "signatureAlgorithm must carry a string value"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			selection := cryptography.SignatureAlgorithmSelection(cryptography.SignatureAlgorithmSHA256WithECDSA)
+			tc.mislabel(selection.RequestAttributeV3)
+
+			got, err := cryptography.SelectedSignatureAlgorithm([]mdl.RequestAttribute{selection})
+
+			assertUnprocessable(t, string(got), err, "VALIDATION_FAILED", tc.detail)
+		})
+	}
+}
