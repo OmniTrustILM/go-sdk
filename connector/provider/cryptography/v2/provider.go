@@ -79,11 +79,14 @@ type Provider interface {
 	// req.Data and req.Signatures to carry the same identifiers.
 	VerifyData(ctx context.Context, req *mdl.VerifyDataRequestV2Dto) (*mdl.VerifyDataResponseV2Dto, error)
 
-	// EncryptData encrypts a batch synchronously with the algorithm
-	// SelectedEncryptionAlgorithm reads.
+	// EncryptData encrypts a batch. Always synchronous. Implementers must
+	// encrypt with the algorithm read by SelectedEncryptionAlgorithm, and
+	// refuse one the key lacks with ErrEncryptionAlgorithmUnsupported.
 	EncryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto) (*mdl.EncryptDataResponseV2Dto, error)
 
-	// DecryptData decrypts a batch. Always synchronous.
+	// DecryptData decrypts a batch. Always synchronous. Implementers must
+	// decrypt with the algorithm read by SelectedEncryptionAlgorithm, and
+	// refuse one the key lacks with ErrEncryptionAlgorithmUnsupported.
 	DecryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto) (*mdl.DecryptDataResponseV2Dto, error)
 
 	// RandomData generates random bytes. Always synchronous; req.Length is

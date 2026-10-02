@@ -1,6 +1,7 @@
 package cryptography
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -17,12 +18,31 @@ type algorithmAttribute[T ~string] struct {
 	label       string
 	description string
 	codes       []labeledCode[T]
+	selectionErrors
+	// unknown refuses a code outside the contract as VALIDATION_FAILED, as
+	// Java's findByCode does. A known code the key lacks is the provider's call.
+	unknown error
+}
 
+// selectionErrors are the VALIDATION_FAILED refusals of a malformed selection.
+// Their details name both reserved identifiers, as the Java SDK's do.
+type selectionErrors struct {
 	notSelected error
 	repeated    error
 	notV3       error
 	notString   error
-	unsupported error
+}
+
+// selectionErrorsFor builds the refusals for the attribute carried in list,
+// such as "Cipher".
+func selectionErrorsFor(list, name, uuid string) selectionErrors {
+	attribute := fmt.Sprintf("attribute with name '%s' and UUID '%s'", name, uuid)
+	return selectionErrors{
+		notSelected: errValidationFailed(list + " attributes must select one value of the " + attribute + "."),
+		repeated:    errValidationFailed(list + " " + attribute + " must be supplied once."),
+		notV3:       errValidationFailed(list + " " + attribute + " must be a v3 attribute."),
+		notString:   errValidationFailed(list + " " + attribute + " must carry a string value."),
+	}
 }
 
 type labeledCode[T ~string] struct {
@@ -41,7 +61,7 @@ func (a algorithmAttribute[T]) all() []T {
 
 // contains reports whether code is a contract code in its canonical spelling.
 func (a algorithmAttribute[T]) contains(code T) bool {
-	return slices.Contains(a.all(), code)
+	return slices.ContainsFunc(a.codes, func(entry labeledCode[T]) bool { return entry.code == code })
 }
 
 // labelOf returns the label of a canonically spelled code. Any other spelling
@@ -94,7 +114,7 @@ func (a algorithmAttribute[T]) selected(attrs []mdl.RequestAttribute) (T, error)
 	}
 	entry, ok := a.lookupIgnoringCase(given)
 	if !ok {
-		return "", a.unsupported
+		return "", a.unknown
 	}
 	return entry.code, nil
 }
@@ -130,18 +150,12 @@ func (a algorithmAttribute[T]) matchesUUIDAndName(attr mdl.RequestAttribute) boo
 
 // value returns the single string the selection carries.
 func (a algorithmAttribute[T]) value(selection *mdl.RequestAttributeV3) (string, error) {
-	if selection.ContentType != mdl.ATTRIBUTECONTENTTYPE_STRING {
-		return "", a.notString
-	}
 	if len(selection.Content) != 1 {
 		return "", a.notSelected
 	}
 	item := selection.Content[0].StringAttributeContentV3
-	if item == nil || item.ContentType != mdl.ATTRIBUTECONTENTTYPE_STRING {
+	if selection.ContentType != mdl.ATTRIBUTECONTENTTYPE_STRING || item == nil || item.ContentType != mdl.ATTRIBUTECONTENTTYPE_STRING {
 		return "", a.notString
-	}
-	if item.Data == "" {
-		return "", a.notSelected
 	}
 	return item.Data, nil
 }

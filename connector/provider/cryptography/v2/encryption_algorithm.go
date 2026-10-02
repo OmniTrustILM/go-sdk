@@ -34,11 +34,8 @@ var encryptionAlgorithmAttribute = algorithmAttribute[EncryptionAlgorithm]{
 		{EncryptionAlgorithmRSAOAEPSHA384, "RSAES-OAEP with SHA-384"},
 		{EncryptionAlgorithmRSAOAEPSHA512, "RSAES-OAEP with SHA-512"},
 	},
-	notSelected: errValidationFailed("cipherAttributes must select one encryptionAlgorithm value"),
-	repeated:    errValidationFailed("encryptionAlgorithm must be supplied once"),
-	notV3:       errValidationFailed("encryptionAlgorithm must be a v3 attribute"),
-	notString:   errValidationFailed("encryptionAlgorithm must carry a string value"),
-	unsupported: ErrEncryptionAlgorithmUnsupported,
+	selectionErrors: selectionErrorsFor("Cipher", EncryptionAlgorithmAttributeName, EncryptionAlgorithmAttributeUUID),
+	unknown:         errValidationFailed("Unknown encryption algorithm code."),
 }
 
 // EncryptionAlgorithms returns every contract code.

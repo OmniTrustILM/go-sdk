@@ -65,11 +65,8 @@ var signatureAlgorithmAttribute = algorithmAttribute[SignatureAlgorithm]{
 		{SignatureAlgorithmSLHDSASHA2256S, "SLH-DSA-SHA2-256S (SPHINCS+)"},
 		{SignatureAlgorithmSLHDSASHA2256F, "SLH-DSA-SHA2-256F (SPHINCS+)"},
 	},
-	notSelected: errValidationFailed("signatureAttributes must select one signatureAlgorithm value"),
-	repeated:    errValidationFailed("signatureAlgorithm must be supplied once"),
-	notV3:       errValidationFailed("signatureAlgorithm must be a v3 attribute"),
-	notString:   errValidationFailed("signatureAlgorithm must carry a string value"),
-	unsupported: ErrSignatureAlgorithmUnsupported,
+	selectionErrors: selectionErrorsFor("Signature", SignatureAlgorithmAttributeName, SignatureAlgorithmAttributeUUID),
+	unknown:         errValidationFailed("Unknown signature algorithm code."),
 }
 
 // SignatureAlgorithms returns every contract code.

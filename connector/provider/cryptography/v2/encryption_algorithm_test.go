@@ -130,7 +130,10 @@ func TestEncryptionAlgorithmSelectionMatchesTheContract(t *testing.T) {
 const (
 	otherCipherAttribute = `{"uuid":"5f0c1c52-2b1e-4a57-9f4e-0c7f4f5b8d11","name":"keyLabel","contentType":"string","version":"v3",` +
 		`"content":[{"contentType":"string","data":"rsa-key"}]}`
-	noEncryptionSelectionDetail = "cipherAttributes must select one encryptionAlgorithm value"
+	noEncryptionSelectionDetail = "Cipher attributes must select one value of the attribute with name 'encryptionAlgorithm' and UUID '5e364467-fa95-4253-907b-0c73cdfb2be7'."
+	encryptionRepeatedDetail    = "Cipher attribute with name 'encryptionAlgorithm' and UUID '5e364467-fa95-4253-907b-0c73cdfb2be7' must be supplied once."
+	encryptionNotV3Detail       = "Cipher attribute with name 'encryptionAlgorithm' and UUID '5e364467-fa95-4253-907b-0c73cdfb2be7' must be a v3 attribute."
+	encryptionNotStringDetail   = "Cipher attribute with name 'encryptionAlgorithm' and UUID '5e364467-fa95-4253-907b-0c73cdfb2be7' must carry a string value."
 	oaepSHA256Content           = `[{"contentType":"string","data":"RSA/ECB/OAEPWithSHA-256AndMGF1Padding"}]`
 )
 
@@ -182,8 +185,11 @@ func TestSelectedEncryptionAlgorithmRefusesAnInvalidSelection(t *testing.T) {
 		{"no selection", `[` + otherCipherAttribute + `]`, "VALIDATION_FAILED", noEncryptionSelectionDetail},
 		{"no content", `[{"uuid":"5e364467-fa95-4253-907b-0c73cdfb2be7","name":"encryptionAlgorithm","contentType":"string","version":"v3"}]`,
 			"VALIDATION_FAILED", noEncryptionSelectionDetail},
-		{"an empty value", `[` + encryptionSelectionJSON(`[{"contentType":"string","data":""}]`) + `]`,
+		{"no content under a non-string content type", `[{"uuid":"5e364467-fa95-4253-907b-0c73cdfb2be7","name":"encryptionAlgorithm",` +
+			`"contentType":"text","version":"v3","content":[]}]`,
 			"VALIDATION_FAILED", noEncryptionSelectionDetail},
+		{"an empty value", `[` + encryptionSelectionJSON(`[{"contentType":"string","data":""}]`) + `]`,
+			"VALIDATION_FAILED", "Unknown encryption algorithm code."},
 		{"two values", `[` + encryptionSelectionJSON(`[{"contentType":"string","data":"RSA/ECB/PKCS1Padding"},`+
 			`{"contentType":"string","data":"RSA/ECB/OAEPWithSHA-1AndMGF1Padding"}]`) + `]`,
 			"VALIDATION_FAILED", noEncryptionSelectionDetail},
@@ -194,22 +200,22 @@ func TestSelectedEncryptionAlgorithmRefusesAnInvalidSelection(t *testing.T) {
 			`"contentType":"string","version":"v3","content":` + oaepSHA256Content + `}]`,
 			"VALIDATION_FAILED", noEncryptionSelectionDetail},
 		{"two attributes", `[` + selection + `,` + selection + `]`,
-			"VALIDATION_FAILED", "encryptionAlgorithm must be supplied once"},
+			"VALIDATION_FAILED", encryptionRepeatedDetail},
 		{"another attribute reusing the reserved UUID", `[{"uuid":"5e364467-fa95-4253-907b-0c73cdfb2be7","name":"keyLabel",` +
 			`"contentType":"string","version":"v3","content":[{"contentType":"string","data":"rsa-key"}]},` + selection + `]`,
-			"VALIDATION_FAILED", "encryptionAlgorithm must be supplied once"},
+			"VALIDATION_FAILED", encryptionRepeatedDetail},
 		{"another attribute reusing the reserved name", `[{"uuid":"5f0c1c52-2b1e-4a57-9f4e-0c7f4f5b8d11","name":"encryptionAlgorithm",` +
 			`"contentType":"string","version":"v3","content":[{"contentType":"string","data":"rsa-key"}]},` + selection + `]`,
-			"VALIDATION_FAILED", "encryptionAlgorithm must be supplied once"},
+			"VALIDATION_FAILED", encryptionRepeatedDetail},
 		{"a v2 attribute", `[{"uuid":"5e364467-fa95-4253-907b-0c73cdfb2be7","name":"encryptionAlgorithm","contentType":"string","version":"v2"}]`,
-			"VALIDATION_FAILED", "encryptionAlgorithm must be a v3 attribute"},
+			"VALIDATION_FAILED", encryptionNotV3Detail},
 		{"an object value", `[` + encryptionSelectionJSON(`[{"contentType":"object","data":{"code":"RSA/ECB/PKCS1Padding"}}]`) + `]`,
-			"VALIDATION_FAILED", "encryptionAlgorithm must carry a string value"},
+			"VALIDATION_FAILED", encryptionNotStringDetail},
 		{"a non-string attribute content type", `[{"uuid":"5e364467-fa95-4253-907b-0c73cdfb2be7","name":"encryptionAlgorithm",` +
 			`"contentType":"text","version":"v3","content":` + oaepSHA256Content + `}]`,
-			"VALIDATION_FAILED", "encryptionAlgorithm must carry a string value"},
+			"VALIDATION_FAILED", encryptionNotStringDetail},
 		{"a code outside the contract", `[` + encryptionSelectionJSON(`[{"contentType":"string","data":"RSA/ECB/NoPadding"}]`) + `]`,
-			"PARAMETER_UNSUPPORTED", "encryption algorithm is not supported by the key"},
+			"VALIDATION_FAILED", "Unknown encryption algorithm code."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -227,10 +233,10 @@ func TestSelectedEncryptionAlgorithmRefusesAMislabeledSelection(t *testing.T) {
 		detail   string
 	}{
 		{"a v3 attribute marked v2", func(s *mdl.RequestAttributeV3) { s.Version = mdl.ATTRIBUTEVERSION_V2 },
-			"encryptionAlgorithm must be a v3 attribute"},
+			encryptionNotV3Detail},
 		{"a string item marked text", func(s *mdl.RequestAttributeV3) {
 			s.Content[0].StringAttributeContentV3.ContentType = mdl.ATTRIBUTECONTENTTYPE_TEXT
-		}, "encryptionAlgorithm must carry a string value"},
+		}, encryptionNotStringDetail},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

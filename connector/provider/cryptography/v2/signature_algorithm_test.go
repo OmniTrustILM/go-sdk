@@ -39,7 +39,10 @@ var contractSignatureAlgorithms = []struct{ code, label string }{
 const (
 	otherSignAttribute = `{"uuid":"5f0c1c52-2b1e-4a57-9f4e-0c7f4f5b8d11","name":"keyLabel","contentType":"string","version":"v3",` +
 		`"content":[{"contentType":"string","data":"tsa-key"}]}`
-	noSelectionDetail      = "signatureAttributes must select one signatureAlgorithm value"
+	noSelectionDetail      = "Signature attributes must select one value of the attribute with name 'signatureAlgorithm' and UUID '9180267f-c82f-4b7b-8160-d2363d813869'."
+	repeatedDetail         = "Signature attribute with name 'signatureAlgorithm' and UUID '9180267f-c82f-4b7b-8160-d2363d813869' must be supplied once."
+	notV3Detail            = "Signature attribute with name 'signatureAlgorithm' and UUID '9180267f-c82f-4b7b-8160-d2363d813869' must be a v3 attribute."
+	notStringDetail        = "Signature attribute with name 'signatureAlgorithm' and UUID '9180267f-c82f-4b7b-8160-d2363d813869' must carry a string value."
 	sha256WithECDSAContent = `[{"contentType":"string","data":"SHA256withECDSA"}]`
 )
 
@@ -232,8 +235,11 @@ func TestSelectedSignatureAlgorithmRefusesAnInvalidSelection(t *testing.T) {
 		{"no selection", `[` + otherSignAttribute + `]`, "VALIDATION_FAILED", noSelectionDetail},
 		{"no content", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"signatureAlgorithm","contentType":"string","version":"v3"}]`,
 			"VALIDATION_FAILED", noSelectionDetail},
-		{"an empty value", `[` + selectionJSON(`[{"contentType":"string","data":""}]`) + `]`,
+		{"no content under a non-string content type", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"signatureAlgorithm",` +
+			`"contentType":"text","version":"v3","content":[]}]`,
 			"VALIDATION_FAILED", noSelectionDetail},
+		{"an empty value", `[` + selectionJSON(`[{"contentType":"string","data":""}]`) + `]`,
+			"VALIDATION_FAILED", "Unknown signature algorithm code."},
 		{"two values", `[` + selectionJSON(`[{"contentType":"string","data":"SHA256withRSA"},{"contentType":"string","data":"SHA384withRSA"}]`) + `]`,
 			"VALIDATION_FAILED", noSelectionDetail},
 		{"the reserved name under another UUID", `[{"uuid":"00000000-0000-4000-8000-000000000000","name":"signatureAlgorithm",` +
@@ -244,20 +250,20 @@ func TestSelectedSignatureAlgorithmRefusesAnInvalidSelection(t *testing.T) {
 			"VALIDATION_FAILED", noSelectionDetail},
 		{"two attributes", `[` + selectionJSON(`[{"contentType":"string","data":"SHA256withRSA"}]`) + `,` +
 			selectionJSON(`[{"contentType":"string","data":"SHA384withRSA"}]`) + `]`,
-			"VALIDATION_FAILED", "signatureAlgorithm must be supplied once"},
+			"VALIDATION_FAILED", repeatedDetail},
 		{"another attribute reusing the reserved UUID", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"keyLabel",` +
 			`"contentType":"string","version":"v3","content":[{"contentType":"string","data":"tsa-key"}]},` +
 			selectionJSON(sha256WithECDSAContent) + `]`,
-			"VALIDATION_FAILED", "signatureAlgorithm must be supplied once"},
+			"VALIDATION_FAILED", repeatedDetail},
 		{"a v2 attribute", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"signatureAlgorithm","contentType":"string","version":"v2"}]`,
-			"VALIDATION_FAILED", "signatureAlgorithm must be a v3 attribute"},
+			"VALIDATION_FAILED", notV3Detail},
 		{"an object value", `[` + selectionJSON(`[{"contentType":"object","data":{"code":"SHA256withRSA"}}]`) + `]`,
-			"VALIDATION_FAILED", "signatureAlgorithm must carry a string value"},
+			"VALIDATION_FAILED", notStringDetail},
 		{"a non-string attribute content type", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"signatureAlgorithm",` +
 			`"contentType":"text","version":"v3","content":` + sha256WithECDSAContent + `}]`,
-			"VALIDATION_FAILED", "signatureAlgorithm must carry a string value"},
+			"VALIDATION_FAILED", notStringDetail},
 		{"a code outside the contract", `[` + selectionJSON(`[{"contentType":"string","data":"SHA1withRSA"}]`) + `]`,
-			"PARAMETER_UNSUPPORTED", "signature algorithm is not supported by the key"},
+			"VALIDATION_FAILED", "Unknown signature algorithm code."},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -275,10 +281,10 @@ func TestSelectedSignatureAlgorithmRefusesAMislabeledSelection(t *testing.T) {
 		detail   string
 	}{
 		{"a v3 attribute marked v2", func(s *mdl.RequestAttributeV3) { s.Version = mdl.ATTRIBUTEVERSION_V2 },
-			"signatureAlgorithm must be a v3 attribute"},
+			notV3Detail},
 		{"a string item marked text", func(s *mdl.RequestAttributeV3) {
 			s.Content[0].StringAttributeContentV3.ContentType = mdl.ATTRIBUTECONTENTTYPE_TEXT
-		}, "signatureAlgorithm must carry a string value"},
+		}, notStringDetail},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

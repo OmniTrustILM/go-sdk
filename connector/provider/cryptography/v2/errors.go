@@ -43,12 +43,12 @@ var (
 	// routes when their sub-provider was not registered.
 	ErrOperationNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "asynchronous execution is not implemented by this connector")
 
-	// ErrSignatureAlgorithmUnsupported -> 422. The selected signature algorithm
-	// is unknown, or the key lacks it.
+	// ErrSignatureAlgorithmUnsupported -> 422. The key lacks the selected
+	// signature algorithm.
 	ErrSignatureAlgorithmUnsupported = shared.Invalid("PARAMETER_UNSUPPORTED", "signature algorithm is not supported by the key")
 
-	// ErrEncryptionAlgorithmUnsupported -> 422. The selected encryption
-	// algorithm is unknown or missing from the key.
+	// ErrEncryptionAlgorithmUnsupported -> 422. The key lacks the selected
+	// encryption algorithm.
 	ErrEncryptionAlgorithmUnsupported = shared.Invalid("PARAMETER_UNSUPPORTED", "encryption algorithm is not supported by the key")
 
 	// ErrNilResponse -> 500. A nil result with no error would serialize as a
