@@ -47,6 +47,10 @@ var (
 	// is unknown, or the key lacks it.
 	ErrSignatureAlgorithmUnsupported = shared.Invalid("PARAMETER_UNSUPPORTED", "signature algorithm is not supported by the key")
 
+	// ErrEncryptionAlgorithmUnsupported -> 422. The selected encryption
+	// algorithm is unknown or missing from the key.
+	ErrEncryptionAlgorithmUnsupported = shared.Invalid("PARAMETER_UNSUPPORTED", "encryption algorithm is not supported by the key")
+
 	// ErrNilResponse -> 500. A nil result with no error would serialize as a
 	// 200 with a null body.
 	ErrNilResponse = shared.Internal("INTERNAL_SERVER_ERROR", "provider returned no response")

@@ -39,7 +39,8 @@ var contractSignatureAlgorithms = []struct{ code, label string }{
 const (
 	otherSignAttribute = `{"uuid":"5f0c1c52-2b1e-4a57-9f4e-0c7f4f5b8d11","name":"keyLabel","contentType":"string","version":"v3",` +
 		`"content":[{"contentType":"string","data":"tsa-key"}]}`
-	noSelectionDetail = "signatureAttributes must select one signatureAlgorithm value"
+	noSelectionDetail      = "signatureAttributes must select one signatureAlgorithm value"
+	sha256WithECDSAContent = `[{"contentType":"string","data":"SHA256withECDSA"}]`
 )
 
 // selectionJSON renders a v3 signatureAlgorithm selection holding content.
@@ -48,14 +49,32 @@ func selectionJSON(content string) string {
 		`"content":` + content + `}`
 }
 
-// decodeSignatureAttributes decodes raw as the sign route does.
-func decodeSignatureAttributes(t *testing.T, raw string) []mdl.RequestAttribute {
+// decodeRequestAttributes decodes raw as the routes do.
+func decodeRequestAttributes(t *testing.T, raw string) []mdl.RequestAttribute {
 	t.Helper()
 	var attrs []mdl.RequestAttribute
 	if err := json.Unmarshal([]byte(raw), &attrs); err != nil {
-		t.Fatalf("decode signatureAttributes: %v; body %s", err, raw)
+		t.Fatalf("decode request attributes: %v; body %s", err, raw)
 	}
 	return attrs
+}
+
+// assertUnprocessable checks that a selection reader refused with a 422 carrying errorCode and detail.
+func assertUnprocessable(t *testing.T, got string, err error, errorCode, detail string) {
+	t.Helper()
+	se, ok := err.(*shared.Error)
+	if !ok || se == nil {
+		t.Fatalf("selection = (%q, %v), want a *shared.Error", got, err)
+	}
+	if se.Status != http.StatusUnprocessableEntity {
+		t.Errorf("Status = %d, want 422", se.Status)
+	}
+	if se.ErrorCode != errorCode {
+		t.Errorf("ErrorCode = %q, want %q", se.ErrorCode, errorCode)
+	}
+	if se.Detail != detail {
+		t.Errorf("Detail = %q, want %q", se.Detail, detail)
+	}
 }
 
 func assertJSONEqual(t *testing.T, got []byte, want string) {
@@ -169,7 +188,7 @@ func TestSignatureAlgorithmSelectionMatchesTheContract(t *testing.T) {
 func TestSelectedSignatureAlgorithmReadsEveryContractCode(t *testing.T) {
 	for _, want := range contractSignatureAlgorithms {
 		t.Run(want.code, func(t *testing.T) {
-			attrs := decodeSignatureAttributes(t, `[`+otherSignAttribute+`,`+
+			attrs := decodeRequestAttributes(t, `[`+otherSignAttribute+`,`+
 				selectionJSON(`[{"contentType":"string","data":"`+want.code+`"}]`)+`]`)
 
 			got, err := cryptography.SelectedSignatureAlgorithm(attrs)
@@ -184,14 +203,21 @@ func TestSelectedSignatureAlgorithmReadsEveryContractCode(t *testing.T) {
 }
 
 func TestSelectedSignatureAlgorithmIgnoresCase(t *testing.T) {
-	attrs := decodeSignatureAttributes(t, `[`+selectionJSON(`[{"contentType":"string","data":"sha256withecdsa"}]`)+`]`)
-
-	got, err := cryptography.SelectedSignatureAlgorithm(attrs)
-	if err != nil {
-		t.Fatalf("SelectedSignatureAlgorithm: %v", err)
+	cases := []struct{ name, attributes string }{
+		{"of the code", `[` + selectionJSON(`[{"contentType":"string","data":"sha256withecdsa"}]`) + `]`},
+		{"of the UUID", `[{"uuid":"9180267F-C82F-4B7B-8160-D2363D813869","name":"signatureAlgorithm","contentType":"string","version":"v3",` +
+			`"content":` + sha256WithECDSAContent + `}]`},
 	}
-	if got != cryptography.SignatureAlgorithmSHA256WithECDSA {
-		t.Errorf("SelectedSignatureAlgorithm = %q, want %q", got, cryptography.SignatureAlgorithmSHA256WithECDSA)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := cryptography.SelectedSignatureAlgorithm(decodeRequestAttributes(t, tc.attributes))
+			if err != nil {
+				t.Fatalf("SelectedSignatureAlgorithm: %v", err)
+			}
+			if got != cryptography.SignatureAlgorithmSHA256WithECDSA {
+				t.Errorf("SelectedSignatureAlgorithm = %q, want %q", got, cryptography.SignatureAlgorithmSHA256WithECDSA)
+			}
+		})
 	}
 }
 
@@ -210,35 +236,34 @@ func TestSelectedSignatureAlgorithmRefusesAnInvalidSelection(t *testing.T) {
 			"VALIDATION_FAILED", noSelectionDetail},
 		{"two values", `[` + selectionJSON(`[{"contentType":"string","data":"SHA256withRSA"},{"contentType":"string","data":"SHA384withRSA"}]`) + `]`,
 			"VALIDATION_FAILED", noSelectionDetail},
+		{"the reserved name under another UUID", `[{"uuid":"00000000-0000-4000-8000-000000000000","name":"signatureAlgorithm",` +
+			`"contentType":"string","version":"v3","content":` + sha256WithECDSAContent + `}]`,
+			"VALIDATION_FAILED", noSelectionDetail},
+		{"the reserved UUID under another name", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"renamedAlgorithm",` +
+			`"contentType":"string","version":"v3","content":` + sha256WithECDSAContent + `}]`,
+			"VALIDATION_FAILED", noSelectionDetail},
 		{"two attributes", `[` + selectionJSON(`[{"contentType":"string","data":"SHA256withRSA"}]`) + `,` +
 			selectionJSON(`[{"contentType":"string","data":"SHA384withRSA"}]`) + `]`,
+			"VALIDATION_FAILED", "signatureAlgorithm must be supplied once"},
+		{"another attribute reusing the reserved UUID", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"keyLabel",` +
+			`"contentType":"string","version":"v3","content":[{"contentType":"string","data":"tsa-key"}]},` +
+			selectionJSON(sha256WithECDSAContent) + `]`,
 			"VALIDATION_FAILED", "signatureAlgorithm must be supplied once"},
 		{"a v2 attribute", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"signatureAlgorithm","contentType":"string","version":"v2"}]`,
 			"VALIDATION_FAILED", "signatureAlgorithm must be a v3 attribute"},
 		{"an object value", `[` + selectionJSON(`[{"contentType":"object","data":{"code":"SHA256withRSA"}}]`) + `]`,
+			"VALIDATION_FAILED", "signatureAlgorithm must carry a string value"},
+		{"a non-string attribute content type", `[{"uuid":"9180267f-c82f-4b7b-8160-d2363d813869","name":"signatureAlgorithm",` +
+			`"contentType":"text","version":"v3","content":` + sha256WithECDSAContent + `}]`,
 			"VALIDATION_FAILED", "signatureAlgorithm must carry a string value"},
 		{"a code outside the contract", `[` + selectionJSON(`[{"contentType":"string","data":"SHA1withRSA"}]`) + `]`,
 			"PARAMETER_UNSUPPORTED", "signature algorithm is not supported by the key"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			attrs := decodeSignatureAttributes(t, tc.attributes)
+			got, err := cryptography.SelectedSignatureAlgorithm(decodeRequestAttributes(t, tc.attributes))
 
-			got, err := cryptography.SelectedSignatureAlgorithm(attrs)
-
-			se, ok := err.(*shared.Error)
-			if !ok || se == nil {
-				t.Fatalf("SelectedSignatureAlgorithm = (%q, %v), want a *shared.Error", got, err)
-			}
-			if se.Status != http.StatusUnprocessableEntity {
-				t.Errorf("Status = %d, want 422", se.Status)
-			}
-			if se.ErrorCode != tc.errorCode {
-				t.Errorf("ErrorCode = %q, want %q", se.ErrorCode, tc.errorCode)
-			}
-			if se.Detail != tc.detail {
-				t.Errorf("Detail = %q, want %q", se.Detail, tc.detail)
-			}
+			assertUnprocessable(t, string(got), err, tc.errorCode, tc.detail)
 		})
 	}
 }

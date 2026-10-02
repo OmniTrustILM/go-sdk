@@ -53,7 +53,7 @@ func KeyExportableSelection(exportable bool) mdl.RequestAttribute {
 // never create an exportable key; one present but unusable renders 422
 // VALIDATION_FAILED.
 func SelectedKeyExportable(createKeyAttributes []mdl.RequestAttribute) (bool, error) {
-	found, err := reservedAttribute(createKeyAttributes, KeyExportableAttributeName, errKeyExportableRepeated)
+	found, err := attributeNamed(createKeyAttributes, KeyExportableAttributeName, errKeyExportableRepeated)
 	if err != nil || found == nil {
 		return false, err
 	}
