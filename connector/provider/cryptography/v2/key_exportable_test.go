@@ -69,7 +69,7 @@ func TestSelectedKeyExportableReadsTheIntent(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := cryptography.SelectedKeyExportable(decodeSignatureAttributes(t, tc.attributes))
+			got, err := cryptography.SelectedKeyExportable(decodeRequestAttributes(t, tc.attributes))
 			if err != nil {
 				t.Fatalf("SelectedKeyExportable: %v", err)
 			}
@@ -100,7 +100,7 @@ func TestSelectedKeyExportableRefusesAnUnusableIntent(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := cryptography.SelectedKeyExportable(decodeSignatureAttributes(t, tc.attributes))
+			got, err := cryptography.SelectedKeyExportable(decodeRequestAttributes(t, tc.attributes))
 
 			se, ok := err.(*shared.Error)
 			if !ok || se == nil {
