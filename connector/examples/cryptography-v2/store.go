@@ -488,13 +488,20 @@ func acceptedKeyCreationResponse(kind mdl.KeyRequestType, handle string) *mdl.Ke
 	}}
 }
 
-// replayCreateKey rebuilds the response for an equivalent keyCreationId
-// retry. Must be called while holding s.mu.
-func (s *Store) replayCreateKey(rec *creationRecord) *mdl.KeyCreationResponse {
-	if rec.accepted {
-		return acceptedKeyCreationResponse(rec.keyRequestType, rec.handle)
+// replayedCreation answers a used keyCreationId: the original result for an
+// equivalent retry, a conflict otherwise. Must be called while holding s.mu.
+func (s *Store) replayedCreation(keyCreationID, fp string) (*mdl.KeyCreationResponse, bool, error) {
+	rec, exists := s.creations[keyCreationID]
+	if !exists {
+		return nil, false, nil
 	}
-	return syncKeyCreationResponse(rec.keyRequestType, rec.keyID, s.keys[rec.keyID])
+	if rec.fingerprint != fp {
+		return nil, false, cryptography.ErrKeyCreationConflict.WithProperty("keyCreationId", keyCreationID)
+	}
+	if rec.accepted {
+		return acceptedKeyCreationResponse(rec.keyRequestType, rec.handle), true, nil
+	}
+	return syncKeyCreationResponse(rec.keyRequestType, rec.keyID, s.keys[rec.keyID]), false, nil
 }
 
 // --- Provider: token and profile introspection ------------------------------
@@ -546,17 +553,22 @@ func (s *Store) CreateKey(ctx context.Context, req *mdl.CreateKeyRequestV2Dto) (
 	}
 	fp := fingerprintCreateKey(req)
 
+	// Key generation runs outside s.mu, so the keyCreationId is checked before and again after.
+	s.mu.Lock()
+	resp, accepted, err := s.replayedCreation(req.KeyCreationId, fp)
+	s.mu.Unlock()
+	if resp != nil || err != nil {
+		return resp, accepted, err
+	}
+
 	keyID := uuid.NewString()
 	record := newKeyRecord(keyID, req.KeyRequestType, algorithm, exportable)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if rec, exists := s.creations[req.KeyCreationId]; exists {
-		if rec.fingerprint != fp {
-			return nil, false, cryptography.ErrKeyCreationConflict.WithProperty("keyCreationId", req.KeyCreationId)
-		}
-		return s.replayCreateKey(rec), rec.accepted, nil
+	if resp, accepted, err = s.replayedCreation(req.KeyCreationId, fp); resp != nil || err != nil {
+		return resp, accepted, err
 	}
 
 	s.keys[keyID] = record

@@ -20,10 +20,6 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 	const iterations = 50
 	const readersPerIteration = 8
 
-	rsaPair := mdl.NewRequestAttributeV3(keyAlgorithmAttributeUUID, keyAlgorithmAttributeName,
-		mdl.ATTRIBUTECONTENTTYPE_STRING, mdl.ATTRIBUTEVERSION_V3)
-	rsaPair.Content = []mdl.BaseAttributeContentDtoV3{mdl.StringAttributeContentV3AsBaseAttributeContentDtoV3(
-		mdl.NewStringAttributeContentV3(string(mdl.KEYALGORITHM_RSA), mdl.ATTRIBUTECONTENTTYPE_STRING))}
 	cipherAttributes := []mdl.RequestAttribute{
 		cryptography.EncryptionAlgorithmSelection(cryptography.EncryptionAlgorithmRSAOAEPSHA256),
 	}
@@ -32,12 +28,7 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 		store := NewStore(defaultAsyncOperationDelay)
 		ctx := context.Background()
 
-		createResp, _, err := store.CreateKey(ctx, &mdl.CreateKeyRequestV2Dto{
-			KeyCreationId:       "creation-" + strconv.Itoa(iter),
-			KeyRequestType:      mdl.KEYREQUESTTYPE_KEY_PAIR,
-			ExecutionMode:       mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS,
-			CreateKeyAttributes: []mdl.RequestAttribute{mdl.RequestAttributeV3AsRequestAttribute(rsaPair)},
-		})
+		createResp, _, err := store.CreateKey(ctx, keyPairRequest("creation-"+strconv.Itoa(iter), mdl.KEYALGORITHM_RSA))
 		if err != nil {
 			t.Fatalf("iteration %d: CreateKey: %v", iter, err)
 		}
