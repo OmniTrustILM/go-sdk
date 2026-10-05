@@ -273,7 +273,7 @@ func TestCryptographyV2KeyExport(t *testing.T) {
 	createPair := func(t *testing.T, exportable bool) *mdl.KeyPairDataResponseV2Dto {
 		t.Helper()
 		req := createKeyRequest(mdl.KEYREQUESTTYPE_KEY_PAIR, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, uuid.NewString())
-		req.CreateKeyAttributes = []mdl.RequestAttribute{cryptography.KeyExportableSelection(exportable)}
+		req.CreateKeyAttributes = append(req.CreateKeyAttributes, cryptography.KeyExportableSelection(exportable))
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: req})
 		if !itest.AssertStatus(t, resp, http.StatusOK) {
 			t.FailNow()
@@ -309,8 +309,16 @@ func TestCryptographyV2KeyExport(t *testing.T) {
 		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "EXPORTABLE_NOT_SUPPORTED")
 	})
 
+	t.Run("an RSA pair cannot be created exportable", func(t *testing.T) {
+		req := rsaPairRequest()
+		req.CreateKeyAttributes = append(req.CreateKeyAttributes, cryptography.KeyExportableSelection(true))
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: req})
+		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "EXPORTABLE_NOT_SUPPORTED")
+	})
+
 	t.Run("refusals", func(t *testing.T) {
 		secretMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_SECRET)
+		rsaMeta := createRSAPair(t, h)
 		notExportable := createPair(t, false)
 		imported := importSync(t, h, importRequest(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, uuid.NewString(), p256Key(t), false))
 		cases := map[string]struct {
@@ -321,6 +329,7 @@ func TestCryptographyV2KeyExport(t *testing.T) {
 			"a key imported without the intent": {exportRequest(mdl.KEYREQUESTTYPE_KEY_PAIR, imported.PrivateKeyData.KeyMeta, nil), "KEY_NOT_EXPORTABLE"},
 			"a secret key":                      {exportRequest(mdl.KEYREQUESTTYPE_SECRET, secretMeta, nil), "KEY_TYPE_NOT_EXPORTABLE"},
 			"a secret key named as a key pair":  {exportRequest(mdl.KEYREQUESTTYPE_KEY_PAIR, secretMeta, nil), "KEY_MATERIAL_MISMATCH"},
+			"an RSA pair":                       {exportRequest(mdl.KEYREQUESTTYPE_KEY_PAIR, rsaMeta, nil), "KEY_TYPE_NOT_EXPORTABLE"},
 		}
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {

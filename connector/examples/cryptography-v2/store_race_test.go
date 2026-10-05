@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
+	cryptography "github.com/OmniTrustILM/go-sdk/connector/provider/cryptography/v2"
 )
 
 // TestStoreConcurrentVerifyEncryptDecryptVsDestroy runs VerifyData,
@@ -19,19 +20,19 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 	const iterations = 50
 	const readersPerIteration = 8
 
+	cipherAttributes := []mdl.RequestAttribute{
+		cryptography.EncryptionAlgorithmSelection(cryptography.EncryptionAlgorithmRSAOAEPSHA256),
+	}
+
 	for iter := 0; iter < iterations; iter++ {
 		store := NewStore(defaultAsyncOperationDelay)
 		ctx := context.Background()
 
-		createResp, _, err := store.CreateKey(ctx, &mdl.CreateKeyRequestV2Dto{
-			KeyCreationId:  "creation-" + strconv.Itoa(iter),
-			KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-			ExecutionMode:  mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS,
-		})
+		createResp, _, err := store.CreateKey(ctx, keyPairRequest("creation-"+strconv.Itoa(iter), mdl.KEYALGORITHM_RSA))
 		if err != nil {
 			t.Fatalf("iteration %d: CreateKey: %v", iter, err)
 		}
-		keyMeta := createResp.SecretKeyDataResponseV2Dto.KeyMeta
+		keyMeta := createResp.KeyPairDataResponseV2Dto.KeyPairMeta
 
 		// EncryptData needs base64: a rejected fixture never reaches the race.
 		plaintext := base64.StdEncoding.EncodeToString([]byte("hello world"))
@@ -88,16 +89,18 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 					}
 				case 1:
 					resp, err := store.EncryptData(ctx, &mdl.CipherDataRequestV2Dto{
-						KeyMeta:    keyMeta,
-						CipherData: []mdl.CipherDataV2Dto{{Identifier: "1", Data: plaintext}},
+						KeyMeta:          keyMeta,
+						CipherAttributes: cipherAttributes,
+						CipherData:       []mdl.CipherDataV2Dto{{Identifier: "1", Data: plaintext}},
 					})
 					if (resp == nil) == (err == nil) {
 						t.Errorf("EncryptData: expected exactly one of (resp, err) to be nil, got resp=%v err=%v", resp, err)
 					}
 				case 2:
 					resp, err := store.DecryptData(ctx, &mdl.CipherDataRequestV2Dto{
-						KeyMeta:    keyMeta,
-						CipherData: []mdl.CipherDataV2Dto{{Identifier: "1", Data: ciphertext}},
+						KeyMeta:          keyMeta,
+						CipherAttributes: cipherAttributes,
+						CipherData:       []mdl.CipherDataV2Dto{{Identifier: "1", Data: ciphertext}},
 					})
 					if (resp == nil) == (err == nil) {
 						t.Errorf("DecryptData: expected exactly one of (resp, err) to be nil, got resp=%v err=%v", resp, err)

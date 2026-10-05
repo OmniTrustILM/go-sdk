@@ -12,6 +12,7 @@ package main_test
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"net/http"
@@ -69,6 +70,11 @@ var (
 	noAttrs = []mdl.RequestAttribute{}
 )
 
+const (
+	keyAlgorithmName = "keyAlgorithm"
+	keyAlgorithmUUID = "2d12a988-679b-478f-953d-b5bf743f5700"
+)
+
 func startCrypto(t *testing.T, extraEnv map[string]string) *itest.Harness {
 	t.Helper()
 	itest.RequireDocker(t)
@@ -80,15 +86,27 @@ func startCrypto(t *testing.T, extraEnv map[string]string) *itest.Harness {
 
 // --- request builders -------------------------------------------------------
 
+// createKeyRequest asks for an ECDSA pair when reqType is a key pair.
 func createKeyRequest(reqType mdl.KeyRequestType, mode mdl.OperationExecutionMode, creationID string) mdl.CreateKeyRequestV2Dto {
+	createKeyAttributes := noAttrs
+	if reqType == mdl.KEYREQUESTTYPE_KEY_PAIR {
+		createKeyAttributes = []mdl.RequestAttribute{keyAlgorithmSelection(mdl.KEYALGORITHM_ECDSA)}
+	}
 	return mdl.CreateKeyRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
 		KeyRequestType:         reqType,
 		ExecutionMode:          mode,
 		KeyCreationId:          creationID,
-		CreateKeyAttributes:    noAttrs,
+		CreateKeyAttributes:    createKeyAttributes,
 	}
+}
+
+func keyAlgorithmSelection(algorithm mdl.KeyAlgorithm) mdl.RequestAttribute {
+	selection := mdl.NewRequestAttributeV3(keyAlgorithmUUID, keyAlgorithmName, mdl.ATTRIBUTECONTENTTYPE_STRING, mdl.ATTRIBUTEVERSION_V3)
+	selection.Content = []mdl.BaseAttributeContentDtoV3{mdl.StringAttributeContentV3AsBaseAttributeContentDtoV3(
+		mdl.NewStringAttributeContentV3(string(algorithm), mdl.ATTRIBUTECONTENTTYPE_STRING))}
+	return mdl.RequestAttributeV3AsRequestAttribute(selection)
 }
 
 func destroyKeyRequest(mode mdl.OperationExecutionMode, keyMeta []mdl.MetadataAttribute) mdl.DestroyKeyRequestV2Dto {
@@ -135,12 +153,19 @@ func verifyRequest(keyMeta []mdl.MetadataAttribute, data, sigs []mdl.SignatureDa
 	}
 }
 
+// cipherRequest selects RSA-OAEP with SHA-256.
 func cipherRequest(keyMeta []mdl.MetadataAttribute, data []mdl.CipherDataV2Dto) mdl.CipherDataRequestV2Dto {
+	return cipherRequestWith(keyMeta, data, []mdl.RequestAttribute{
+		cryptography.EncryptionAlgorithmSelection(cryptography.EncryptionAlgorithmRSAOAEPSHA256),
+	})
+}
+
+func cipherRequestWith(keyMeta []mdl.MetadataAttribute, data []mdl.CipherDataV2Dto, cipherAttributes []mdl.RequestAttribute) mdl.CipherDataRequestV2Dto {
 	return mdl.CipherDataRequestV2Dto{
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
 		KeyMeta:                keyMeta,
-		CipherAttributes:       noAttrs,
+		CipherAttributes:       cipherAttributes,
 		CipherData:             data,
 	}
 }
@@ -288,18 +313,28 @@ func assertPublicKeySpki(t *testing.T, kd mdl.PublicKeyDataV2Dto) {
 	if err != nil {
 		t.Fatalf("publicKeySpki is not a DER SubjectPublicKeyInfo: %v", err)
 	}
-	if kd.Algorithm != mdl.KEYALGORITHM_ECDSA {
-		t.Fatalf("public keyData.algorithm = %q, want %q", kd.Algorithm, mdl.KEYALGORITHM_ECDSA)
-	}
-	ec, ok := pub.(*ecdsa.PublicKey)
-	if !ok {
-		t.Fatalf("publicKeySpki decodes to %T, want *ecdsa.PublicKey for algorithm %q", pub, kd.Algorithm)
-	}
-	if ec.Curve != elliptic.P256() {
-		t.Errorf("publicKeySpki curve = %v, want P-256", ec.Curve.Params().Name)
-	}
-	if got := int32(ec.Curve.Params().BitSize); got != kd.Length {
-		t.Errorf("publicKeySpki curve size = %d bits, but keyData.length = %d", got, kd.Length)
+	switch kd.Algorithm {
+	case mdl.KEYALGORITHM_ECDSA:
+		ec, ok := pub.(*ecdsa.PublicKey)
+		if !ok {
+			t.Fatalf("publicKeySpki decodes to %T, want *ecdsa.PublicKey for algorithm %q", pub, kd.Algorithm)
+		}
+		if ec.Curve != elliptic.P256() {
+			t.Errorf("publicKeySpki curve = %v, want P-256", ec.Curve.Params().Name)
+		}
+		if got := int32(ec.Curve.Params().BitSize); got != kd.Length {
+			t.Errorf("publicKeySpki curve size = %d bits, but keyData.length = %d", got, kd.Length)
+		}
+	case mdl.KEYALGORITHM_RSA:
+		key, ok := pub.(*rsa.PublicKey)
+		if !ok {
+			t.Fatalf("publicKeySpki decodes to %T, want *rsa.PublicKey for algorithm %q", pub, kd.Algorithm)
+		}
+		if got := int32(key.N.BitLen()); got != kd.Length {
+			t.Errorf("publicKeySpki modulus = %d bits, but keyData.length = %d", got, kd.Length)
+		}
+	default:
+		t.Fatalf("public keyData.algorithm = %q, want %q or %q", kd.Algorithm, mdl.KEYALGORITHM_ECDSA, mdl.KEYALGORITHM_RSA)
 	}
 }
 
@@ -307,17 +342,33 @@ func assertPublicKeySpki(t *testing.T, kd mdl.PublicKeyDataV2Dto) {
 // handle plus the full decoded response, failing the test on any error.
 func createKeySync(t *testing.T, h *itest.Harness, reqType mdl.KeyRequestType) ([]mdl.MetadataAttribute, mdl.KeyCreationResponse) {
 	t.Helper()
-	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: createKeyRequest(
-		reqType, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, uuid.NewString(),
-	)})
+	return createKeySyncWith(t, h, createKeyRequest(reqType, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, uuid.NewString()))
+}
+
+// createRSAPair creates an RSA key pair synchronously and returns its handle.
+func createRSAPair(t *testing.T, h *itest.Harness) []mdl.MetadataAttribute {
+	t.Helper()
+	meta, _ := createKeySyncWith(t, h, rsaPairRequest())
+	return meta
+}
+
+func rsaPairRequest() mdl.CreateKeyRequestV2Dto {
+	req := createKeyRequest(mdl.KEYREQUESTTYPE_KEY_PAIR, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, uuid.NewString())
+	req.CreateKeyAttributes = []mdl.RequestAttribute{keyAlgorithmSelection(mdl.KEYALGORITHM_RSA)}
+	return req
+}
+
+func createKeySyncWith(t *testing.T, h *itest.Harness, req mdl.CreateKeyRequestV2Dto) ([]mdl.MetadataAttribute, mdl.KeyCreationResponse) {
+	t.Helper()
+	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: req})
 	if !itest.AssertStatus(t, resp, http.StatusOK) {
 		t.FailNow()
 	}
 	var out mdl.KeyCreationResponse
 	resp.JSON(t, &out)
-	meta := keyMetaOf(t, reqType, &out)
+	meta := keyMetaOf(t, req.KeyRequestType, &out)
 	if len(meta) == 0 {
-		t.Fatalf("createKey(%s) returned no key handle: %+v", reqType, out)
+		t.Fatalf("createKey(%s) returned no key handle: %+v", req.KeyRequestType, out)
 	}
 	return meta, out
 }
@@ -381,17 +432,10 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 				}
 			}
 
-			// Encrypt to prove the returned handle is live. Encryption works for both key kinds.
-			probe := []mdl.CipherDataV2Dto{{Data: b64("probe"), Identifier: "item-1"}}
-			encResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(meta, probe)})
-			if !itest.AssertStatus(t, encResp, http.StatusOK) {
-				t.FailNow()
-			}
-			var encOut mdl.EncryptDataResponseV2Dto
-			encResp.JSON(t, &encOut)
-			if len(encOut.EncryptedData) != 1 || encOut.EncryptedData[0].Data == "" {
-				t.Fatalf("encrypting with the new key handle returned no ciphertext: %+v", encOut)
-			}
+			// Attempt encryption to prove the returned handle is live.
+			probe := cipherRequest(meta, []mdl.CipherDataV2Dto{{Data: b64("probe"), Identifier: "item-1"}})
+			live := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: probe})
+			itest.AssertProblem(t, live, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
 
 			// Destroy -> 200 synchronously, with no operationMeta.
 			destroyResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDestroyKey, Body: destroyKeyRequest(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, meta)})
@@ -404,7 +448,7 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 				t.Errorf("synchronous destroy response carries operationMeta: %+v", destroyOut)
 			}
 
-			after := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(meta, probe)})
+			after := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: probe})
 			itest.AssertProblem(t, after, http.StatusNotFound, "RESOURCE_NOT_FOUND")
 		})
 	}
@@ -415,6 +459,7 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 func TestCryptographyV2CryptoOperations(t *testing.T) {
 	h := startCrypto(t, nil)
 	meta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
+	rsaMeta := createRSAPair(t, h)
 
 	// Sign: correlate by identifier, since slice order carries no guarantee.
 	idents := []string{"item-a", "item-b", "item-c"}
@@ -475,7 +520,7 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 	// plaintext, which a status-only assertion would miss.
 	const plaintext = "the quick brown fox jumps over the lazy dog"
 	wirePlaintext := b64(plaintext)
-	encResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(meta, []mdl.CipherDataV2Dto{{Data: wirePlaintext, Identifier: "p-1"}})})
+	encResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEncrypt, Body: cipherRequest(rsaMeta, []mdl.CipherDataV2Dto{{Data: wirePlaintext, Identifier: "p-1"}})})
 	if !itest.AssertStatus(t, encResp, http.StatusOK) {
 		t.FailNow()
 	}
@@ -488,7 +533,7 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 		t.Errorf("encrypted output equals the plaintext input; want it transformed")
 	}
 
-	decResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDecrypt, Body: cipherRequest(meta, []mdl.CipherDataV2Dto{{Data: encOut.EncryptedData[0].Data, Identifier: "p-1"}})})
+	decResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathDecrypt, Body: cipherRequest(rsaMeta, []mdl.CipherDataV2Dto{{Data: encOut.EncryptedData[0].Data, Identifier: "p-1"}})})
 	if !itest.AssertStatus(t, decResp, http.StatusOK) {
 		t.FailNow()
 	}
@@ -522,32 +567,50 @@ func TestCryptographyV2CryptoOperations(t *testing.T) {
 	}
 }
 
-func schemaSignatureAlgorithms(t *testing.T, schema []mdl.BaseAttributeDto) []string {
-	t.Helper()
+// schemaDefinition returns the v3 data attribute named name, or nil.
+func schemaDefinition(schema []mdl.BaseAttributeDto, name string) *mdl.DataAttributeV3 {
 	for _, attr := range schema {
-		if attr.BaseAttributeDtoV3 == nil || attr.BaseAttributeDtoV3.DataAttributeV3 == nil {
-			continue
+		if attr.BaseAttributeDtoV3 != nil && attr.BaseAttributeDtoV3.DataAttributeV3 != nil &&
+			attr.BaseAttributeDtoV3.DataAttributeV3.Name == name {
+			return attr.BaseAttributeDtoV3.DataAttributeV3
 		}
-		definition := attr.BaseAttributeDtoV3.DataAttributeV3
-		if definition.Name != cryptography.SignatureAlgorithmAttributeName {
-			continue
-		}
-		codes := make([]string, 0, len(definition.Content))
-		for _, option := range definition.Content {
-			if option.StringAttributeContentV3 == nil {
-				t.Fatalf("signatureAlgorithm offers a non-string option: %+v", option)
-			}
-			codes = append(codes, option.StringAttributeContentV3.Data)
-		}
-		return codes
 	}
-	t.Fatalf("sign schema carries no signatureAlgorithm definition: %+v", schema)
 	return nil
+}
+
+// schemaOffer returns the string options of the definition named name.
+func schemaOffer(t *testing.T, schema []mdl.BaseAttributeDto, name string) []string {
+	t.Helper()
+	definition := schemaDefinition(schema, name)
+	if definition == nil {
+		t.Fatalf("schema carries no %s definition: %+v", name, schema)
+	}
+	codes := make([]string, 0, len(definition.Content))
+	for _, option := range definition.Content {
+		if option.StringAttributeContentV3 == nil {
+			t.Fatalf("%s offers a non-string option: %+v", name, option)
+		}
+		codes = append(codes, option.StringAttributeContentV3.Data)
+	}
+	return codes
+}
+
+// attributeSchema posts body to path and decodes the attribute schema.
+func attributeSchema(t *testing.T, h *itest.Harness, path string, body any) []mdl.BaseAttributeDto {
+	t.Helper()
+	resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: path, Body: body})
+	if !itest.AssertStatus(t, resp, http.StatusOK) {
+		t.FailNow()
+	}
+	var schema []mdl.BaseAttributeDto
+	resp.JSON(t, &schema)
+	return schema
 }
 
 func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 	h := startCrypto(t, nil)
 	pairMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
+	rsaMeta := createRSAPair(t, h)
 	secretMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_SECRET)
 	item := []mdl.SignatureDataV2Dto{{Data: b64("sign-me"), Identifier: "item-1"}}
 	selecting := func(algorithm cryptography.SignatureAlgorithm) []mdl.RequestAttribute {
@@ -555,16 +618,29 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 	}
 
 	t.Run("a key pair offers the ECDSA algorithms", func(t *testing.T) {
-		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSignAttrs, Body: keyScopedRequest(pairMeta)})
-		if !itest.AssertStatus(t, resp, http.StatusOK) {
-			t.FailNow()
-		}
-		var schema []mdl.BaseAttributeDto
-		resp.JSON(t, &schema)
+		schema := attributeSchema(t, h, pathSignAttrs, keyScopedRequest(pairMeta))
 		want := []string{"SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA"}
-		if got := schemaSignatureAlgorithms(t, schema); !slices.Equal(got, want) {
+		if got := schemaOffer(t, schema, cryptography.SignatureAlgorithmAttributeName); !slices.Equal(got, want) {
 			t.Errorf("offered algorithms = %v, want %v", got, want)
 		}
+	})
+
+	t.Run("an RSA pair offers the RSA algorithms", func(t *testing.T) {
+		schema := attributeSchema(t, h, pathSignAttrs, keyScopedRequest(rsaMeta))
+		want := []string{
+			"SHA256withRSA", "SHA384withRSA", "SHA512withRSA",
+			"SHA256withRSAandMGF1", "SHA384withRSAandMGF1", "SHA512withRSAandMGF1",
+		}
+		if got := schemaOffer(t, schema, cryptography.SignatureAlgorithmAttributeName); !slices.Equal(got, want) {
+			t.Errorf("offered algorithms = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("an RSA pair signs with an offered algorithm", func(t *testing.T) {
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequestWith(
+			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, rsaMeta, item, selecting(cryptography.SignatureAlgorithmSHA256WithRSAPSS),
+		)})
+		itest.AssertStatus(t, resp, http.StatusOK)
 	})
 
 	t.Run("a key pair signs with an offered algorithm", func(t *testing.T) {
@@ -601,6 +677,120 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 	})
 }
 
+func TestCryptographyV2EncryptionAlgorithm(t *testing.T) {
+	h := startCrypto(t, nil)
+	rsaMeta := createRSAPair(t, h)
+	ecdsaMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
+	item := []mdl.CipherDataV2Dto{{Data: b64("encrypt-me"), Identifier: "item-1"}}
+	selecting := func(algorithm cryptography.EncryptionAlgorithm) []mdl.RequestAttribute {
+		return []mdl.RequestAttribute{cryptography.EncryptionAlgorithmSelection(algorithm)}
+	}
+	cipherPaths := map[string]string{"encrypt": pathEncrypt, "decrypt": pathDecrypt}
+	attributePaths := map[string]string{"encrypt": pathEncryptAttrs, "decrypt": pathDecryptAttrs}
+
+	t.Run("an RSA pair offers every encryption algorithm", func(t *testing.T) {
+		want := make([]string, 0, len(cryptography.EncryptionAlgorithms()))
+		for _, algorithm := range cryptography.EncryptionAlgorithms() {
+			want = append(want, string(algorithm))
+		}
+		for operation, path := range attributePaths {
+			t.Run(operation, func(t *testing.T) {
+				schema := attributeSchema(t, h, path, keyScopedRequest(rsaMeta))
+				if got := schemaOffer(t, schema, cryptography.EncryptionAlgorithmAttributeName); !slices.Equal(got, want) {
+					t.Errorf("offered algorithms = %v, want %v", got, want)
+				}
+			})
+		}
+	})
+
+	t.Run("an RSA pair runs an offered algorithm", func(t *testing.T) {
+		for operation, path := range cipherPaths {
+			t.Run(operation, func(t *testing.T) {
+				resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: path, Body: cipherRequestWith(
+					rsaMeta, item, selecting(cryptography.EncryptionAlgorithmRSAPKCS1V15),
+				)})
+				itest.AssertStatus(t, resp, http.StatusOK)
+			})
+		}
+	})
+
+	t.Run("a cipher request without a selection is refused", func(t *testing.T) {
+		for operation, path := range cipherPaths {
+			t.Run(operation, func(t *testing.T) {
+				resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: path, Body: cipherRequestWith(rsaMeta, item, noAttrs)})
+				itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+			})
+		}
+	})
+
+	t.Run("cipher attributes for an ECDSA pair are refused", func(t *testing.T) {
+		for operation, path := range attributePaths {
+			t.Run(operation, func(t *testing.T) {
+				resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: path, Body: keyScopedRequest(ecdsaMeta)})
+				itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+			})
+		}
+	})
+
+	t.Run("an ECDSA pair refuses an encryption algorithm", func(t *testing.T) {
+		for operation, path := range cipherPaths {
+			t.Run(operation, func(t *testing.T) {
+				resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: path, Body: cipherRequest(ecdsaMeta, item)})
+				itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
+			})
+		}
+	})
+}
+
+func TestCryptographyV2KeyAlgorithm(t *testing.T) {
+	h := startCrypto(t, nil)
+	createAttributesFor := func(reqType mdl.KeyRequestType) []mdl.BaseAttributeDto {
+		return attributeSchema(t, h, pathCreateKeyAttrs, mdl.CreateKeyAttributesRequestV2Dto{
+			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyRequestType: reqType,
+		})
+	}
+
+	t.Run("a key pair's create schema offers ECDSA and RSA", func(t *testing.T) {
+		schema := createAttributesFor(mdl.KEYREQUESTTYPE_KEY_PAIR)
+		if definition := schemaDefinition(schema, keyAlgorithmName); definition == nil || definition.Uuid != keyAlgorithmUUID {
+			t.Fatalf("keyAlgorithm definition = %+v, want UUID %s", definition, keyAlgorithmUUID)
+		}
+		want := []string{"ECDSA", "RSA"}
+		if got := schemaOffer(t, schema, keyAlgorithmName); !slices.Equal(got, want) {
+			t.Errorf("offered algorithms = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("a secret key's create schema has no keyAlgorithm", func(t *testing.T) {
+		if definition := schemaDefinition(createAttributesFor(mdl.KEYREQUESTTYPE_SECRET), keyAlgorithmName); definition != nil {
+			t.Errorf("secret key create schema offers keyAlgorithm: %+v", definition)
+		}
+	})
+
+	t.Run("an RSA pair carries a 2048-bit RSA public key", func(t *testing.T) {
+		_, out := createKeySyncWith(t, h, rsaPairRequest())
+		keyData := out.KeyPairDataResponseV2Dto.PublicKeyData.KeyData
+		if keyData.Algorithm != mdl.KEYALGORITHM_RSA || keyData.Length != 2048 {
+			t.Errorf("public keyData = %s/%d, want RSA/2048", keyData.Algorithm, keyData.Length)
+		}
+		assertPublicKeySpki(t, keyData)
+	})
+
+	refusals := map[string][]mdl.RequestAttribute{
+		"no keyAlgorithm":             noAttrs,
+		"keyAlgorithm twice":          {keyAlgorithmSelection(mdl.KEYALGORITHM_RSA), keyAlgorithmSelection(mdl.KEYALGORITHM_RSA)},
+		"an algorithm it cannot pair": {keyAlgorithmSelection(mdl.KEYALGORITHM_ML_DSA)},
+	}
+	for name, createKeyAttributes := range refusals {
+		t.Run("a key pair with "+name+" is refused", func(t *testing.T) {
+			req := createKeyRequest(mdl.KEYREQUESTTYPE_KEY_PAIR, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, uuid.NewString())
+			req.CreateKeyAttributes = createKeyAttributes
+			resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathKeys, Body: req})
+			itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+		})
+	}
+}
+
 // --- attribute endpoints -----------------------------------------------------
 
 func TestCryptographyV2AttributeEndpoints(t *testing.T) {
@@ -622,6 +812,7 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 	// even though they ignore the key it names.
 	keyScoped := keyScopedRequest(metaAttribute(uuid.NewString(), "keyHandle", "key handle"))
 	pairMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
+	rsaMeta := createRSAPair(t, h)
 
 	cases := []struct {
 		name   string
@@ -634,8 +825,8 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 		{"createKeyAttributes", http.MethodPost, pathCreateKeyAttrs, mdl.CreateKeyAttributesRequestV2Dto{
 			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs, KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
 		}},
-		{"encryptAttributes", http.MethodPost, pathEncryptAttrs, keyScoped},
-		{"decryptAttributes", http.MethodPost, pathDecryptAttrs, keyScoped},
+		{"encryptAttributes", http.MethodPost, pathEncryptAttrs, keyScopedRequest(rsaMeta)},
+		{"decryptAttributes", http.MethodPost, pathDecryptAttrs, keyScopedRequest(rsaMeta)},
 		{"signAttributes", http.MethodPost, pathSignAttrs, keyScopedRequest(pairMeta)},
 		{"verifyAttributes", http.MethodPost, pathVerifyAttrs, keyScoped},
 		{"randomDataAttributes", http.MethodPost, pathRandomAttrs, mdl.TokenProfileScopedRequestV2Dto{

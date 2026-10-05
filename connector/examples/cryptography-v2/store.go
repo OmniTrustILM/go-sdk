@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdh"
 	crand "crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -97,7 +98,8 @@ var (
 // replayed keyCreationId or keyImportId can rebuild its response, while every
 // operation on the key is rejected. spki is a key pair's public key.
 // privateKeyInfo is kept only for an imported key that may be exported; a
-// created pair's private key is derived from its handle (see keyPairFor).
+// created ECDSA pair's private key is derived from its handle, and a created
+// RSA pair keeps only its public key.
 type keyRecord struct {
 	algorithm      mdl.KeyAlgorithm
 	length         int32
@@ -259,17 +261,39 @@ func fingerprintOf(equivalence any) string {
 // within this Store. Public-key encoding is real; see spkiFor.
 
 func offeredSignatureAlgorithms(algorithm mdl.KeyAlgorithm) []cryptography.SignatureAlgorithm {
-	if algorithm != mdl.KEYALGORITHM_ECDSA {
+	switch algorithm {
+	case mdl.KEYALGORITHM_ECDSA:
+		return []cryptography.SignatureAlgorithm{
+			cryptography.SignatureAlgorithmSHA256WithECDSA,
+			cryptography.SignatureAlgorithmSHA384WithECDSA,
+			cryptography.SignatureAlgorithmSHA512WithECDSA,
+		}
+	case mdl.KEYALGORITHM_RSA:
+		return []cryptography.SignatureAlgorithm{
+			cryptography.SignatureAlgorithmSHA256WithRSA,
+			cryptography.SignatureAlgorithmSHA384WithRSA,
+			cryptography.SignatureAlgorithmSHA512WithRSA,
+			cryptography.SignatureAlgorithmSHA256WithRSAPSS,
+			cryptography.SignatureAlgorithmSHA384WithRSAPSS,
+			cryptography.SignatureAlgorithmSHA512WithRSAPSS,
+		}
+	default:
 		return nil
-	}
-	return []cryptography.SignatureAlgorithm{
-		cryptography.SignatureAlgorithmSHA256WithECDSA,
-		cryptography.SignatureAlgorithmSHA384WithECDSA,
-		cryptography.SignatureAlgorithmSHA512WithECDSA,
 	}
 }
 
-var errKeyCannotSign = shared.Invalid("VALIDATION_FAILED", "key cannot sign")
+// offeredEncryptionAlgorithms offers every contract encryption algorithm to an RSA pair.
+func offeredEncryptionAlgorithms(algorithm mdl.KeyAlgorithm) []cryptography.EncryptionAlgorithm {
+	if algorithm != mdl.KEYALGORITHM_RSA {
+		return nil
+	}
+	return cryptography.EncryptionAlgorithms()
+}
+
+var (
+	errKeyCannotSign    = shared.Invalid("VALIDATION_FAILED", "key cannot sign")
+	errKeyCannotEncrypt = shared.Invalid("VALIDATION_FAILED", "key cannot encrypt")
+)
 
 func requireOfferedSignatureAlgorithm(algorithm mdl.KeyAlgorithm, signatureAttributes []mdl.RequestAttribute) error {
 	selected, err := cryptography.SelectedSignatureAlgorithm(signatureAttributes)
@@ -278,6 +302,17 @@ func requireOfferedSignatureAlgorithm(algorithm mdl.KeyAlgorithm, signatureAttri
 	}
 	if !slices.Contains(offeredSignatureAlgorithms(algorithm), selected) {
 		return cryptography.ErrSignatureAlgorithmUnsupported
+	}
+	return nil
+}
+
+func requireOfferedEncryptionAlgorithm(algorithm mdl.KeyAlgorithm, cipherAttributes []mdl.RequestAttribute) error {
+	selected, err := cryptography.SelectedEncryptionAlgorithm(cipherAttributes)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(offeredEncryptionAlgorithms(algorithm), selected) {
+		return cryptography.ErrEncryptionAlgorithmUnsupported
 	}
 	return nil
 }
@@ -356,6 +391,36 @@ func spkiFor(keyID string) string {
 	return base64.StdEncoding.EncodeToString(der)
 }
 
+const rsaKeyBits = 2048
+
+// newRSASPKI generates an RSA key pair and encodes its public key.
+func newRSASPKI() string {
+	key, err := rsa.GenerateKey(crand.Reader, rsaKeyBits)
+	if err != nil {
+		panic(fmt.Sprintf("newRSASPKI: generate RSA key: %v", err))
+	}
+	der, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		panic(fmt.Sprintf("newRSASPKI: marshal RSA public key: %v", err))
+	}
+	return base64.StdEncoding.EncodeToString(der)
+}
+
+// newKeyRecord creates the key keyID names: a secret key, or a key pair.
+func newKeyRecord(keyID string, kind mdl.KeyRequestType, algorithm mdl.KeyAlgorithm, exportable bool) *keyRecord {
+	switch {
+	case kind != mdl.KEYREQUESTTYPE_KEY_PAIR:
+		// KeyAlgorithm covers only asymmetric algorithms, so a secret key
+		// reports Unknown.
+		return &keyRecord{algorithm: mdl.KEYALGORITHM_UNKNOWN, length: 256}
+	case algorithm == mdl.KEYALGORITHM_RSA:
+		return &keyRecord{algorithm: algorithm, length: rsaKeyBits, spki: newRSASPKI()}
+	default:
+		// 256 bits matches the P-256 key spkiFor encodes.
+		return &keyRecord{algorithm: algorithm, length: 256, spki: spkiFor(keyID), exportable: exportable}
+	}
+}
+
 // randomBytes returns n bytes from the system entropy source, panicking if
 // that source fails (mirrors the helper in examples/secret-v1).
 func randomBytes(n int) []byte {
@@ -423,13 +488,20 @@ func acceptedKeyCreationResponse(kind mdl.KeyRequestType, handle string) *mdl.Ke
 	}}
 }
 
-// replayCreateKey rebuilds the response for an equivalent keyCreationId
-// retry. Must be called while holding s.mu.
-func (s *Store) replayCreateKey(rec *creationRecord) *mdl.KeyCreationResponse {
-	if rec.accepted {
-		return acceptedKeyCreationResponse(rec.keyRequestType, rec.handle)
+// replayedCreation answers a used keyCreationId: the original result for an
+// equivalent retry, a conflict otherwise. Must be called while holding s.mu.
+func (s *Store) replayedCreation(keyCreationID, fp string) (*mdl.KeyCreationResponse, bool, error) {
+	rec, exists := s.creations[keyCreationID]
+	if !exists {
+		return nil, false, nil
 	}
-	return syncKeyCreationResponse(rec.keyRequestType, rec.keyID, s.keys[rec.keyID])
+	if rec.fingerprint != fp {
+		return nil, false, cryptography.ErrKeyCreationConflict.WithProperty("keyCreationId", keyCreationID)
+	}
+	if rec.accepted {
+		return acceptedKeyCreationResponse(rec.keyRequestType, rec.handle), true, nil
+	}
+	return syncKeyCreationResponse(rec.keyRequestType, rec.keyID, s.keys[rec.keyID]), false, nil
 }
 
 // --- Provider: token and profile introspection ------------------------------
@@ -463,42 +535,42 @@ func (s *Store) KeyRequestTypes(ctx context.Context, req *mdl.TokenProfileScoped
 // per req.ExecutionMode. req.KeyCreationId makes this idempotent: a retry
 // whose equivalence fields fingerprint the same as the original replays
 // its result (or tracking handle); a non-equivalent reuse of the same id is a
-// conflict. A key pair reports ECDSA at 256 bits; a secret key reports
-// Unknown. The reserved keyExportable attribute states whether the key may be
-// exported later.
+// conflict. The reserved keyExportable attribute states whether the key may be exported later.
 func (s *Store) CreateKey(ctx context.Context, req *mdl.CreateKeyRequestV2Dto) (*mdl.KeyCreationResponse, bool, error) {
 	exportable, err := cryptography.SelectedKeyExportable(req.CreateKeyAttributes)
 	if err != nil {
 		return nil, false, err
 	}
-	// Its secret keys are placeholders with nothing to export.
-	if exportable && req.KeyRequestType != mdl.KEYREQUESTTYPE_KEY_PAIR {
+	algorithm := mdl.KEYALGORITHM_UNKNOWN
+	if req.KeyRequestType == mdl.KEYREQUESTTYPE_KEY_PAIR {
+		if algorithm, err = selectedKeyAlgorithm(req.CreateKeyAttributes); err != nil {
+			return nil, false, err
+		}
+	}
+
+	if exportable && !slices.Contains(transferableKeyTypes, algorithm) {
 		return nil, false, cryptography.ErrExportableNotSupported
 	}
 	fp := fingerprintCreateKey(req)
 
+	// Key generation runs outside s.mu, so the keyCreationId is checked before and again after.
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if rec, exists := s.creations[req.KeyCreationId]; exists {
-		if rec.fingerprint != fp {
-			return nil, false, cryptography.ErrKeyCreationConflict.WithProperty("keyCreationId", req.KeyCreationId)
-		}
-		return s.replayCreateKey(rec), rec.accepted, nil
+	resp, accepted, err := s.replayedCreation(req.KeyCreationId, fp)
+	s.mu.Unlock()
+	if resp != nil || err != nil {
+		return resp, accepted, err
 	}
 
 	keyID := uuid.NewString()
-	// ECDSA/256 matches the P-256 key spkiFor encodes. KeyAlgorithm covers
-	// only asymmetric algorithms, so a secret key reports Unknown.
-	algorithm := mdl.KEYALGORITHM_UNKNOWN
-	if req.KeyRequestType == mdl.KEYREQUESTTYPE_KEY_PAIR {
-		algorithm = mdl.KEYALGORITHM_ECDSA
+	record := newKeyRecord(keyID, req.KeyRequestType, algorithm, exportable)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if resp, accepted, err = s.replayedCreation(req.KeyCreationId, fp); resp != nil || err != nil {
+		return resp, accepted, err
 	}
-	length := int32(256)
-	record := &keyRecord{algorithm: algorithm, length: length, exportable: exportable}
-	if req.KeyRequestType == mdl.KEYREQUESTTYPE_KEY_PAIR {
-		record.spki = spkiFor(keyID)
-	}
+
 	s.keys[keyID] = record
 
 	rec := &creationRecord{fingerprint: fp, keyID: keyID, keyRequestType: req.KeyRequestType}
@@ -511,8 +583,8 @@ func (s *Store) CreateKey(ctx context.Context, req *mdl.CreateKeyRequestV2Dto) (
 		s.asyncCreates[handle] = &asyncCreateOp{
 			keyID:          keyID,
 			keyRequestType: req.KeyRequestType,
-			algorithm:      algorithm,
-			length:         length,
+			algorithm:      record.algorithm,
+			length:         record.length,
 			startedAt:      time.Now(),
 		}
 		return acceptedKeyCreationResponse(req.KeyRequestType, handle), true, nil
@@ -595,20 +667,9 @@ func (s *Store) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*m
 // synchronous; the handler guarantees req.Data and req.Signatures carry the
 // same identifier set.
 func (s *Store) VerifyData(ctx context.Context, req *mdl.VerifyDataRequestV2Dto) (*mdl.VerifyDataResponseV2Dto, error) {
-	keyID, ok := metaID(req.KeyMeta)
-	if !ok {
-		return nil, cryptography.ErrKeyNotFound
-	}
-
-	// Capture rec.destroyed under the lock: DestroyKey writes it after the
-	// record is published into s.keys, so reading it off the pointer after
-	// Unlock would race.
-	s.mu.Lock()
-	rec, ok := s.keys[keyID]
-	destroyed := ok && rec.destroyed
-	s.mu.Unlock()
-	if !ok || destroyed {
-		return nil, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
+	keyID, _, err := s.liveKey(req.KeyMeta)
+	if err != nil {
+		return nil, err
 	}
 
 	sigByID := make(map[string]string, len(req.Signatures))
@@ -625,20 +686,12 @@ func (s *Store) VerifyData(ctx context.Context, req *mdl.VerifyDataRequestV2Dto)
 	return &mdl.VerifyDataResponseV2Dto{Verifications: out}, nil
 }
 
-// EncryptData encrypts a batch. Always synchronous; a cipherData element that
-// is not valid base64 renders 400.
+// EncryptData encrypts a batch with an algorithm the key offers. Always
+// synchronous; a cipherData element that is not valid base64 renders 400.
 func (s *Store) EncryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto) (*mdl.EncryptDataResponseV2Dto, error) {
-	keyID, ok := metaID(req.KeyMeta)
-	if !ok {
-		return nil, cryptography.ErrKeyNotFound
-	}
-
-	s.mu.Lock()
-	rec, ok := s.keys[keyID]
-	destroyed := ok && rec.destroyed
-	s.mu.Unlock()
-	if !ok || destroyed {
-		return nil, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
+	keyID, err := s.liveCipherKey(req)
+	if err != nil {
+		return nil, err
 	}
 
 	out := make([]mdl.CipherDataV2Dto, len(req.CipherData))
@@ -652,20 +705,12 @@ func (s *Store) EncryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto
 	return &mdl.EncryptDataResponseV2Dto{EncryptedData: out}, nil
 }
 
-// DecryptData decrypts a batch. Always synchronous; a cipherData element that
-// is not valid base64 renders 400.
+// DecryptData decrypts a batch with an algorithm the key offers. Always
+// synchronous; a cipherData element that is not valid base64 renders 400.
 func (s *Store) DecryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto) (*mdl.DecryptDataResponseV2Dto, error) {
-	keyID, ok := metaID(req.KeyMeta)
-	if !ok {
-		return nil, cryptography.ErrKeyNotFound
-	}
-
-	s.mu.Lock()
-	rec, ok := s.keys[keyID]
-	destroyed := ok && rec.destroyed
-	s.mu.Unlock()
-	if !ok || destroyed {
-		return nil, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
+	keyID, err := s.liveCipherKey(req)
+	if err != nil {
+		return nil, err
 	}
 
 	out := make([]mdl.CipherDataV2Dto, len(req.CipherData))
@@ -677,6 +722,35 @@ func (s *Store) DecryptData(ctx context.Context, req *mdl.CipherDataRequestV2Dto
 		out[i] = mdl.CipherDataV2Dto{Identifier: d.Identifier, Data: pt}
 	}
 	return &mdl.DecryptDataResponseV2Dto{DecryptedData: out}, nil
+}
+
+// liveKey resolves keyMeta to a key that is not destroyed.
+func (s *Store) liveKey(keyMeta []mdl.MetadataAttribute) (string, mdl.KeyAlgorithm, error) {
+	keyID, ok := metaID(keyMeta)
+	if !ok {
+		return "", "", cryptography.ErrKeyNotFound
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	rec, ok := s.keys[keyID]
+	if !ok || rec.destroyed {
+		return "", "", cryptography.ErrKeyNotFound.WithProperty("key", keyID)
+	}
+	return keyID, rec.algorithm, nil
+}
+
+// liveCipherKey resolves req's key and checks it offers the selected encryption algorithm.
+func (s *Store) liveCipherKey(req *mdl.CipherDataRequestV2Dto) (string, error) {
+	keyID, algorithm, err := s.liveKey(req.KeyMeta)
+	if err != nil {
+		return "", err
+	}
+	if err := requireOfferedEncryptionAlgorithm(algorithm, req.CipherAttributes); err != nil {
+		return "", err
+	}
+	return keyID, nil
 }
 
 // RandomData returns req.Length bytes from the system entropy source,
@@ -856,41 +930,45 @@ func (s *Store) TokenProfileAttributes(ctx context.Context, req *mdl.TokenScoped
 	return nil, nil
 }
 
-// CreateKeyAttributes reports the key creation attribute schema: the reserved
-// keyExportable attribute, which a connector declaring key export publishes.
+// CreateKeyAttributes reports the key creation attribute schema.
 func (s *Store) CreateKeyAttributes(ctx context.Context, req *mdl.CreateKeyAttributesRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	return []mdl.BaseAttributeDto{cryptography.KeyExportableDefinition()}, nil
+	schema := []mdl.BaseAttributeDto{cryptography.KeyExportableDefinition()}
+	if req.KeyRequestType == mdl.KEYREQUESTTYPE_KEY_PAIR {
+		schema = append(schema, keyAlgorithmDefinition())
+	}
+	return schema, nil
 }
 
-// EncryptAttributes reports the encryption attribute schema: none for this
-// example.
+// EncryptAttributes offers the key's encryption algorithms.
 func (s *Store) EncryptAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	return nil, nil
+	return s.cipherAttributes(req)
 }
 
-// DecryptAttributes reports the decryption attribute schema: none for this
-// example.
+// DecryptAttributes offers the key's decryption algorithms.
 func (s *Store) DecryptAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	return nil, nil
+	return s.cipherAttributes(req)
+}
+
+func (s *Store) cipherAttributes(req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
+	_, algorithm, err := s.liveKey(req.KeyMeta)
+	if err != nil {
+		return nil, err
+	}
+	offered := offeredEncryptionAlgorithms(algorithm)
+	if len(offered) == 0 {
+		return nil, errKeyCannotEncrypt
+	}
+	return []mdl.BaseAttributeDto{cryptography.EncryptionAlgorithmDefinition(offered...)}, nil
 }
 
 // SignAttributes offers the key's signature algorithms through the reserved
 // signatureAlgorithm attribute.
 func (s *Store) SignAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	keyID, ok := metaID(req.KeyMeta)
-	if !ok {
-		return nil, cryptography.ErrKeyNotFound
+	_, algorithm, err := s.liveKey(req.KeyMeta)
+	if err != nil {
+		return nil, err
 	}
-
-	s.mu.Lock()
-	rec, ok := s.keys[keyID]
-	destroyed := ok && rec.destroyed
-	s.mu.Unlock()
-	if !ok || destroyed {
-		return nil, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
-	}
-
-	offered := offeredSignatureAlgorithms(rec.algorithm)
+	offered := offeredSignatureAlgorithms(algorithm)
 	if len(offered) == 0 {
 		return nil, errKeyCannotSign
 	}

@@ -279,13 +279,13 @@ func (s *Store) exportable(req *mdl.ExportKeyRequestV2Dto) ([]byte, *mdl.ExportK
 		return nil, nil, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
 	}
 	kind := mdl.KEYREQUESTTYPE_SECRET
-	if slices.Contains(transferableKeyTypes, rec.algorithm) {
+	if rec.spki != "" {
 		kind = mdl.KEYREQUESTTYPE_KEY_PAIR
 	}
 	switch {
 	case req.KeyRequestType != kind:
 		return nil, nil, cryptography.ErrKeyMaterialMismatch
-	case kind != mdl.KEYREQUESTTYPE_KEY_PAIR:
+	case !slices.Contains(transferableKeyTypes, rec.algorithm):
 		return nil, nil, cryptography.ErrKeyTypeNotExportable
 	case !rec.exportable:
 		return nil, nil, cryptography.ErrKeyNotExportable
