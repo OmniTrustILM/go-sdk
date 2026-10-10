@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 )
 
@@ -40,6 +41,16 @@ func healthSeverity(l HealthLevel) int {
 	}
 }
 
+// Component names the spec reserves for the probes.
+const (
+	livenessComponent  = "liveness"
+	readinessComponent = "readiness"
+)
+
+// descriptionDetail is the details key carrying a component's Description on
+// the v2 wire.
+const descriptionDetail = "description"
+
 // worstHealth returns the most severe of the supplied levels.
 func worstHealth(levels ...HealthLevel) HealthLevel {
 	out := HealthUp
@@ -59,7 +70,8 @@ type HealthStatus struct {
 	Components  map[string]ComponentStatus `json:"components,omitempty"`
 }
 
-// ComponentStatus reports a single dependency.
+// ComponentStatus reports a single dependency. The v2 wire sets its
+// Description as the "description" detail.
 type ComponentStatus struct {
 	Status      HealthLevel    `json:"status"`
 	Description string         `json:"description,omitempty"`
@@ -107,17 +119,8 @@ const (
 	probeStrict
 )
 
-// mountHealth attaches the health endpoints for the configured version.
-//
-// Version v1 mounts only GET /v1/health (aggregate). Version v2 mounts the
-// three GET /v2/health{,/readiness,/liveness} endpoints. Status DOWN and
-// OUT_OF_SERVICE always map to 503; readiness and liveness additionally
-// treat UNKNOWN as 503.
-//
-// The aggregate endpoint always composes the liveness and readiness probes
-// into the response (see aggregateHealth) — the spec marks those two
-// components mandatory in every health response, with no caller wiring
-// required.
+// mountHealth attaches the health endpoints for the configured version. It adds
+// the probe components the spec makes mandatory.
 func mountHealth(r Router, hc HealthChecker, version string) {
 	aggregate := func(ctx context.Context) HealthStatus { return aggregateHealth(ctx, hc) }
 	switch version {
@@ -125,9 +128,35 @@ func mountHealth(r Router, hc HealthChecker, version string) {
 		r.Handle(http.MethodGet, "/v1/health", healthHandler(aggregate, version, probeAggregate))
 	default: // v2
 		r.Handle(http.MethodGet, "/v2/health", healthHandler(aggregate, version, probeAggregate))
-		r.Handle(http.MethodGet, "/v2/health/readiness", healthHandler(hc.Readiness, version, probeStrict))
-		r.Handle(http.MethodGet, "/v2/health/liveness", healthHandler(hc.Liveness, version, probeStrict))
+		r.Handle(http.MethodGet, "/v2/health/readiness", healthHandler(withOwnComponent(readinessComponent, hc.Readiness), version, probeStrict))
+		r.Handle(http.MethodGet, "/v2/health/liveness", healthHandler(withOwnComponent(livenessComponent, hc.Liveness), version, probeStrict))
 	}
+}
+
+func withOwnComponent(name string, probe func(context.Context) HealthStatus) func(context.Context) HealthStatus {
+	return func(ctx context.Context) HealthStatus {
+		s := probe(ctx)
+		s.Components = withEntry(s.Components, name, ownComponent(name, s))
+		return s
+	}
+}
+
+// ownComponent is the component an answer carries under name, else the answer
+// itself. A connector that adds its probe component keeps its answer.
+func ownComponent(name string, s HealthStatus) ComponentStatus {
+	if c, ok := s.Components[name]; ok {
+		return c
+	}
+	return ComponentStatus{Status: s.Status, Description: s.Description}
+}
+
+// withEntry is a copy of m with key set to v. A checker may serve one answer to
+// concurrent requests.
+func withEntry[V any](m map[string]V, key string, v V) map[string]V {
+	out := make(map[string]V, len(m)+1)
+	maps.Copy(out, m)
+	out[key] = v
+	return out
 }
 
 // aggregateHealth builds the aggregate health body: the caller's Health()
@@ -140,14 +169,8 @@ func aggregateHealth(ctx context.Context, hc HealthChecker) HealthStatus {
 	live := hc.Liveness(ctx)
 	ready := hc.Readiness(ctx)
 
-	components := make(map[string]ComponentStatus, len(h.Components)+2)
-	for k, c := range h.Components {
-		components[k] = c
-	}
-	components["liveness"] = ComponentStatus{Status: live.Status, Description: live.Description}
-	components["readiness"] = ComponentStatus{Status: ready.Status, Description: ready.Description}
-
-	h.Components = components
+	h.Components = withEntry(h.Components, livenessComponent, ownComponent(livenessComponent, live))
+	h.Components = withEntry(h.Components, readinessComponent, ownComponent(readinessComponent, ready))
 	h.Status = worstHealth(h.Status, live.Status, ready.Status)
 	return h
 }
@@ -181,15 +204,13 @@ type healthV1Wire struct {
 // healthV2Wire is the v2 spec response shape: uppercase status enum,
 // components map, optional per-component details.
 type healthV2Wire struct {
-	Status      string                     `json:"status"`
-	Description string                     `json:"description,omitempty"`
-	Components  map[string]componentV2Wire `json:"components,omitempty"`
+	Status     string                     `json:"status"`
+	Components map[string]componentV2Wire `json:"components,omitempty"`
 }
 
 type componentV2Wire struct {
-	Status      string         `json:"status"`
-	Description string         `json:"description,omitempty"`
-	Details     map[string]any `json:"details,omitempty"`
+	Status  string         `json:"status"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 // marshalHealth translates the internal HealthStatus into the wire shape
@@ -211,21 +232,26 @@ func marshalHealth(s HealthStatus, version string) any {
 		}
 		return out
 	}
-	out := healthV2Wire{
-		Status:      healthStatusV2(s.Status),
-		Description: s.Description,
-	}
+	out := healthV2Wire{Status: healthStatusV2(s.Status)}
 	if len(s.Components) > 0 {
 		out.Components = make(map[string]componentV2Wire, len(s.Components))
 		for k, c := range s.Components {
 			out.Components[k] = componentV2Wire{
-				Status:      healthStatusV2(c.Status),
-				Description: c.Description,
-				Details:     c.Details,
+				Status:  healthStatusV2(c.Status),
+				Details: detailsV2(c),
 			}
 		}
 	}
 	return out
+}
+
+// detailsV2 is a component's Details with its Description set under
+// descriptionDetail.
+func detailsV2(c ComponentStatus) map[string]any {
+	if c.Description == "" {
+		return c.Details
+	}
+	return withEntry[any](c.Details, descriptionDetail, c.Description)
 }
 
 // healthStatusV1 maps the canonical HealthLevel onto the v1 wire enum
