@@ -5,9 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
+
+	authorityv3 "github.com/OmniTrustILM/go-sdk/connector/model/authority/v3"
+	cryptographyv2 "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
+	secretv1 "github.com/OmniTrustILM/go-sdk/connector/model/secret/v1"
 )
 
 // stubChecker returns fixed statuses per probe.
@@ -28,13 +34,20 @@ func upChecker() stubChecker {
 	}
 }
 
+// recordHealth mounts the health endpoints of version for hc and GETs path.
+func recordHealth(t *testing.T, hc HealthChecker, version, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	mux := http.NewServeMux()
+	mountHealth(newMuxRouter(mux), hc, version)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+	return rr
+}
+
 // serveHealth mounts the v2 health endpoints for hc and GETs path.
 func serveHealth(t *testing.T, hc HealthChecker, path string) (int, map[string]any) {
 	t.Helper()
-	mux := http.NewServeMux()
-	mountHealth(newMuxRouter(mux), hc, VersionV2)
-	rr := httptest.NewRecorder()
-	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+	rr := recordHealth(t, hc, VersionV2, path)
 	var body map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatalf("health body is not JSON: %v\n%s", err, rr.Body.String())
@@ -105,7 +118,8 @@ func TestAggregateHealthSDKOwnsMandatoryKeys(t *testing.T) {
 	_, body := serveHealth(t, hc, "/v2/health")
 	comps, _ := body["components"].(map[string]any)
 	live, _ := comps["liveness"].(map[string]any)
-	if live == nil || live["status"] != "DOWN" || live["description"] != "real down" {
+	liveDetails, _ := live["details"].(map[string]any)
+	if live == nil || live["status"] != "DOWN" || liveDetails["description"] != "real down" {
 		t.Errorf("components.liveness = %v, want real probe result, not caller value", comps["liveness"])
 	}
 	ready, _ := comps["readiness"].(map[string]any)
@@ -234,5 +248,188 @@ func TestWorstHealthOrdering(t *testing.T) {
 	}
 	if got := worstHealth(); got != HealthUp {
 		t.Errorf("worst() = %s, want UP", got)
+	}
+}
+
+// healthInfoModels decode a body into each spec's generated HealthInfo.
+var healthInfoModels = map[string]func([]byte) (any, error){
+	"authority v3":    decodeAs[authorityv3.HealthInfo],
+	"cryptography v2": decodeAs[cryptographyv2.HealthInfo],
+	"secret v1":       decodeAs[secretv1.HealthInfo],
+}
+
+func decodeAs[T any](body []byte) (any, error) {
+	var v T
+	err := json.Unmarshal(body, &v)
+	return v, err
+}
+
+// unknownFields lists the fields outside its schema that a generated
+// HealthInfo or one of its components collected.
+func unknownFields(info any) []string {
+	v := reflect.ValueOf(info)
+	fields := mapKeys(v.FieldByName("AdditionalProperties"))
+	components := v.FieldByName("Components")
+	for _, name := range components.MapKeys() {
+		for _, field := range mapKeys(components.MapIndex(name).FieldByName("AdditionalProperties")) {
+			fields = append(fields, name.String()+"."+field)
+		}
+	}
+	return fields
+}
+
+func mapKeys(m reflect.Value) []string {
+	keys := make([]string, 0, m.Len())
+	for _, k := range m.MapKeys() {
+		keys = append(keys, k.String())
+	}
+	return keys
+}
+
+// describedChecker sets a Description on every answer and component.
+func describedChecker() stubChecker {
+	return stubChecker{
+		live:  HealthStatus{Status: HealthUp, Description: "process alive"},
+		ready: HealthStatus{Status: HealthUp, Description: "accepting requests"},
+		health: HealthStatus{
+			Status:      HealthDegraded,
+			Description: "a dependency is slow",
+			Components: map[string]ComponentStatus{
+				"database": {Status: HealthDegraded, Description: "slow", Details: map[string]any{"latencyMs": 45}},
+			},
+		},
+	}
+}
+
+func TestV2HealthAnswersDecodeAsHealthInfo(t *testing.T) {
+	for _, path := range []string{"/v2/health", "/v2/health/liveness", "/v2/health/readiness"} {
+		body := recordHealth(t, describedChecker(), VersionV2, path).Body.Bytes()
+		for spec, decode := range healthInfoModels {
+			info, err := decode(body)
+			if err != nil {
+				t.Fatalf("%s as %s HealthInfo: %v\n%s", path, spec, err, body)
+			}
+			if fields := unknownFields(info); len(fields) > 0 {
+				t.Errorf("%s carries fields outside %s HealthInfo: %v\n%s", path, spec, fields, body)
+			}
+		}
+	}
+}
+
+// componentDetails is the details of the named component in a decoded v2 answer.
+func componentDetails(body map[string]any, name string) map[string]any {
+	comps, _ := body["components"].(map[string]any)
+	c, _ := comps[name].(map[string]any)
+	details, _ := c["details"].(map[string]any)
+	return details
+}
+
+func TestComponentDescriptionMovesIntoDetails(t *testing.T) {
+	_, body := serveHealth(t, describedChecker(), "/v2/health")
+	want := map[string]any{"description": "slow", "latencyMs": float64(45)}
+	if got := componentDetails(body, "database"); !reflect.DeepEqual(got, want) {
+		t.Errorf("components.database.details = %v, want %v", got, want)
+	}
+}
+
+func TestComponentDescriptionReplacesADetailOfTheSameName(t *testing.T) {
+	hc := upChecker()
+	hc.health = HealthStatus{
+		Status: HealthUp,
+		Components: map[string]ComponentStatus{
+			"database": {Status: HealthDegraded, Description: "slow", Details: map[string]any{"description": "stale"}},
+		},
+	}
+	_, body := serveHealth(t, hc, "/v2/health")
+	if got := componentDetails(body, "database")["description"]; got != "slow" {
+		t.Errorf("components.database.details.description = %v, want the component's Description", got)
+	}
+}
+
+func TestV2HealthLeavesTheCheckersAnswerUnchanged(t *testing.T) {
+	hc := describedChecker()
+	hc.live.Components = map[string]ComponentStatus{"cache": {Status: HealthUp}}
+	details := hc.health.Components["database"].Details
+	wantDetails := maps.Clone(details)
+	wantLive := maps.Clone(hc.live.Components)
+	serveHealth(t, hc, "/v2/health")
+	serveHealth(t, hc, "/v2/health/liveness")
+	if !maps.Equal(details, wantDetails) {
+		t.Errorf("checker's details = %v after serving, want %v", details, wantDetails)
+	}
+	if !reflect.DeepEqual(hc.live.Components, wantLive) {
+		t.Errorf("checker's liveness components = %v after serving, want %v", hc.live.Components, wantLive)
+	}
+}
+
+func TestV1HealthKeepsDescriptions(t *testing.T) {
+	var body map[string]any
+	if err := json.Unmarshal(recordHealth(t, describedChecker(), VersionV1, "/v1/health").Body.Bytes(), &body); err != nil {
+		t.Fatalf("v1 health body is not JSON: %v", err)
+	}
+	if body["description"] != "a dependency is slow" {
+		t.Errorf("description = %v, want the answer's Description", body["description"])
+	}
+	parts, _ := body["parts"].(map[string]any)
+	db, _ := parts["database"].(map[string]any)
+	if db["description"] != "slow" {
+		t.Errorf("parts.database = %v, want the component's Description", parts["database"])
+	}
+}
+
+func TestProbeAnswersCarryTheirOwnComponent(t *testing.T) {
+	for path, name := range map[string]string{
+		"/v2/health/liveness":  livenessComponent,
+		"/v2/health/readiness": readinessComponent,
+	} {
+		_, body := serveHealth(t, defaultHealthChecker{}, path)
+		comps, _ := body["components"].(map[string]any)
+		if c, _ := comps[name].(map[string]any); c == nil || c["status"] != "UP" {
+			t.Errorf("%s components.%s = %v, want status UP", path, name, comps[name])
+		}
+	}
+}
+
+func TestProbeComponentCarriesTheAnswersDescription(t *testing.T) {
+	hc := upChecker()
+	hc.live = HealthStatus{Status: HealthDown, Description: "cache corrupt"}
+	code, body := serveHealth(t, hc, "/v2/health/liveness")
+	if code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503 for a DOWN liveness", code)
+	}
+	want := map[string]any{
+		"status":     "DOWN",
+		"components": map[string]any{"liveness": map[string]any{"status": "DOWN", "details": map[string]any{"description": "cache corrupt"}}},
+	}
+	if !reflect.DeepEqual(body, want) {
+		t.Errorf("body = %v, want %v", body, want)
+	}
+}
+
+func TestProbeAnswerKeepsItsOwnComponent(t *testing.T) {
+	hc := upChecker()
+	hc.ready = HealthStatus{
+		Status:     HealthUp,
+		Components: map[string]ComponentStatus{readinessComponent: {Status: HealthUp, Details: map[string]any{"queue": "empty"}}},
+	}
+	_, body := serveHealth(t, hc, "/v2/health/readiness")
+	want := map[string]any{
+		"status":     "UP",
+		"components": map[string]any{"readiness": map[string]any{"status": "UP", "details": map[string]any{"queue": "empty"}}},
+	}
+	if !reflect.DeepEqual(body, want) {
+		t.Errorf("body = %v, want %v", body, want)
+	}
+}
+
+func TestAggregateHealthKeepsAProbesOwnComponent(t *testing.T) {
+	hc := upChecker()
+	hc.ready = HealthStatus{
+		Status:     HealthUp,
+		Components: map[string]ComponentStatus{readinessComponent: {Status: HealthUp, Details: map[string]any{"queue": "empty"}}},
+	}
+	_, body := serveHealth(t, hc, "/v2/health")
+	if got := componentDetails(body, readinessComponent); !reflect.DeepEqual(got, map[string]any{"queue": "empty"}) {
+		t.Errorf("components.readiness.details = %v, want the readiness answer's own component", got)
 	}
 }
