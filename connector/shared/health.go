@@ -144,10 +144,20 @@ func withOwnComponent(name string, probe func(context.Context) HealthStatus) fun
 // ownComponent is the component an answer carries under name, else the answer
 // itself. A connector that adds its probe component keeps its answer.
 func ownComponent(name string, s HealthStatus) ComponentStatus {
-	if c, ok := s.Components[name]; ok {
-		return c
+	c, ok := s.Components[name]
+	if !ok {
+		return ComponentStatus{Status: s.Status, Description: s.Description}
 	}
-	return ComponentStatus{Status: s.Status, Description: s.Description}
+	if !described(c) {
+		c.Description = s.Description
+	}
+	return c
+}
+
+// described reports whether c carries a description of its own.
+func described(c ComponentStatus) bool {
+	_, ok := c.Details[descriptionDetail]
+	return c.Description != "" || ok
 }
 
 // withEntry is a copy of m with key set to v. A checker may serve one answer to

@@ -433,3 +433,52 @@ func TestAggregateHealthKeepsAProbesOwnComponent(t *testing.T) {
 		t.Errorf("components.readiness.details = %v, want the readiness answer's own component", got)
 	}
 }
+
+func TestProbeOwnComponentTakesTheAnswersDescription(t *testing.T) {
+	hc := upChecker()
+	hc.live = HealthStatus{
+		Status:      HealthDown,
+		Description: "cache corrupt",
+		Components:  map[string]ComponentStatus{livenessComponent: {Status: HealthDown}},
+	}
+	_, body := serveHealth(t, hc, "/v2/health/liveness")
+	want := map[string]any{
+		"status":     "DOWN",
+		"components": map[string]any{"liveness": map[string]any{"status": "DOWN", "details": map[string]any{"description": "cache corrupt"}}},
+	}
+	if !reflect.DeepEqual(body, want) {
+		t.Errorf("body = %v, want %v", body, want)
+	}
+}
+
+func TestAggregateHealthGivesAProbesOwnComponentTheAnswersDescription(t *testing.T) {
+	hc := upChecker()
+	hc.ready = HealthStatus{
+		Status:      HealthUp,
+		Description: "accepting requests",
+		Components:  map[string]ComponentStatus{readinessComponent: {Status: HealthUp, Details: map[string]any{"queue": "empty"}}},
+	}
+	_, body := serveHealth(t, hc, "/v2/health")
+	want := map[string]any{"queue": "empty", "description": "accepting requests"}
+	if got := componentDetails(body, readinessComponent); !reflect.DeepEqual(got, want) {
+		t.Errorf("components.readiness.details = %v, want %v", got, want)
+	}
+}
+
+func TestProbeOwnComponentKeepsItsOwnDescription(t *testing.T) {
+	for name, own := range map[string]ComponentStatus{
+		"Description":         {Status: HealthUp, Description: "own text"},
+		"details.description": {Status: HealthUp, Details: map[string]any{"description": "own text"}},
+	} {
+		hc := upChecker()
+		hc.live = HealthStatus{
+			Status:      HealthUp,
+			Description: "answer text",
+			Components:  map[string]ComponentStatus{livenessComponent: own},
+		}
+		_, body := serveHealth(t, hc, "/v2/health/liveness")
+		if got := componentDetails(body, livenessComponent)["description"]; got != "own text" {
+			t.Errorf("component with its own %s: details.description = %v, want %q", name, got, "own text")
+		}
+	}
+}
