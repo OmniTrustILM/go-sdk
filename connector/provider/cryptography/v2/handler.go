@@ -33,6 +33,7 @@ type Handler struct {
 	keyImport   KeyImportProvider
 	asyncImport AsyncKeyImportProvider
 	keyExport   KeyExportProvider
+	keyList     KeyListProvider
 
 	tokenAttrs        TokenAttributeProvider
 	tokenProfileAttrs TokenProfileAttributeProvider
@@ -81,6 +82,8 @@ func (h *Handler) requireFeatureProviders() error {
 		return errors.New("cryptography: asynchronous and keyImport features advertised without WithAsyncKeyImport")
 	case advertised(mdl.FEATUREFLAG_KEY_EXPORT) && h.keyExport == nil:
 		return errors.New("cryptography: keyExport feature advertised without WithKeyExport")
+	case advertised(mdl.FEATUREFLAG_KEY_LIST) && h.keyList == nil:
+		return errors.New("cryptography: keyList feature advertised without WithKeyList")
 	}
 	return nil
 }
@@ -93,10 +96,10 @@ func (h *Handler) Interface() shared.InterfaceInfo {
 }
 
 // Mount attaches every route onto r unconditionally; the patterns are literal,
-// so this package composes with any other on one mux. The async, key import
-// and key export routes answer 404 OPERATION_NOT_SUPPORTED when their
-// sub-interface was not registered, except the attribute routes, which answer
-// 200 with an empty array as every attribute route does.
+// so this package composes with any other on one mux. The optional routes
+// answer 404 OPERATION_NOT_SUPPORTED when their sub-interface was not
+// registered, except the attribute routes, which answer 200 with an empty
+// array as every attribute route does.
 func (h *Handler) Mount(r shared.Router) {
 	base := h.BasePath
 
@@ -140,4 +143,6 @@ func (h *Handler) Mount(r shared.Router) {
 	r.Handle(http.MethodPost, base+"/keys/export/keyTypes", h.listExportableKeyTypes)
 	r.Handle(http.MethodPost, base+"/keys/export/attributes", h.listExportKeyAttributes)
 	r.Handle(http.MethodPost, base+"/keys/export", h.exportKey)
+
+	r.Handle(http.MethodPost, base+"/keys/list", h.listKeyPairs)
 }

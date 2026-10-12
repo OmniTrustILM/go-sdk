@@ -15,9 +15,8 @@
 //
 // The connector exposes /v2/health, /v2/health/{readiness,liveness}, /v2/info,
 // /v1/metrics, and every Cryptography Provider v2 route under
-// /v2/cryptographyProvider. It registers the async, key import and key export
-// providers and advertises the "asynchronous", "keyImport" and "keyExport"
-// feature flags, which Core requires before routing those operations here.
+// /v2/cryptographyProvider. It advertises the feature flags Core requires to
+// route its optional operations here.
 // It imports and exports ECDSA P-256 key pairs; its created key pairs are
 // real P-256 keys derived from their handles, so they export too.
 //
@@ -59,6 +58,7 @@ func main() {
 		cryptography.WithKeyImport(store),
 		cryptography.WithAsyncKeyImport(store),
 		cryptography.WithKeyExport(store),
+		cryptography.WithKeyList(store),
 		cryptography.WithTokenAttributes(store),
 		cryptography.WithTokenProfileAttributes(store),
 		cryptography.WithCreateKeyAttributes(store),
@@ -71,6 +71,7 @@ func main() {
 			string(mdl.FEATUREFLAG_ASYNCHRONOUS),
 			string(mdl.FEATUREFLAG_KEY_IMPORT),
 			string(mdl.FEATUREFLAG_KEY_EXPORT),
+			string(mdl.FEATUREFLAG_KEY_LIST),
 		)),
 	)
 	if err != nil {

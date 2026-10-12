@@ -89,6 +89,7 @@ var (
 	_ cryptography.KeyImportProvider             = (*Store)(nil)
 	_ cryptography.AsyncKeyImportProvider        = (*Store)(nil)
 	_ cryptography.KeyExportProvider             = (*Store)(nil)
+	_ cryptography.KeyListProvider               = (*Store)(nil)
 )
 
 // --- Records --------------------------------------------------------------
@@ -108,6 +109,11 @@ type keyRecord struct {
 	keyReference   string
 	privateKeyInfo []byte
 	destroyed      bool
+}
+
+// isKeyPair holds because only a key pair stores an SPKI.
+func (r *keyRecord) isKeyPair() bool {
+	return r.spki != ""
 }
 
 // creationRecord makes CreateKey idempotent per keyCreationId. An equivalent
@@ -819,6 +825,7 @@ func (s *Store) CancelCreateKey(ctx context.Context, req *mdl.OperationTrackingR
 		return cryptography.ErrCancelPastPointOfNoReturn
 	}
 	op.cancelled = true
+	s.keys[op.keyID].destroyed = true
 	return nil
 }
 

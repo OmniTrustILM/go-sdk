@@ -196,6 +196,18 @@ func WithKeyExport(p KeyExportProvider) Option {
 	}
 }
 
+// WithKeyList registers the provider FeatureFlag.KEY_LIST requires. When
+// absent the key pair listing route answers 404 OPERATION_NOT_SUPPORTED.
+func WithKeyList(p KeyListProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("key list provider must not be nil")
+		}
+		h.keyList = p
+		return nil
+	}
+}
+
 // WithImportKeyAttributes registers the provider backing
 // POST /v2/cryptographyProvider/keys/import/attributes.
 func WithImportKeyAttributes(p ImportKeyAttributeProvider) Option {

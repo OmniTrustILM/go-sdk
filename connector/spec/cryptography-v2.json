@@ -1854,6 +1854,102 @@
         ]
       }
     },
+    "/v2/cryptographyProvider/keys/list": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "List key pairs",
+        "description": "Return one page of the key pairs the token holds, including those created outside the platform.\n\n- `keyPairMetaFilter` limits the page to the key pairs it names. The platform uses it to read selected\n  entries again.\n",
+        "operationId": "listKeyPairs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListKeyPairsRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Key pairs retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListKeyPairsResponseV2Dto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
     "/v2/cryptographyProvider/keys/import": {
       "post": {
         "tags": [
@@ -7817,6 +7913,138 @@
           "type"
         ]
       },
+      "ListKeyPairsRequestV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The page of the token's key pairs to return. The connector keeps their order stable for an unchanged token.\n`keyPairMetaFilter` applies before `offset` and `limit`.\n\nThe listing covers key pairs only.\n",
+        "properties": {
+          "tokenAttributes": {
+            "type": "array",
+            "description": "Token attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "tokenProfileAttributes": {
+            "type": "array",
+            "description": "Token profile attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of key pairs to skip",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Largest number of key pairs to return",
+            "maximum": 1000,
+            "minimum": 1
+          },
+          "keyPairMetaFilter": {
+            "type": "array",
+            "description": "Handles of the key pairs to list, each a `keyPairMeta` exactly as an earlier listing returned it. A returned `keyPairMeta` matches a handle holding the same metadata names in any order, each with the same data. An absent filter lists every key pair.",
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetadataAttribute"
+              },
+              "minItems": 1
+            },
+            "maxItems": 2147483647,
+            "minItems": 1
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "tokenAttributes",
+          "tokenProfileAttributes"
+        ]
+      },
+      "ListKeyPairsResponseV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Key pairs of the requested page",
+            "items": {
+              "$ref": "#/components/schemas/ListedKeyPairV2Dto"
+            }
+          },
+          "unaddressableKeys": {
+            "type": "array",
+            "description": "Keys of the requested page without an identifier unique to them. Each counts as one key pair toward `limit` and `totalItems`. Only an unfiltered listing returns them.",
+            "items": {
+              "$ref": "#/components/schemas/UnaddressableKeyV2Dto"
+            }
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of key pairs in the whole listing, after `keyPairMetaFilter`",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "totalItems"
+        ]
+      },
+      "ListedKeyPairV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A key pair the token holds, in the shape of a key pair creation response. Any later request accepts its\nmetadata exactly like metadata returned at creation.\n",
+        "properties": {
+          "keyPairMeta": {
+            "type": "array",
+            "description": "Connector-defined metadata for the pair as a whole. It must identify the pair durably. `keyPairMetaFilter` matches against it.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            },
+            "minItems": 1
+          },
+          "label": {
+            "type": "string",
+            "description": "Label the token keeps for the key pair"
+          },
+          "privateKeyData": {
+            "$ref": "#/components/schemas/PrivateKeyDataResponseV2Dto",
+            "description": "Data of the private key"
+          },
+          "publicKeyData": {
+            "$ref": "#/components/schemas/PublicKeyDataResponseV2Dto",
+            "description": "Data of the public key, read from the public key object on the token. Absent when the token lacks a public key object for the pair."
+          }
+        },
+        "required": [
+          "keyPairMeta",
+          "privateKeyData"
+        ]
+      },
+      "UnaddressableKeyV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A private key the token holds without an identifier unique to it. Onboarding needs such an identifier, so the\nplatform only lists the key.\n",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Label the token keeps for the key"
+          },
+          "keyData": {
+            "$ref": "#/components/schemas/PrivateKeyDataV2Dto",
+            "description": "Descriptor of the private key"
+          }
+        },
+        "required": [
+          "keyData"
+        ]
+      },
       "EncryptedKeyMaterialV2Dto": {
         "type": "object",
         "additionalProperties": false,
@@ -8607,6 +8835,7 @@
           "asynchronous",
           "keyImport",
           "keyExport",
+          "keyList",
           "secretVersioning",
           "secretRotation",
           "contentSigning",

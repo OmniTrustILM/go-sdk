@@ -221,3 +221,23 @@ type KeyExportProvider interface {
 	//     return none when it is not
 	ExportKey(ctx context.Context, req *mdl.ExportKeyRequestV2Dto) (*mdl.ExportKeyResponseV2Dto, error)
 }
+
+// KeyListProvider lets the platform onboard the key pairs a token already
+// holds. Register it with WithKeyList and advertise FeatureFlag.KEY_LIST, an
+// ENFORCED flag.
+type KeyListProvider interface {
+	// ListKeyPairs returns one page of the token's key pairs, at most
+	// req.Limit of them after skipping req.Offset. Implementers must:
+	//   - apply req.KeyPairMetaFilter before paging
+	//   - count in TotalItems every key pair the filter lets through
+	//   - keep the order stable while the token is unchanged
+	//   - return each filtered key pair with the KeyPairMeta that named it
+	//   - leave PublicKeyData nil for a private key whose public object is
+	//     missing
+	//   - return KeyPairMeta and KeyMeta that every later request accepts,
+	//     as CreateKey does
+	//   - put a private key without an identifier unique to it in
+	//     UnaddressableKeys, on an unfiltered page only, counted toward
+	//     req.Limit and TotalItems
+	ListKeyPairs(ctx context.Context, req *mdl.ListKeyPairsRequestV2Dto) (*mdl.ListKeyPairsResponseV2Dto, error)
+}

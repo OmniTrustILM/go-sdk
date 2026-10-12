@@ -17,6 +17,7 @@ package cryptography
 // the point of having unexported access in the first place.
 
 import (
+	"encoding/json"
 	"math"
 	"net/http"
 	"strings"
@@ -1196,5 +1197,160 @@ func TestSignatureResultIdentifiers(t *testing.T) {
 	}
 	if got := signatureResultIdentifiers(nil); len(got) != 0 {
 		t.Errorf("signatureResultIdentifiers(nil) = %v, want empty", got)
+	}
+}
+
+func decodeHandle(t *testing.T, raw string) []mdl.MetadataAttribute {
+	t.Helper()
+	var handle []mdl.MetadataAttribute
+	if err := json.Unmarshal([]byte(raw), &handle); err != nil {
+		t.Fatalf("decode handle: %v", err)
+	}
+	return handle
+}
+
+func metaJSON(name, data string, withReference bool) string {
+	item := `{"data":"` + data + `","contentType":"string"`
+	if withReference {
+		item += `,"reference":"` + data + `"`
+	}
+	return `{"uuid":"m-` + name + `","name":"` + name + `","version":3,"schemaVersion":"v3","type":"meta",` +
+		`"contentType":"string","properties":{"label":"` + name + `","visible":true},"content":[` + item + `}]}`
+}
+
+// sameKeyPairHandle is the equality keyPairMetaFilter promises: the same
+// metadata names in any order, each with the same data. It ignores the
+// content references a connector may omit on the wire.
+func sameKeyPairHandle(a, b []mdl.MetadataAttribute) bool {
+	aKey, aUnambiguous := handleKey(a)
+	bKey, bUnambiguous := handleKey(b)
+	return aUnambiguous && bUnambiguous && aKey == bKey
+}
+
+func TestSameKeyPairHandleIgnoresAttributeOrderAndReferences(t *testing.T) {
+	a := decodeHandle(t, "["+metaJSON("keyId", "0a", true)+","+metaJSON("pkcs11Label", "signer", false)+"]")
+	b := decodeHandle(t, "["+metaJSON("pkcs11Label", "signer", true)+","+metaJSON("keyId", "0a", false)+"]")
+
+	if !sameKeyPairHandle(a, b) {
+		t.Errorf("sameKeyPairHandle = false, want true")
+	}
+}
+
+func TestSameKeyPairHandleRefusesADifferentOrAmbiguousHandle(t *testing.T) {
+	cases := map[string][2]string{
+		"other data":    {"[" + metaJSON("keyId", "0a", false) + "]", "[" + metaJSON("keyId", "0b", false) + "]"},
+		"missing name":  {"[" + metaJSON("keyId", "0a", false) + "," + metaJSON("pkcs11Label", "x", false) + "]", "[" + metaJSON("keyId", "0a", false) + "]"},
+		"repeated name": {"[" + metaJSON("keyId", "0a", false) + "," + metaJSON("keyId", "0b", false) + "]", "[" + metaJSON("keyId", "0b", false) + "]"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if sameKeyPairHandle(decodeHandle(t, tc[0]), decodeHandle(t, tc[1])) {
+				t.Errorf("sameKeyPairHandle = true, want false")
+			}
+		})
+	}
+}
+
+func listedPair() mdl.ListedKeyPairV2Dto {
+	created := keyPair(func(*mdl.KeyPairDataResponseV2Dto) {})
+	return mdl.ListedKeyPairV2Dto{
+		KeyPairMeta:    created.KeyPairMeta,
+		PrivateKeyData: *created.PrivateKeyData,
+		PublicKeyData:  created.PublicKeyData,
+	}
+}
+
+func TestValidateListedKeyPairRejectsZeroValueMetadataElements(t *testing.T) {
+	cases := []struct {
+		mutate func(*mdl.ListedKeyPairV2Dto)
+		field  string
+	}{
+		{func(p *mdl.ListedKeyPairV2Dto) { p.KeyPairMeta = []mdl.MetadataAttribute{{}} }, "keyPairMeta"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PublicKeyData.KeyMeta = []mdl.MetadataAttribute{{}} }, "publicKeyData.keyMeta"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PublicKeyData.KeyData.Metadata = []mdl.MetadataAttribute{{}} }, "publicKeyData.keyData.metadata"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PrivateKeyData.KeyMeta = []mdl.MetadataAttribute{{}} }, "privateKeyData.keyMeta"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PrivateKeyData.KeyData.Metadata = []mdl.MetadataAttribute{{}} }, "privateKeyData.keyData.metadata"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.field, func(t *testing.T) {
+			pair := listedPair()
+			tc.mutate(&pair)
+
+			wantResponseShapeError(t, validateListedKeyPair(pair), tc.field+" entries must populate exactly one metadata attribute variant")
+		})
+	}
+}
+
+func pageWithUnaddressableKey(mutate func(*mdl.UnaddressableKeyV2Dto)) *mdl.ListKeyPairsResponseV2Dto {
+	key := mdl.NewUnaddressableKeyV2Dto(*mdl.NewPrivateKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048))
+	mutate(key)
+	return &mdl.ListKeyPairsResponseV2Dto{
+		Items:             []mdl.ListedKeyPairV2Dto{listedPair()},
+		UnaddressableKeys: []mdl.UnaddressableKeyV2Dto{*key},
+		TotalItems:        2,
+	}
+}
+
+func TestValidateListKeyPairsResponseAcceptsAnUnaddressableKey(t *testing.T) {
+	wantNoError(t, validateListKeyPairsResponse(&mdl.ListKeyPairsRequestV2Dto{Limit: 2},
+		pageWithUnaddressableKey(func(*mdl.UnaddressableKeyV2Dto) {})))
+}
+
+func TestValidateListKeyPairsResponseCountsUnaddressableKeysTowardTheLimit(t *testing.T) {
+	wantResponseShapeError(t, validateListKeyPairsResponse(&mdl.ListKeyPairsRequestV2Dto{Limit: 1},
+		pageWithUnaddressableKey(func(*mdl.UnaddressableKeyV2Dto) {})),
+		"key pair listing must not return more key pairs than the limit")
+}
+
+// An unaddressable key lacks the handle a filter names key pairs by.
+func TestValidateListKeyPairsResponseRefusesAnUnaddressableKeyUnderAFilter(t *testing.T) {
+	in := &mdl.ListKeyPairsRequestV2Dto{Limit: 10, KeyPairMetaFilter: [][]mdl.MetadataAttribute{listedPair().KeyPairMeta}}
+	out := pageWithUnaddressableKey(func(*mdl.UnaddressableKeyV2Dto) {})
+
+	wantResponseShapeError(t, validateListKeyPairsResponse(in, out), "unaddressableKeys must be absent under keyPairMetaFilter")
+}
+
+func TestValidateListKeyPairsResponseChecksEachUnaddressableKey(t *testing.T) {
+	cases := map[string]struct {
+		mutate func(*mdl.UnaddressableKeyV2Dto)
+		want   string
+	}{
+		"zero value": {func(k *mdl.UnaddressableKeyV2Dto) { *k = mdl.UnaddressableKeyV2Dto{} },
+			"unaddressableKeys.keyData must carry key type Private"},
+		"public key type": {func(k *mdl.UnaddressableKeyV2Dto) { k.KeyData.Type = keyTypePublic },
+			"unaddressableKeys.keyData must carry key type Private"},
+		"unknown algorithm": {func(k *mdl.UnaddressableKeyV2Dto) { k.KeyData.Algorithm = "bogus" },
+			"unaddressableKeys.keyData must carry a known key algorithm"},
+		"zero length": {func(k *mdl.UnaddressableKeyV2Dto) { k.KeyData.Length = 0 },
+			"unaddressableKeys.keyData must carry a positive key length"},
+		"zero-value metadata element": {func(k *mdl.UnaddressableKeyV2Dto) { k.KeyData.Metadata = []mdl.MetadataAttribute{{}} },
+			"unaddressableKeys.keyData.metadata entries must populate exactly one metadata attribute variant"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			wantResponseShapeError(t, validateListKeyPairsResponse(&mdl.ListKeyPairsRequestV2Dto{Limit: 2},
+				pageWithUnaddressableKey(tc.mutate)), tc.want)
+		})
+	}
+}
+
+func TestValidateListKeyPairsResponseRefusesAKeyPairMetaNoFilterCanName(t *testing.T) {
+	withoutData := mdl.MetadataAttribute{MetadataAttributeV2: &mdl.MetadataAttributeV2{
+		Name:    "keyId",
+		Content: []mdl.BaseAttributeContentDtoV2{mdl.ObjectAttributeContentV2AsBaseAttributeContentDtoV2(&mdl.ObjectAttributeContentV2{})},
+	}}
+	cases := map[string][]mdl.MetadataAttribute{
+		"repeated name":        {metaAttr(), metaAttr()},
+		"content without data": {withoutData},
+	}
+	for name, keyPairMeta := range cases {
+		t.Run(name, func(t *testing.T) {
+			pair := listedPair()
+			pair.KeyPairMeta = keyPairMeta
+			out := &mdl.ListKeyPairsResponseV2Dto{Items: []mdl.ListedKeyPairV2Dto{pair}, TotalItems: 1}
+
+			wantResponseShapeError(t, validateListKeyPairsResponse(&mdl.ListKeyPairsRequestV2Dto{Limit: 10}, out),
+				"keyPairMeta must be a handle keyPairMetaFilter can name")
+		})
 	}
 }
