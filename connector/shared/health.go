@@ -62,8 +62,10 @@ func worstHealth(levels ...HealthLevel) HealthLevel {
 	return out
 }
 
-// HealthStatus is what each probe returns. Description is optional free-form
-// text; Components carries per-dependency state (DB, vault backend, HSM, ...).
+// HealthStatus is what each probe returns. Components carries per-dependency
+// state (DB, vault backend, HSM, ...). On v2 a reason belongs on a component:
+// the Health() answer's Description reaches the v1 wire alone, and a probe
+// answer's Description describes its probe component when that has none.
 type HealthStatus struct {
 	Status      HealthLevel                `json:"status"`
 	Description string                     `json:"description,omitempty"`
@@ -71,7 +73,8 @@ type HealthStatus struct {
 }
 
 // ComponentStatus reports a single dependency. The v2 wire sets its
-// Description as the "description" detail.
+// Description as the "description" detail, replacing any "description" entry
+// in Details.
 type ComponentStatus struct {
 	Status      HealthLevel    `json:"status"`
 	Description string         `json:"description,omitempty"`
@@ -141,13 +144,11 @@ func withOwnComponent(name string, probe func(context.Context) HealthStatus) fun
 	}
 }
 
-// ownComponent is the component an answer carries under name, else the answer
-// itself. A connector that adds its probe component keeps its answer.
+// ownComponent is the probe component for an answer: the answer's status, which
+// sets the HTTP code, with the details and description it carries under name.
 func ownComponent(name string, s HealthStatus) ComponentStatus {
-	c, ok := s.Components[name]
-	if !ok {
-		return ComponentStatus{Status: s.Status, Description: s.Description}
-	}
+	c := s.Components[name]
+	c.Status = s.Status
 	if !described(c) {
 		c.Description = s.Description
 	}

@@ -434,6 +434,25 @@ func TestAggregateHealthKeepsAProbesOwnComponent(t *testing.T) {
 	}
 }
 
+func TestProbeOwnComponentTakesTheAnswersStatus(t *testing.T) {
+	hc := upChecker()
+	hc.live = HealthStatus{
+		Status:     HealthDown,
+		Components: map[string]ComponentStatus{livenessComponent: {Status: HealthUp, Details: map[string]any{"cache": "corrupt"}}},
+	}
+	for _, path := range []string{"/v2/health/liveness", "/v2/health"} {
+		code, body := serveHealth(t, hc, path)
+		comps, _ := body["components"].(map[string]any)
+		live, _ := comps[livenessComponent].(map[string]any)
+		if code != http.StatusServiceUnavailable || live["status"] != "DOWN" {
+			t.Errorf("%s = %d with components.liveness %v, want 503 and status DOWN", path, code, comps[livenessComponent])
+		}
+		if got := componentDetails(body, livenessComponent)["cache"]; got != "corrupt" {
+			t.Errorf("%s components.liveness.details.cache = %v, want the answer's own detail", path, got)
+		}
+	}
+}
+
 func TestProbeOwnComponentTakesTheAnswersDescription(t *testing.T) {
 	hc := upChecker()
 	hc.live = HealthStatus{
