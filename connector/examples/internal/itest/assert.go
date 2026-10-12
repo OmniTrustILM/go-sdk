@@ -72,8 +72,7 @@ func AssertV1Error(t *testing.T, resp Response, wantStatus int) {
 // AssertHealthy fetches path and verifies the response is a conformant
 // health body for the spec version implied by the path:
 //
-//   - /v2/health* : status 200, JSON status "UP", and — for the aggregate
-//     /v2/health — the mandatory liveness and readiness components present.
+//   - /v2/health* : status 200, JSON status "UP", and the mandatory components.
 //   - /v1/health  : status 200, JSON status "ok".
 //
 // It returns the decoded body for any further example-specific assertions.
@@ -86,20 +85,15 @@ func (h *Harness) AssertHealthy(t *testing.T, path string) map[string]any {
 	resp.JSON(t, &body)
 
 	switch {
-	case path == "/v2/health":
+	case strings.HasPrefix(path, "/v2/health"):
 		if body["status"] != "UP" {
 			t.Errorf("health status = %v, want UP\nbody: %s", body["status"], resp.Body)
 		}
 		comps, _ := body["components"].(map[string]any)
-		for _, name := range []string{"liveness", "readiness"} {
+		for _, name := range mandatoryComponents(path) {
 			if _, ok := comps[name]; !ok {
-				t.Errorf("aggregate /v2/health missing mandatory component %q\nbody: %s", name, resp.Body)
+				t.Errorf("%s missing mandatory component %q\nbody: %s", path, name, resp.Body)
 			}
-		}
-	case strings.HasPrefix(path, "/v2/health"):
-		// probe endpoints (/v2/health/liveness|readiness): status only.
-		if body["status"] == nil {
-			t.Errorf("health body has no status\nbody: %s", resp.Body)
 		}
 	default: // v1
 		if body["status"] != "ok" {
@@ -107,6 +101,13 @@ func (h *Harness) AssertHealthy(t *testing.T, path string) map[string]any {
 		}
 	}
 	return body
+}
+
+func mandatoryComponents(path string) []string {
+	if probe, ok := strings.CutPrefix(path, "/v2/health/"); ok {
+		return []string{probe}
+	}
+	return []string{"liveness", "readiness"}
 }
 
 // connectorLogSchema matches the connector.log v1 envelope's defining marker.
