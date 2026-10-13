@@ -59,19 +59,6 @@ func startCredential(t *testing.T, env map[string]string) *itest.Harness {
 	})
 }
 
-// hasEndpoint reports whether the function group advertises an endpoint with
-// the given name (the spec operationId), method and context, marked
-// required=false (the SDK marks no endpoint required; a change must be
-// deliberate).
-func hasEndpoint(g mdl.InfoResponse, name, method, context string) bool {
-	for _, e := range g.EndPoints {
-		if e.Name == name && e.Method == method && e.Context == context && !e.Required {
-			return true
-		}
-	}
-	return false
-}
-
 // stringAttr builds a V3 string RequestAttribute (same construction as the
 // secret-v1 test) — the only shape the example's validator inspects.
 func stringAttr(uuid, name, value string) mdl.RequestAttribute {
@@ -107,16 +94,9 @@ func dataAttrs(t *testing.T, resp itest.Response) []mdl.DataAttributeV3 {
 	return out
 }
 
-// findAttr returns the attribute with the given name (the list order is an
+// attrName is the itest.Find key for attributes (the list order is an
 // implementation detail, so never index into it).
-func findAttr(t *testing.T, attrs []mdl.DataAttributeV3, name string) mdl.DataAttributeV3 {
-	t.Helper()
-	idx := slices.IndexFunc(attrs, func(a mdl.DataAttributeV3) bool { return a.Name == name })
-	if idx < 0 {
-		t.Fatalf("attribute %q not found in %+v", name, attrs)
-	}
-	return attrs[idx]
-}
+func attrName(a mdl.DataAttributeV3) string { return a.Name }
 
 // --- /v1 info + health -----------------------------------------------------
 
@@ -128,21 +108,11 @@ func TestCredentialV1InfoAndHealth(t *testing.T) {
 
 	// The same body through the generated HealthDto (the checkHealth schema):
 	// the status enum and the nested parts decode into the spec's types.
-	healthResp := h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v1/health"})
-	if itest.AssertStatus(t, healthResp, http.StatusOK) {
-		var health mdl.HealthDto
-		healthResp.JSON(t, &health)
-		if health.Status != mdl.HEALTHSTATUS_OK || health.Parts["liveness"].Status != mdl.HEALTHSTATUS_OK || health.Parts["readiness"].Status != mdl.HEALTHSTATUS_OK {
-			t.Errorf("HealthDto = %+v, want status ok with liveness/readiness parts ok\nbody: %s", health, healthResp.Body)
-		}
-	}
+	itest.AssertV1HealthDto[mdl.HealthDto, mdl.HealthStatus](t, h)
 
 	// v1-family only: the v2 management surface is not mounted, so the mux
-	// answers with its stdlib 404 (assert the status only — it is text/plain).
-	for _, p := range []string{"/v2/health", "/v2/info"} {
-		resp := h.Do(t, itest.Request{Method: http.MethodGet, Path: p})
-		itest.AssertStatus(t, resp, http.StatusNotFound)
-	}
+	// answers with its stdlib 404 (text/plain).
+	h.AssertNotServed(t, "/v2/health", "/v2/info")
 
 	// Decode into the generated InfoResponse model (the /v1
 	// listSupportedFunctions element shape) for a typed functionGroupCode.
@@ -172,19 +142,12 @@ func TestCredentialV1InfoAndHealth(t *testing.T) {
 	// listSupportedFunctions extras wired in via WithExtraEndpoints. Exact
 	// count: a handler advertising an endpoint it does not mount (or vice
 	// versa) is caught here. Names are the credential.json operationIds.
-	if len(cred.EndPoints) != 4 {
-		t.Errorf("%s advertises %d endpoints, want 4: %+v", fgCredential, len(cred.EndPoints), cred.EndPoints)
-	}
-	for _, want := range []struct{ name, method, context string }{
-		{"listSupportedFunctions", http.MethodGet, "/v1"}, // extra
-		{"checkHealth", http.MethodGet, "/v1/health"},     // extra
-		{"listAttributeDefinitions", http.MethodGet, base + "/{kind}/attributes"},
-		{"validateAttributes", http.MethodPost, base + "/{kind}/attributes/validate"},
-	} {
-		if !hasEndpoint(cred, want.name, want.method, want.context) {
-			t.Errorf("%s endPoints missing %s %s %s (required=false): %+v", fgCredential, want.name, want.method, want.context, cred.EndPoints)
-		}
-	}
+	itest.AssertEndpoints(t, fgCredential, cred.EndPoints, []itest.Endpoint{
+		{Name: "listSupportedFunctions", Method: http.MethodGet, Context: "/v1"}, // extra
+		{Name: "checkHealth", Method: http.MethodGet, Context: "/v1/health"},     // extra
+		{Name: "listAttributeDefinitions", Method: http.MethodGet, Context: base + "/{kind}/attributes"},
+		{Name: "validateAttributes", Method: http.MethodPost, Context: base + "/{kind}/attributes/validate"},
+	})
 
 	// The shared metrics middleware labels by matched mux pattern; build info
 	// comes from the example's BuildInfo.
@@ -211,7 +174,10 @@ func TestCredentialV1AttributeSchemas(t *testing.T) {
 		{"username", usernameAttrUUID, "Username"},
 		{"password", passwordAttrUUID, "Password"},
 	} {
-		a := findAttr(t, attrs, want.name)
+		a, ok := itest.Find(attrs, attrName, want.name)
+		if !ok {
+			t.Fatalf("attribute %q not found in %+v", want.name, attrs)
+		}
 		if a.Uuid != want.uuid {
 			t.Errorf("%s uuid = %q, want %q", want.name, a.Uuid, want.uuid)
 		}

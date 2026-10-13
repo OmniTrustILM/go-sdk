@@ -42,7 +42,7 @@ const (
 
 	base            = "/v1/complianceProvider"
 	kindBase        = base + "/" + complianceKind
-	profileAttrUUID = "44444444-4444-4444-4444-444444444444" // store.go profileAttr
+	profileAttrUUID = "44444444-4444-4444-4444-444444444444" // complianceattr.ProfileUUID
 	profileAttrName = "profile"
 
 	rule1UUID   = "11111111-1111-1111-1111-111111111111" // rsa-min-2048 (no group)
@@ -52,7 +52,7 @@ const (
 
 	msgKindNotFound   = "compliance kind not supported"
 	msgGroupNotFound  = "compliance group not found"
-	msgMissingProfile = "missing required attribute profile" // store.go ValidateAttributes
+	msgMissingProfile = "missing required attribute profile" // complianceattr.MsgMissingProfile
 )
 
 // sampleCert is an opaque base64 payload: the placeholder CheckCompliance never
@@ -66,19 +66,6 @@ func startCompliance(t *testing.T, env map[string]string) *itest.Harness {
 		HealthPath: "/v1/health",
 		Env:        env,
 	})
-}
-
-// hasEndpoint reports whether the function group advertises an endpoint with
-// the given name (the spec operationId), method and context, marked
-// required=false (the SDK marks no endpoint required; a change must be
-// deliberate).
-func hasEndpoint(g mdl.InfoResponse, name, method, context string) bool {
-	for _, e := range g.EndPoints {
-		if e.Name == name && e.Method == method && e.Context == context && !e.Required {
-			return true
-		}
-	}
-	return false
 }
 
 // profileReq builds the V3 string request attribute the store's validator
@@ -97,16 +84,9 @@ func profileReq(value string) mdl.RequestAttribute {
 	})
 }
 
-// findRule returns the rule with the given uuid. The store keeps rules in a
-// slice but the assertions never rely on order.
-func findRule(rules []mdl.ComplianceRulesResponseDto, uuid string) (mdl.ComplianceRulesResponseDto, bool) {
-	for _, r := range rules {
-		if r.Uuid == uuid {
-			return r, true
-		}
-	}
-	return mdl.ComplianceRulesResponseDto{}, false
-}
+// ruleUUID is the itest.Find key for rules: the store keeps rules in a slice
+// but the assertions never rely on order.
+func ruleUUID(r mdl.ComplianceRulesResponseDto) string { return r.Uuid }
 
 // --- /v1 info + health -----------------------------------------------------
 
@@ -118,21 +98,11 @@ func TestComplianceV1InfoAndHealth(t *testing.T) {
 
 	// The same body through the generated HealthDto (the checkHealth schema):
 	// the status enum and the nested parts decode into the spec's types.
-	healthResp := h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v1/health"})
-	if itest.AssertStatus(t, healthResp, http.StatusOK) {
-		var health mdl.HealthDto
-		healthResp.JSON(t, &health)
-		if health.Status != mdl.HEALTHSTATUS_OK || health.Parts["liveness"].Status != mdl.HEALTHSTATUS_OK || health.Parts["readiness"].Status != mdl.HEALTHSTATUS_OK {
-			t.Errorf("HealthDto = %+v, want status ok with liveness/readiness parts ok\nbody: %s", health, healthResp.Body)
-		}
-	}
+	itest.AssertV1HealthDto[mdl.HealthDto, mdl.HealthStatus](t, h)
 
 	// A v1-family connector mounts no v2 management surface; these are
-	// unmatched mux paths (stdlib text/plain 404), so assert status only.
-	for _, path := range []string{"/v2/health", "/v2/info"} {
-		resp := h.Do(t, itest.Request{Method: http.MethodGet, Path: path})
-		itest.AssertStatus(t, resp, http.StatusNotFound)
-	}
+	// unmatched mux paths (stdlib text/plain 404).
+	h.AssertNotServed(t, "/v2/health", "/v2/info")
 
 	// Decode into the generated InfoResponse model (the /v1
 	// listSupportedFunctions element shape) for a typed functionGroupCode.
@@ -161,24 +131,16 @@ func TestComplianceV1InfoAndHealth(t *testing.T) {
 	// wired via WithExtraEndpoints. {kind}/{uuid} are the literal template
 	// tokens the function group publishes; names are the compliance-v1.json
 	// operationIds.
-	wantEndpoints := []struct{ name, method, context string }{
-		{"listSupportedFunctions", http.MethodGet, "/v1"}, // extra
-		{"checkHealth", http.MethodGet, "/v1/health"},     // extra
-		{"listAttributeDefinitions", http.MethodGet, base + "/{kind}/attributes"},
-		{"validateAttributes", http.MethodPost, base + "/{kind}/attributes/validate"},
-		{"getRules", http.MethodGet, base + "/{kind}/rules"},
-		{"getGroups", http.MethodGet, base + "/{kind}/groups"},
-		{"getGroupRules", http.MethodGet, base + "/{kind}/groups/{uuid}"},
-		{"checkCompliance", http.MethodPost, base + "/{kind}/compliance"},
-	}
-	if len(g.EndPoints) != len(wantEndpoints) {
-		t.Errorf("%s advertises %d endpoints, want %d: %+v", fgCompliance, len(g.EndPoints), len(wantEndpoints), g.EndPoints)
-	}
-	for _, want := range wantEndpoints {
-		if !hasEndpoint(g, want.name, want.method, want.context) {
-			t.Errorf("%s endPoints missing %s %s %s (required=false): %+v", fgCompliance, want.name, want.method, want.context, g.EndPoints)
-		}
-	}
+	itest.AssertEndpoints(t, fgCompliance, g.EndPoints, []itest.Endpoint{
+		{Name: "listSupportedFunctions", Method: http.MethodGet, Context: "/v1"}, // extra
+		{Name: "checkHealth", Method: http.MethodGet, Context: "/v1/health"},     // extra
+		{Name: "listAttributeDefinitions", Method: http.MethodGet, Context: base + "/{kind}/attributes"},
+		{Name: "validateAttributes", Method: http.MethodPost, Context: base + "/{kind}/attributes/validate"},
+		{Name: "getRules", Method: http.MethodGet, Context: base + "/{kind}/rules"},
+		{Name: "getGroups", Method: http.MethodGet, Context: base + "/{kind}/groups"},
+		{Name: "getGroupRules", Method: http.MethodGet, Context: base + "/{kind}/groups/{uuid}"},
+		{Name: "checkCompliance", Method: http.MethodPost, Context: base + "/{kind}/compliance"},
+	})
 
 	// v1-vs-v2 distinction: the v2 provider mounts under /v2/complianceProvider
 	// (its group code is pinned out by the functionGroupCode check above). No
@@ -209,7 +171,7 @@ func TestComplianceV1RulesAndGroups(t *testing.T) {
 	if len(rules) != 2 {
 		t.Fatalf("GET %s/rules returned %d rules, want 2\nbody: %s", kindBase, len(rules), rulesResp.Body)
 	}
-	rule1, ok := findRule(rules, rule1UUID)
+	rule1, ok := itest.Find(rules, ruleUUID, rule1UUID)
 	if !ok {
 		t.Fatalf("rules missing %s\nbody: %s", rule1UUID, rulesResp.Body)
 	}
@@ -229,7 +191,7 @@ func TestComplianceV1RulesAndGroups(t *testing.T) {
 	if rule1.Description == nil {
 		t.Errorf("rule1 description is absent, want present\nbody: %s", rulesResp.Body)
 	}
-	rule2, ok := findRule(rules, rule2UUID)
+	rule2, ok := itest.Find(rules, ruleUUID, rule2UUID)
 	if !ok {
 		t.Fatalf("rules missing %s\nbody: %s", rule2UUID, rulesResp.Body)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/OmniTrustILM/go-sdk/connector/examples/internal/complianceattr"
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/compliance/v1"
 	compliance "github.com/OmniTrustILM/go-sdk/connector/provider/compliance/v1"
 )
@@ -122,18 +123,8 @@ func (s *Store) CheckCompliance(ctx context.Context, kind string, req *mdl.Compl
 	return out, nil
 }
 
-// Kind attribute schema (compliance.KindAttributeProvider): one required
-// string attribute naming the compliance profile to evaluate against.
-const (
-	profileAttrUUID = "44444444-4444-4444-4444-444444444444"
-	profileAttrName = "profile"
-	// msgMissingProfile is the semantic validation error for a request
-	// without the profile attribute (rendered as a v1 422 []string).
-	msgMissingProfile = "missing required attribute profile"
-)
-
-// Attributes returns the per-kind attribute schema. Unknown kinds are
-// rejected like every other kind-scoped operation of the store.
+// Attributes returns the per-kind attribute schema (complianceattr). Unknown
+// kinds are rejected like every other kind-scoped operation of the store.
 func (s *Store) Attributes(ctx context.Context, kind string) ([]mdl.BaseAttributeDto, error) {
 	if _, ok := s.rules[kind]; !ok {
 		return nil, compliance.ErrKindNotFound.WithProperty("kind", kind)
@@ -142,34 +133,30 @@ func (s *Store) Attributes(ctx context.Context, kind string) ([]mdl.BaseAttribut
 }
 
 // ValidateAttributes requires the profile attribute (a V3 request attribute
-// with that name). Placeholder: its content is not inspected.
+// with that name; complianceattr.Validate).
 func (s *Store) ValidateAttributes(ctx context.Context, kind string, attrs []mdl.RequestAttribute) ([]string, error) {
 	if _, ok := s.rules[kind]; !ok {
 		return nil, compliance.ErrKindNotFound.WithProperty("kind", kind)
 	}
-	for _, a := range attrs {
-		if a.RequestAttributeV3 != nil && a.RequestAttributeV3.Name == profileAttrName {
-			return nil, nil
-		}
-	}
-	return []string{msgMissingProfile}, nil
+	// GetName is nil-safe, so non-V3 attributes yield "" and never match.
+	return complianceattr.Validate(attrs, func(a mdl.RequestAttribute) string { return a.RequestAttributeV3.GetName() }), nil
 }
 
 // profileAttr builds the required V3 string data attribute. version and
 // schemaVersion are the wire discriminators the generated BaseAttributeDto
 // decoder dispatches on (same construction as credential-v1 stringAttr).
 func profileAttr() mdl.BaseAttributeDto {
-	desc := "Compliance profile to evaluate against"
+	desc := complianceattr.ProfileDescription
 	attr := &mdl.DataAttributeV3{
-		Uuid:          profileAttrUUID,
-		Name:          profileAttrName,
+		Uuid:          complianceattr.ProfileUUID,
+		Name:          complianceattr.ProfileName,
 		Description:   &desc,
 		Version:       3,
 		Type:          mdl.ATTRIBUTETYPE_DATA,
 		ContentType:   mdl.ATTRIBUTECONTENTTYPE_STRING,
 		SchemaVersion: mdl.ATTRIBUTEVERSION_V3,
 		Properties: mdl.DataAttributeProperties{
-			Label:    "Profile",
+			Label:    complianceattr.ProfileLabel,
 			Visible:  true,
 			Required: true,
 		},

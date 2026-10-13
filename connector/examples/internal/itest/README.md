@@ -74,9 +74,16 @@ unavailable or under `-short`.
 - `Harness.AssertHealthy(t, path)` — health body conformance per spec version:
   v2 status `UP` + mandatory components; v1 status `ok` + `parts.liveness` and
   `parts.readiness` status `ok`.
+- `itest.AssertV1HealthDto[H, S](t, h) H` — the v1 health body decoded through the caller's
+  generated `HealthDto` (`S` its `HealthStatus`): status `ok`, liveness/readiness parts `ok`.
+- `Harness.AssertNotServed(t, paths...)` — each GET is the mux's own non-JSON 404 (route not mounted).
+- `itest.AssertEndpoints(t, group, got, want []itest.Endpoint)` — a function group's generated
+  `EndPoints` advertise exactly `want`, matched on name/method/context/required.
+- `itest.Find(items, key, want) (T, bool)` — first item whose key equals `want` (order-free lookup).
 - `Harness.Logs() string`, `Harness.LogLines(t)`, `Harness.AssertLogsConform(t)` —
   connector.log v1 envelope + trace-or-correlation invariant.
-- `Harness.AssertLogged(t, message, want) LogLine` — polling lookup of one connector.log line;
+- `Harness.AssertLogged(t, message, want) LogLine` — polling lookup of one connector.log line
+  (parses only lines added since the previous poll);
   each `want` key matches a top-level field (e.g. `correlation_id`) first, else one inside
   `attributes`, compared as JSON values (a Go `404` matches the number, not the string `"404"`).
 - `Harness.AssertMetric(t, series) string` — Prometheus series presence on `/v1/metrics`

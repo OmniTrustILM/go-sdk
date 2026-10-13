@@ -63,19 +63,6 @@ func startLegacyAuth(t *testing.T, env map[string]string) *itest.Harness {
 	})
 }
 
-// hasEndpoint reports whether the function group advertises an endpoint with
-// the given name (the spec operationId), method and context, marked
-// required=false (the SDK marks no endpoint required; a change must be
-// deliberate).
-func hasEndpoint(g mdl.InfoResponse, name, method, context string) bool {
-	for _, e := range g.EndPoints {
-		if e.Name == name && e.Method == method && e.Context == context && !e.Required {
-			return true
-		}
-	}
-	return false
-}
-
 func authorityReq(name string) mdl.AuthorityProviderInstanceRequestDto {
 	return mdl.AuthorityProviderInstanceRequestDto{Name: name, Kind: authorityKind, Attributes: []mdl.RequestAttribute{}}
 }
@@ -127,21 +114,11 @@ func TestLegacyAuthV1InfoAndHealth(t *testing.T) {
 
 	// The same body through the generated HealthDto (the checkHealth schema):
 	// the status enum and the nested parts decode into the spec's types.
-	resp := h.Do(t, itest.Request{Method: http.MethodGet, Path: "/v1/health"})
-	if itest.AssertStatus(t, resp, http.StatusOK) {
-		var health mdl.HealthDto
-		resp.JSON(t, &health)
-		if health.Status != mdl.HEALTHSTATUS_OK || health.Parts["liveness"].Status != mdl.HEALTHSTATUS_OK || health.Parts["readiness"].Status != mdl.HEALTHSTATUS_OK {
-			t.Errorf("HealthDto = %+v, want status ok with liveness/readiness parts ok\nbody: %s", health, resp.Body)
-		}
-	}
+	itest.AssertV1HealthDto[mdl.HealthDto, mdl.HealthStatus](t, h)
 
 	// v1-family: the v2 info/health surface is not mounted at all (stdlib
-	// text 404, so status only).
-	for _, p := range []string{"/v2/health", "/v2/info"} {
-		resp := h.Do(t, itest.Request{Method: http.MethodGet, Path: p})
-		itest.AssertStatus(t, resp, http.StatusNotFound)
-	}
+	// text 404).
+	h.AssertNotServed(t, "/v2/health", "/v2/info")
 
 	// Decode into the generated InfoResponse model (the /v1
 	// listSupportedFunctions element shape) for a typed functionGroupCode.
@@ -157,50 +134,42 @@ func TestLegacyAuthV1InfoAndHealth(t *testing.T) {
 
 	// The full advertised endpoint set: the provider's 23 routes
 	// (FunctionGroup()) plus the shared checkHealth + listSupportedFunctions
-	// extras (main.go WithExtraEndpoints). The exact count catches an extra
-	// or dropped entry; the list catches a renamed operation, context or
-	// method. Names are the authority-v1.json operationIds.
-	wantEndpoints := []struct{ name, method, context string }{
-		{"listSupportedFunctions", http.MethodGet, "/v1"}, // extra
-		{"checkHealth", http.MethodGet, "/v1/health"},     // extra
+	// extras (main.go WithExtraEndpoints). The exact-set match catches an
+	// extra or dropped entry and a renamed operation, context or method.
+	// Names are the authority-v1.json operationIds.
+	itest.AssertEndpoints(t, fgLegacyAuthority, g.EndPoints, []itest.Endpoint{
+		{Name: "listSupportedFunctions", Method: http.MethodGet, Context: "/v1"}, // extra
+		{Name: "checkHealth", Method: http.MethodGet, Context: "/v1/health"},     // extra
 		// kind attributes
-		{"listAttributeDefinitions", http.MethodGet, base + "/{kind}/attributes"},
-		{"validateAttributes", http.MethodPost, base + "/{kind}/attributes/validate"},
+		{Name: "listAttributeDefinitions", Method: http.MethodGet, Context: base + "/{kind}/attributes"},
+		{Name: "validateAttributes", Method: http.MethodPost, Context: base + "/{kind}/attributes/validate"},
 		// authority management
-		{"listAuthorityInstances", http.MethodGet, pathAuthorities},
-		{"createAuthorityInstance", http.MethodPost, pathAuthorities},
-		{"getAuthorityInstance", http.MethodGet, ctxAuthority},
-		{"updateAuthorityInstance", http.MethodPost, ctxAuthority},
-		{"removeAuthorityInstance", http.MethodDelete, ctxAuthority},
-		{"getConnection", http.MethodGet, ctxAuthority + "/connect"},
-		{"getCaCertificates", http.MethodPost, ctxAuthority + "/caCertificates"},
-		{"getCrl", http.MethodPost, ctxAuthority + "/crl"},
+		{Name: "listAuthorityInstances", Method: http.MethodGet, Context: pathAuthorities},
+		{Name: "createAuthorityInstance", Method: http.MethodPost, Context: pathAuthorities},
+		{Name: "getAuthorityInstance", Method: http.MethodGet, Context: ctxAuthority},
+		{Name: "updateAuthorityInstance", Method: http.MethodPost, Context: ctxAuthority},
+		{Name: "removeAuthorityInstance", Method: http.MethodDelete, Context: ctxAuthority},
+		{Name: "getConnection", Method: http.MethodGet, Context: ctxAuthority + "/connect"},
+		{Name: "getCaCertificates", Method: http.MethodPost, Context: ctxAuthority + "/caCertificates"},
+		{Name: "getCrl", Method: http.MethodPost, Context: ctxAuthority + "/crl"},
 		// RA profile attributes
-		{"listRAProfileAttributes", http.MethodGet, ctxAuthority + "/raProfile/attributes"},
-		{"validateRAProfileAttributes", http.MethodPost, ctxAuthority + "/raProfile/attributes/validate"},
+		{Name: "listRAProfileAttributes", Method: http.MethodGet, Context: ctxAuthority + "/raProfile/attributes"},
+		{Name: "validateRAProfileAttributes", Method: http.MethodPost, Context: ctxAuthority + "/raProfile/attributes/validate"},
 		// end-entity profile lookups
-		{"listEntityProfiles", http.MethodGet, ctxEEProfiles},
-		{"listCertificateProfiles", http.MethodGet, ctxEEProfileI + "/certificateprofiles"},
-		{"listCAsInProfile", http.MethodGet, ctxEEProfileI + "/cas"},
+		{Name: "listEntityProfiles", Method: http.MethodGet, Context: ctxEEProfiles},
+		{Name: "listCertificateProfiles", Method: http.MethodGet, Context: ctxEEProfileI + "/certificateprofiles"},
+		{Name: "listCAsInProfile", Method: http.MethodGet, Context: ctxEEProfileI + "/cas"},
 		// end-entity management
-		{"listEndEntities", http.MethodGet, ctxEEProfile + "/endEntities"},
-		{"createEndEntity", http.MethodPost, ctxEEProfile + "/endEntities"},
-		{"getEndEntity", http.MethodGet, ctxEndEntity},
-		{"updateEndEntity", http.MethodPost, ctxEndEntity},
-		{"removeEndEntity", http.MethodDelete, ctxEndEntity},
-		{"resetPassword", http.MethodPut, ctxEndEntity + "/resetPassword"},
+		{Name: "listEndEntities", Method: http.MethodGet, Context: ctxEEProfile + "/endEntities"},
+		{Name: "createEndEntity", Method: http.MethodPost, Context: ctxEEProfile + "/endEntities"},
+		{Name: "getEndEntity", Method: http.MethodGet, Context: ctxEndEntity},
+		{Name: "updateEndEntity", Method: http.MethodPost, Context: ctxEndEntity},
+		{Name: "removeEndEntity", Method: http.MethodDelete, Context: ctxEndEntity},
+		{Name: "resetPassword", Method: http.MethodPut, Context: ctxEndEntity + "/resetPassword"},
 		// certificate management
-		{"issueCertificate", http.MethodPost, ctxEEProfile + "/certificates/issue"},
-		{"revokeCertificate", http.MethodPost, ctxEEProfile + "/certificates/revoke"},
-	}
-	if len(g.EndPoints) != len(wantEndpoints) {
-		t.Errorf("%s advertises %d endpoints, want %d: %+v", fgLegacyAuthority, len(g.EndPoints), len(wantEndpoints), g.EndPoints)
-	}
-	for _, want := range wantEndpoints {
-		if !hasEndpoint(g, want.name, want.method, want.context) {
-			t.Errorf("%s endPoints missing %s %s %s (required=false): %+v", fgLegacyAuthority, want.name, want.method, want.context, g.EndPoints)
-		}
-	}
+		{Name: "issueCertificate", Method: http.MethodPost, Context: ctxEEProfile + "/certificates/issue"},
+		{Name: "revokeCertificate", Method: http.MethodPost, Context: ctxEEProfile + "/certificates/revoke"},
+	})
 
 	// The quirk, explicitly: the group code is legacyAuthorityProvider, but no
 	// advertised context uses it as a path token.
@@ -569,9 +538,8 @@ func TestLegacyAuthV1Attributes(t *testing.T) {
 
 	// Attribute routes are mounted per literal kind, so an unknown kind never
 	// reaches the provider: the mux answers with its text/plain 404 (not the
-	// v1 envelope), hence status only.
-	resp = h.Do(t, itest.Request{Method: http.MethodGet, Path: base + "/not-a-kind/attributes"})
-	itest.AssertStatus(t, resp, http.StatusNotFound)
+	// v1 envelope).
+	h.AssertNotServed(t, base+"/not-a-kind/attributes")
 
 	// RA profile attributes: [] and 200 validate. The routes never consult the
 	// store (routes.go listRAProfileAttributes / validateRAProfileAttributes,

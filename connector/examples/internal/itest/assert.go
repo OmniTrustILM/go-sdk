@@ -173,6 +173,24 @@ func (h *Harness) AssertHealthy(t *testing.T, path string) map[string]any {
 	return body
 }
 
+// AssertNotServed asserts that GET on each path is the router's own 404 for
+// an unmatched route: status 404 and no JSON body (the stdlib mux answers
+// text/plain; a JSON 404 would mean a mounted handler rendered it). Use it for
+// surfaces an example must not expose, e.g. /v2/info on a v1-family connector.
+func (h *Harness) AssertNotServed(t *testing.T, paths ...string) {
+	t.Helper()
+	for _, path := range paths {
+		resp := h.Do(t, Request{Method: http.MethodGet, Path: path})
+		if resp.Status != http.StatusNotFound {
+			t.Errorf("GET %s status = %d, want 404 (route not served)\nbody: %s", path, resp.Status, resp.Body)
+			continue
+		}
+		if ct := resp.Header.Get("Content-Type"); isJSONMediaType(ct) {
+			t.Errorf("GET %s 404 Content-Type = %q, want the mux's non-JSON 404 (a mounted handler answered)\nbody: %s", path, ct, resp.Body)
+		}
+	}
+}
+
 func mandatoryComponents(path string) []string {
 	if probe, ok := strings.CutPrefix(path, "/v2/health/"); ok {
 		return []string{probe}
@@ -193,16 +211,24 @@ func (h *Harness) LogLines(t *testing.T) []LogLine {
 	t.Helper()
 	var out []LogLine
 	for _, raw := range splitLines(h.Logs()) {
-		if !connectorLogSchema.MatchString(raw) {
-			continue
+		if l, ok := parseLogLine(raw); ok {
+			out = append(out, l)
 		}
-		var m LogLine
-		if err := json.Unmarshal([]byte(raw), &m); err != nil {
-			continue
-		}
-		out = append(out, m)
 	}
 	return out
+}
+
+// parseLogLine decodes one raw output line as a connector.log v1 entry,
+// reporting false for non-JSON or non-envelope lines.
+func parseLogLine(raw string) (LogLine, bool) {
+	if !connectorLogSchema.MatchString(raw) {
+		return nil, false
+	}
+	var l LogLine
+	if err := json.Unmarshal([]byte(raw), &l); err != nil {
+		return nil, false
+	}
+	return l, true
 }
 
 // logWaitTimeout bounds AssertLogged's wait for container output: the log
@@ -210,32 +236,54 @@ func (h *Harness) LogLines(t *testing.T) []LogLine {
 // request can arrive shortly after the client has its response.
 const logWaitTimeout = 5 * time.Second
 
+// logTailLines bounds AssertLogged's failure diagnostic: it reports how many
+// lines carried the message but prints only the last few of them.
+const logTailLines = 3
+
 // AssertLogged returns the first connector.log line whose "message" equals
 // message and that carries every key in want. A want key is looked up among
 // the line's top-level fields first (e.g. correlation_id, trace_id) and, when
 // absent there, inside "attributes" (e.g. error_code, status). Values are
 // compared after normalising want through a JSON round-trip, so a Go int 404
 // matches the decoded JSON number while a string "404" does not. It polls the
-// captured logs for up to logWaitTimeout, then fails listing the lines that
-// carried the message so the mismatch is visible. Returns nil on failure.
+// captured logs for up to logWaitTimeout, parsing only the complete lines
+// added since the previous poll, then fails with the number of lines that
+// carried the message and the last logTailLines of them, so the mismatch is
+// visible. Returns nil on failure.
 func (h *Harness) AssertLogged(t *testing.T, message string, want map[string]any) LogLine {
 	t.Helper()
 	want = normalizeJSON(t, want)
 	deadline := time.Now().Add(logWaitTimeout)
+	var (
+		cursor      int       // bytes of h.Logs() already parsed (whole lines only)
+		sameCount   int       // lines seen so far carrying message
+		sameMessage []LogLine // the last logTailLines of them
+	)
 	for {
-		var sameMessage []LogLine
-		for _, l := range h.LogLines(t) {
-			if l["message"] != message {
-				continue
-			}
-			sameMessage = append(sameMessage, l)
-			if lineMatches(l, want) {
-				return l
+		logs := h.Logs() // append-only, so earlier offsets stay valid
+		// Parse up to the last newline; a partial trailing line waits for
+		// its newline on a later poll.
+		if end := strings.LastIndexByte(logs[cursor:], '\n'); end >= 0 {
+			chunk := logs[cursor : cursor+end+1]
+			cursor += end + 1
+			for _, raw := range splitLines(chunk) {
+				l, ok := parseLogLine(raw)
+				if !ok || l["message"] != message {
+					continue
+				}
+				if lineMatches(l, want) {
+					return l
+				}
+				sameCount++
+				sameMessage = append(sameMessage, l)
+				if len(sameMessage) > logTailLines {
+					sameMessage = sameMessage[1:]
+				}
 			}
 		}
 		if time.Now().After(deadline) {
-			t.Errorf("no connector.log line with message %q and fields %v within %s; %d line(s) with that message: %v",
-				message, want, logWaitTimeout, len(sameMessage), sameMessage)
+			t.Errorf("no connector.log line with message %q and fields %v within %s; %d line(s) with that message, last %d: %v",
+				message, want, logWaitTimeout, sameCount, len(sameMessage), sameMessage)
 			return nil
 		}
 		time.Sleep(50 * time.Millisecond)

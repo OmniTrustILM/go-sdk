@@ -48,6 +48,9 @@ func TestHarnessSmoke(t *testing.T) {
 	h.AssertMetric(t, `http_requests_total{method="GET",route="/v2/health",status="200"}`)
 	h.AssertLogged(t, "request completed", map[string]any{"method": "GET", "path": "/v2/health", "status": 200})
 
+	// A v2-family connector mounts no v1 health route: the mux's own 404.
+	h.AssertNotServed(t, "/v1/health")
+
 	// Captured container logs are conformant connector.log v1.
 	h.AssertLogsConform(t)
 }
