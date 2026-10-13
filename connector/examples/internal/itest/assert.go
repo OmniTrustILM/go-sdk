@@ -48,9 +48,10 @@ func AssertProblem(t *testing.T, resp Response, wantStatus int, wantCode string)
 	}
 }
 
-// AssertV1Error asserts a v1-family error response: the HTTP status and a
-// non-empty ErrorMessageDto `message` field (the shape shared.WriteV1Error
-// emits for 4xx/5xx other than 422). This is the v1 analog of AssertProblem;
+// AssertV1Error asserts a v1-family error response: the HTTP status, a
+// Content-Type of exactly application/json, and a non-empty ErrorMessageDto
+// `message` field (the shape shared.WriteV1Error emits for 4xx/5xx other than
+// 422). This is the v1 analog of AssertProblem;
 // v1-family connectors render their own message-based envelope rather than
 // the RFC 9457 ProblemDetail used by v2-family specs. Returns the message
 // (empty on failure).
@@ -62,6 +63,7 @@ func AssertV1Error(t *testing.T, resp Response, wantStatus int) string {
 	if !AssertStatus(t, resp, wantStatus) {
 		return ""
 	}
+	assertV1ContentType(t, resp, "v1 ErrorMessageDto, not problem+json")
 	var em struct {
 		Message string `json:"message"`
 	}
@@ -75,11 +77,11 @@ func AssertV1Error(t *testing.T, resp Response, wantStatus int) string {
 	return em.Message
 }
 
-// AssertV1MessageEnvelope is the strict form of AssertV1Error: status, a
-// Content-Type of exactly application/json (never application/problem+json),
-// and a body that is exactly {"message": "<non-empty>"} — no RFC 9457 keys
-// (type/status/errorCode/...). Use it once per example to pin the v1-family
-// envelope; use AssertV1Error for the remaining error paths. Returns the message.
+// AssertV1MessageEnvelope is the strict form of AssertV1Error: on top of its
+// status and Content-Type checks, the body must be exactly
+// {"message": "<non-empty>"} — no RFC 9457 keys (type/status/errorCode/...).
+// Use it once per example to pin the v1-family envelope; use AssertV1Error for
+// the remaining error paths. Returns the message.
 func AssertV1MessageEnvelope(t *testing.T, resp Response, wantStatus int) string {
 	t.Helper()
 	if !AssertStatus(t, resp, wantStatus) {

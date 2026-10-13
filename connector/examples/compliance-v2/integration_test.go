@@ -11,9 +11,10 @@ package main_test
 // (HealthDto, ok|nok|unknown); it has no /v2/info, no /v2/health and no
 // RFC 9457 ProblemDetail (see provider/compliance/v2/provider.go and
 // shared/v1errors.go). Error paths therefore use itest.AssertV1Error and
-// friends, never AssertProblem. Issue #28's "RFC 9457 problem bodies" and
-// "/v2/info + /v2/health" wording does not match the spec; these tests pin
-// the real contract and assert that the /v2 info/health routes are absent.
+// friends, never AssertProblem. An earlier version of issue #28 asked for
+// RFC 9457 problem bodies and /v2/info + /v2/health; it was corrected to match
+// the spec. These tests pin that contract and assert that the /v2 info/health
+// routes are absent.
 //
 // What is "v2" is the management surface under /v2/complianceProvider:
 // rule and group lookup by uuid, the batch lookup (POST .../rules), the
@@ -535,12 +536,13 @@ func TestComplianceV2Attributes(t *testing.T) {
 	h.AssertNotServed(t, v1Base+"/"+complianceKind+"/attributes", v1Base+"/"+complianceKind+"/rules")
 }
 
-// --- error envelope (the answer to issue #28) ------------------------------
+// --- error envelope --------------------------------------------------------
 
 // TestComplianceV2ErrorEnvelopeIsV1Shape pins the v1-family error envelope.
-// Had compliance-v2 been an RFC 9457 interface (as issue #28 assumed), a 404
-// would be Content-Type application/problem+json with a ProblemDetail body
-// ({"type","title","status","detail","errorCode",...}). compliance-v2.json
+// Had compliance-v2 been an RFC 9457 interface (as an earlier version of
+// issue #28 assumed), a 404 would be Content-Type application/problem+json
+// with a ProblemDetail body ({"type","title","status","detail","errorCode",
+// ...}). compliance-v2.json
 // declares no ProblemDetail schema: errors are ErrorMessageDto {"message"}
 // as application/json and 422 is a bare []string.
 func TestComplianceV2ErrorEnvelopeIsV1Shape(t *testing.T) {
