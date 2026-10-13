@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,9 +14,13 @@ import (
 // non-nil, is JSON-encoded and sent with Content-Type application/json.
 // Headers are applied after that default, so they can override it.
 type Request struct {
-	Method  string
-	Path    string // joined onto BaseURL; leading slash optional
-	Body    any
+	Method string
+	Path   string // joined onto BaseURL; leading slash optional
+	Body   any
+	// RawBody, when non-nil, is sent verbatim with Content-Type application/json
+	// (Headers can override) and takes precedence over Body. Use it for
+	// malformed-JSON error paths, which Body cannot express (it is marshalled).
+	RawBody []byte
 	Headers map[string]string
 }
 
@@ -27,12 +32,28 @@ type Response struct {
 	Body   []byte
 }
 
-// JSON unmarshals the response body into dst, failing the test on error.
+// JSON unmarshals the response body into dst. It fails the test when the
+// Content-Type media type is not JSON — application/json or a +json suffix
+// type such as application/problem+json (every spec declares one for its JSON
+// bodies) — and fails it fatally when the body does not decode.
 func (r Response) JSON(t *testing.T, dst any) {
 	t.Helper()
+	if ct := r.Header.Get("Content-Type"); !isJSONMediaType(ct) {
+		t.Errorf("itest: Content-Type = %q, want application/json or a +json type\nbody: %s", ct, r.Body)
+	}
 	if err := json.Unmarshal(r.Body, dst); err != nil {
 		t.Fatalf("itest: response body is not JSON: %v\nbody: %s", err, r.Body)
 	}
+}
+
+// isJSONMediaType reports whether the Content-Type header value names
+// application/json or a structured +json suffix type (RFC 6839).
+func isJSONMediaType(contentType string) bool {
+	mt, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return mt == "application/json" || strings.HasSuffix(mt, "+json")
 }
 
 // Do performs req against the harness and returns the drained Response.
@@ -41,7 +62,10 @@ func (h *Harness) Do(t *testing.T, req Request) Response {
 	t.Helper()
 
 	var bodyReader io.Reader
-	if req.Body != nil {
+	hasBody := req.RawBody != nil || req.Body != nil
+	if req.RawBody != nil {
+		bodyReader = bytes.NewReader(req.RawBody)
+	} else if req.Body != nil {
 		raw, err := json.Marshal(req.Body)
 		if err != nil {
 			t.Fatalf("itest: marshal request body: %v", err)
@@ -59,7 +83,7 @@ func (h *Harness) Do(t *testing.T, req Request) Response {
 	if err != nil {
 		t.Fatalf("itest: build request %s %s: %v", method, req.Path, err)
 	}
-	if req.Body != nil {
+	if hasBody {
 		httpReq.Header.Set("Content-Type", "application/json")
 	}
 	for k, v := range req.Headers {

@@ -48,6 +48,7 @@ func main() {
 	handler, err := compliance.NewHandler(store,
 		compliance.Base(handlerbase.WithStrictDecode(envBool("STRICT_DECODE"))),
 		compliance.WithKinds(kinds...),
+		compliance.WithKindAttributes(store),
 	)
 	if err != nil {
 		logger.Error("build compliance handler", "err", err)

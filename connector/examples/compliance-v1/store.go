@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/OmniTrustILM/go-sdk/connector/examples/internal/complianceattr"
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/compliance/v1"
 	compliance "github.com/OmniTrustILM/go-sdk/connector/provider/compliance/v1"
 )
@@ -120,4 +121,46 @@ func (s *Store) CheckCompliance(ctx context.Context, kind string, req *mdl.Compl
 		})
 	}
 	return out, nil
+}
+
+// Attributes returns the per-kind attribute schema (complianceattr). Unknown
+// kinds are rejected like every other kind-scoped operation of the store.
+func (s *Store) Attributes(ctx context.Context, kind string) ([]mdl.BaseAttributeDto, error) {
+	if _, ok := s.rules[kind]; !ok {
+		return nil, compliance.ErrKindNotFound.WithProperty("kind", kind)
+	}
+	return []mdl.BaseAttributeDto{profileAttr()}, nil
+}
+
+// ValidateAttributes requires the profile attribute (a V3 request attribute
+// with that name; complianceattr.Validate).
+func (s *Store) ValidateAttributes(ctx context.Context, kind string, attrs []mdl.RequestAttribute) ([]string, error) {
+	if _, ok := s.rules[kind]; !ok {
+		return nil, compliance.ErrKindNotFound.WithProperty("kind", kind)
+	}
+	// GetName is nil-safe, so non-V3 attributes yield "" and never match.
+	return complianceattr.Validate(attrs, func(a mdl.RequestAttribute) string { return a.RequestAttributeV3.GetName() }), nil
+}
+
+// profileAttr builds the required V3 string data attribute. version and
+// schemaVersion are the wire discriminators the generated BaseAttributeDto
+// decoder dispatches on (same construction as credential-v1 stringAttr).
+func profileAttr() mdl.BaseAttributeDto {
+	desc := complianceattr.ProfileDescription
+	attr := &mdl.DataAttributeV3{
+		Uuid:          complianceattr.ProfileUUID,
+		Name:          complianceattr.ProfileName,
+		Description:   &desc,
+		Version:       3,
+		Type:          mdl.ATTRIBUTETYPE_DATA,
+		ContentType:   mdl.ATTRIBUTECONTENTTYPE_STRING,
+		SchemaVersion: mdl.ATTRIBUTEVERSION_V3,
+		Properties: mdl.DataAttributeProperties{
+			Label:    complianceattr.ProfileLabel,
+			Visible:  true,
+			Required: true,
+		},
+	}
+	v3 := mdl.DataAttributeV3AsBaseAttributeDtoV3(attr)
+	return mdl.BaseAttributeDtoV3AsBaseAttributeDto(&v3)
 }

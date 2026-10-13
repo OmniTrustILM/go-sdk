@@ -29,6 +29,9 @@ func TestSecretLifecycle(t *testing.T) {
 		Path: "connector/examples/secret-v1",       // package path from repo root
 		Env:  map[string]string{"APP_USERNAME": "u", "APP_PASSWORD": "p"},
 		// HealthPath defaults to "/v2/health"; v1-family examples set "/v1/health".
+		// The v1-family examples are cryptography-v1, disco-v1, entity-v1,
+		// legacy-auth-v1, multi-v1, notification-v1, compliance-v1,
+		// compliance-v2 and credential-v1.
 	})
 
 	// Health body conformance (mandatory liveness/readiness on /v2/health).
@@ -61,10 +64,30 @@ unavailable or under `-short`.
 - `Example{Path, Env, HealthPath, StartupTimeout}`.
 - `Harness.BaseURL` — origin reachable from the test process.
 - `Harness.Do(t, Request) Response` / `Harness.GetJSON(t, method, path, body, dst) int`.
-- `Response.JSON(t, dst)`, `itest.AssertStatus(t, resp, want)`.
-- `Harness.AssertHealthy(t, path)` — health body conformance per spec version.
+- `Response.JSON(t, dst)` — decodes the body; fails unless the Content-Type is
+  `application/json` or a `+json` type (e.g. `application/problem+json`).
+- `itest.AssertStatus(t, resp, want)`.
+- `Request.RawBody` — verbatim body for malformed-JSON cases.
+- `itest.AssertV1Error(t, resp, want) string`, `itest.AssertV1MessageEnvelope(t, resp, want) string`,
+  `itest.AssertV1ValidationErrors(t, resp) []string` — the v1-family error shapes
+  (the envelope and the 422 array both require exactly `application/json`).
+- `Harness.AssertHealthy(t, path)` — health body conformance per spec version:
+  v2 status `UP` + mandatory components; v1 status `ok` + `parts.liveness` and
+  `parts.readiness` status `ok`.
+- `itest.AssertV1HealthDto[H, S](t, h) H` — the v1 health body decoded through the caller's
+  generated `HealthDto` (`S` its `HealthStatus`): status `ok`, liveness/readiness parts `ok`.
+- `Harness.AssertNotServed(t, paths...)` — each GET is the mux's own non-JSON 404 (route not mounted).
+- `itest.AssertEndpoints(t, group, got, want []itest.Endpoint)` — a function group's generated
+  `EndPoints` advertise exactly `want`, matched on name/method/context/required.
+- `itest.Find(items, key, want) (T, bool)` — first item whose key equals `want` (order-free lookup).
 - `Harness.Logs() string`, `Harness.LogLines(t)`, `Harness.AssertLogsConform(t)` —
   connector.log v1 envelope + trace-or-correlation invariant.
+- `Harness.AssertLogged(t, message, want) LogLine` — polling lookup of one connector.log line
+  (parses only lines added since the previous poll);
+  each `want` key matches a top-level field (e.g. `correlation_id`) first, else one inside
+  `attributes`, compared as JSON values (a Go `404` matches the number, not the string `"404"`).
+- `Harness.AssertMetric(t, series) string` — Prometheus series presence on `/v1/metrics`
+  (prefix match: include the closing `}` unless a prefix is intended).
 - `itest.RequireDocker(t)` — the skip gate (called by `Start`).
 
 ## Running
