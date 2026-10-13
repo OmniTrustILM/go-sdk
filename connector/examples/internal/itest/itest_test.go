@@ -43,6 +43,11 @@ func TestHarnessSmoke(t *testing.T) {
 		t.Errorf("Correlation-Id = %q, want echo of inbound", got)
 	}
 
+	// New helpers: a scraped series for the health probe the harness polled,
+	// and the completion log line for the same request, matched on attributes.
+	h.AssertMetric(t, `http_requests_total{method="GET",route="/v2/health",status="200"}`)
+	h.AssertLogged(t, "request completed", map[string]any{"method": "GET", "path": "/v2/health", "status": 200})
+
 	// Captured container logs are conformant connector.log v1.
 	h.AssertLogsConform(t)
 }

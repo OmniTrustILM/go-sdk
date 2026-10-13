@@ -54,15 +54,19 @@ func (s *Store) ValidateAttributes(ctx context.Context, kind string, attrs []mdl
 }
 
 // stringAttr builds a V3 data attribute for a single required string field.
+// version/schemaVersion are the wire discriminators the generated
+// BaseAttributeDto decoder dispatches on — same construction as
+// buildStringDataAttr in secret-v1/attrs.go.
 func stringAttr(uuid, name, label string, required bool) mdl.BaseAttributeDto {
 	desc := label
 	attr := &mdl.DataAttributeV3{
-		Uuid:        uuid,
-		Name:        name,
-		Description: &desc,
-		Version:     1,
-		Type:        mdl.ATTRIBUTETYPE_DATA,
-		ContentType: mdl.ATTRIBUTECONTENTTYPE_STRING,
+		Uuid:          uuid,
+		Name:          name,
+		Description:   &desc,
+		Version:       3,
+		Type:          mdl.ATTRIBUTETYPE_DATA,
+		ContentType:   mdl.ATTRIBUTECONTENTTYPE_STRING,
+		SchemaVersion: mdl.ATTRIBUTEVERSION_V3,
 		Properties: mdl.DataAttributeProperties{
 			Label:    label,
 			Visible:  true,
