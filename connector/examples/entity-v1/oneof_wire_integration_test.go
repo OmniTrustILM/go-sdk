@@ -86,8 +86,9 @@ func wireBadVersionAttr() map[string]any {
 func TestEntityV1Create422MissingRequired(t *testing.T) {
 	h := startEntity(t)
 
-	// The spec declares no 422 on create; this pins the shared.DecodeJSON
-	// behaviour (missing required property / wrong type -> v1 422 []string).
+	// The spec declares a 422 []string on create; this pins the
+	// shared.DecodeJSON behaviour that produces it (missing required
+	// property / wrong type -> v1 422 []string).
 	t.Run("missing kind", func(t *testing.T) {
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathEntities,
 			Body: map[string]any{"name": "no-kind", "attributes": []any{}}})
