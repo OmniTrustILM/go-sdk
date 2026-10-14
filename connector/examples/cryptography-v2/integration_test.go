@@ -322,16 +322,16 @@ func assertPublicKeySpki(t *testing.T, kd mdl.PublicKeyDataV2Dto) {
 		if ec.Curve != elliptic.P256() {
 			t.Errorf("publicKeySpki curve = %v, want P-256", ec.Curve.Params().Name)
 		}
-		if got := int32(ec.Curve.Params().BitSize); got != kd.Length {
-			t.Errorf("publicKeySpki curve size = %d bits, but keyData.length = %d", got, kd.Length)
+		if got := int32(ec.Curve.Params().BitSize); got != kd.GetLength() {
+			t.Errorf("publicKeySpki curve size = %d bits, but keyData.length = %d", got, kd.GetLength())
 		}
 	case mdl.KEYALGORITHM_RSA:
 		key, ok := pub.(*rsa.PublicKey)
 		if !ok {
 			t.Fatalf("publicKeySpki decodes to %T, want *rsa.PublicKey for algorithm %q", pub, kd.Algorithm)
 		}
-		if got := int32(key.N.BitLen()); got != kd.Length {
-			t.Errorf("publicKeySpki modulus = %d bits, but keyData.length = %d", got, kd.Length)
+		if got := int32(key.N.BitLen()); got != kd.GetLength() {
+			t.Errorf("publicKeySpki modulus = %d bits, but keyData.length = %d", got, kd.GetLength())
 		}
 	default:
 		t.Fatalf("public keyData.algorithm = %q, want %q or %q", kd.Algorithm, mdl.KEYALGORITHM_ECDSA, mdl.KEYALGORITHM_RSA)
@@ -770,8 +770,8 @@ func TestCryptographyV2KeyAlgorithm(t *testing.T) {
 	t.Run("an RSA pair carries a 2048-bit RSA public key", func(t *testing.T) {
 		_, out := createKeySyncWith(t, h, rsaPairRequest())
 		keyData := out.KeyPairDataResponseV2Dto.PublicKeyData.KeyData
-		if keyData.Algorithm != mdl.KEYALGORITHM_RSA || keyData.Length != 2048 {
-			t.Errorf("public keyData = %s/%d, want RSA/2048", keyData.Algorithm, keyData.Length)
+		if keyData.Algorithm != mdl.KEYALGORITHM_RSA || keyData.GetLength() != 2048 {
+			t.Errorf("public keyData = %s/%d, want RSA/2048", keyData.Algorithm, keyData.GetLength())
 		}
 		assertPublicKeySpki(t, keyData)
 	})

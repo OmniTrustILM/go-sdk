@@ -17,6 +17,7 @@ import (
 	"maps"
 	"math/big"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 
@@ -187,20 +188,28 @@ func TestAuthorityV3HealthAndInfo(t *testing.T) {
 	h := startAuthority(t, nil)
 	h.AssertHealthy(t, "/v2/health")
 
-	var info map[string]any
+	// Decoded through the generated InfoResponse, whose ConnectorInterface and
+	// FeatureFlag enums reject any value the spec does not allow.
+	var info mdl.InfoResponse
 	if status := h.GetJSON(t, http.MethodGet, "/v2/info", nil, &info); status != http.StatusOK {
 		t.Fatalf("/v2/info = %d, want 200", status)
 	}
-	ifaces, _ := info["interfaces"].([]any)
-	var ok bool
-	for _, raw := range ifaces {
-		if m, _ := raw.(map[string]any); m["code"] == "authority" && m["version"] == "v3" {
-			ok = true
-			break
-		}
+	if info.Connector.Id != "example-authority-v3" || info.Connector.Version != "0.1.0" {
+		t.Errorf("/v2/info connector = %+v, want example-authority-v3 0.1.0", info.Connector)
 	}
-	if !ok {
-		t.Errorf("/v2/info missing {authority, v3} interface: %v", info["interfaces"])
+	found, ok := itest.Find(info.Interfaces, func(i mdl.ConnectorInterfaceInfo) mdl.ConnectorInterface { return i.Code },
+		mdl.CONNECTORINTERFACE_AUTHORITY)
+	if !ok || found.Version != "v3" {
+		t.Errorf("/v2/info missing {authority, v3} interface: %+v", info.Interfaces)
+	}
+	// main.go advertises these through handlerbase.WithFeatures.
+	wantFeatures := []mdl.FeatureFlag{mdl.FEATUREFLAG_CERTIFICATE_REGISTRATION, mdl.FEATUREFLAG_CERTIFICATE_STATUS_POLLING}
+	if !slices.Equal(found.Features, wantFeatures) {
+		t.Errorf("/v2/info authority v3 features = %v, want %v", found.Features, wantFeatures)
+	}
+	// The authority v3 spec dropped discoveryStreaming from FeatureFlag.
+	if _, err := mdl.NewFeatureFlagFromValue("discoveryStreaming"); err == nil {
+		t.Error("FeatureFlag still accepts the removed discoveryStreaming value")
 	}
 	h.AssertLogsConform(t)
 }

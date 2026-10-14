@@ -26,8 +26,8 @@ type PublicKeyDataV2Dto struct {
 	Type string `json:"type"`
 	// Cryptographic algorithm of the key
 	Algorithm KeyAlgorithm `json:"algorithm"`
-	// Bit length of the key
-	Length int32 `json:"length"`
+	// Key length in bits. Required for RSA, ECDSA and AES; optional otherwise.
+	Length *int32 `json:"length,omitempty"`
 	// Non-sensitive, provider-specific descriptive metadata
 	Metadata []MetadataAttribute `json:"metadata,omitempty"`
 	// Base64-encoded DER SubjectPublicKeyInfo.
@@ -40,11 +40,10 @@ type _PublicKeyDataV2Dto PublicKeyDataV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewPublicKeyDataV2Dto(algorithm KeyAlgorithm, length int32, publicKeySpki string) *PublicKeyDataV2Dto {
+func NewPublicKeyDataV2Dto(algorithm KeyAlgorithm, publicKeySpki string) *PublicKeyDataV2Dto {
 	this := PublicKeyDataV2Dto{}
 	this.Type = "Public"
 	this.Algorithm = algorithm
-	this.Length = length
 	this.PublicKeySpki = publicKeySpki
 	return &this
 }
@@ -106,28 +105,36 @@ func (o *PublicKeyDataV2Dto) SetAlgorithm(v KeyAlgorithm) {
 	o.Algorithm = v
 }
 
-// GetLength returns the Length field value
+// GetLength returns the Length field value if set, zero value otherwise.
 func (o *PublicKeyDataV2Dto) GetLength() int32 {
-	if o == nil {
+	if o == nil || IsNil(o.Length) {
 		var ret int32
 		return ret
 	}
-
-	return o.Length
+	return *o.Length
 }
 
-// GetLengthOk returns a tuple with the Length field value
+// GetLengthOk returns a tuple with the Length field value if set, nil otherwise
 // and a boolean to check if the value has been set.
 func (o *PublicKeyDataV2Dto) GetLengthOk() (*int32, bool) {
-	if o == nil {
+	if o == nil || IsNil(o.Length) {
 		return nil, false
 	}
-	return &o.Length, true
+	return o.Length, true
 }
 
-// SetLength sets field value
+// HasLength returns a boolean if a field has been set.
+func (o *PublicKeyDataV2Dto) HasLength() bool {
+	if o != nil && !IsNil(o.Length) {
+		return true
+	}
+
+	return false
+}
+
+// SetLength gets a reference to the given int32 and assigns it to the Length field.
 func (o *PublicKeyDataV2Dto) SetLength(v int32) {
-	o.Length = v
+	o.Length = &v
 }
 
 // GetMetadata returns the Metadata field value if set, zero value otherwise.
@@ -202,7 +209,9 @@ func (o PublicKeyDataV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["algorithm"] = o.Algorithm
-	toSerialize["length"] = o.Length
+	if !IsNil(o.Length) {
+		toSerialize["length"] = o.Length
+	}
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata
 	}
@@ -217,7 +226,6 @@ func (o *PublicKeyDataV2Dto) UnmarshalJSON(data []byte) (err error) {
 	requiredProperties := []string{
 		"type",
 		"algorithm",
-		"length",
 		"publicKeySpki",
 	}
 

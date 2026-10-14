@@ -1058,24 +1058,24 @@ func pinnedProperties() []pinnedProperty {
 		},
 		{
 			name:        "PrivateKeyDataV2Dto.type",
-			constructed: NewPrivateKeyDataV2Dto(KEYALGORITHM_RSA, 3072).Type,
+			constructed: NewPrivateKeyDataV2Dto(KEYALGORITHM_RSA).Type,
 			pinnedValue: "Private",
 			mismatched: PrivateKeyDataV2Dto{
 				Type:      "Public",
 				Algorithm: KEYALGORITHM_RSA,
-				Length:    3072,
+				Length:    new(int32(3072)),
 			},
 			decodeInto: func() interface{} { return &PrivateKeyDataV2Dto{} },
 			badPayload: `{"type":"Public","algorithm":"RSA","length":3072}`,
 		},
 		{
 			name:        "PublicKeyDataV2Dto.type",
-			constructed: NewPublicKeyDataV2Dto(KEYALGORITHM_RSA, 3072, "MIIB").Type,
+			constructed: NewPublicKeyDataV2Dto(KEYALGORITHM_RSA, "MIIB").Type,
 			pinnedValue: "Public",
 			mismatched: PublicKeyDataV2Dto{
 				Type:          "Private",
 				Algorithm:     KEYALGORITHM_RSA,
-				Length:        3072,
+				Length:        new(int32(3072)),
 				PublicKeySpki: "MIIB",
 			},
 			decodeInto: func() interface{} { return &PublicKeyDataV2Dto{} },
@@ -1083,12 +1083,12 @@ func pinnedProperties() []pinnedProperty {
 		},
 		{
 			name:        "SecretKeyDataV2Dto.type",
-			constructed: NewSecretKeyDataV2Dto(KEYALGORITHM_RSA, 2048).Type,
+			constructed: NewSecretKeyDataV2Dto(KEYALGORITHM_RSA).Type,
 			pinnedValue: "Secret",
 			mismatched: SecretKeyDataV2Dto{
 				Type:      "Private",
 				Algorithm: KEYALGORITHM_RSA,
-				Length:    2048,
+				Length:    new(int32(2048)),
 			},
 			decodeInto: func() interface{} { return &SecretKeyDataV2Dto{} },
 			badPayload: `{"type":"Private","algorithm":"RSA","length":2048}`,

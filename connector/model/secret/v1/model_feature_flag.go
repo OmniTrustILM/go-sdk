@@ -37,7 +37,6 @@ const (
 	FEATUREFLAG_CERTIFICATE_STATUS_POLLING FeatureFlag = "certificateStatusPolling"
 	FEATUREFLAG_CERTIFICATE_REQUEST_STRUCTURED FeatureFlag = "certificateRequestStructured"
 	FEATUREFLAG_CERTIFICATE_IDENTITY_OVERRIDE FeatureFlag = "certificateIdentityOverride"
-	FEATUREFLAG_DISCOVERY_STREAMING FeatureFlag = "discoveryStreaming"
 	FEATUREFLAG_DISCOVERY_STOP_RESUME FeatureFlag = "discoveryStopResume"
 )
 
@@ -59,7 +58,6 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"certificateStatusPolling",
 	"certificateRequestStructured",
 	"certificateIdentityOverride",
-	"discoveryStreaming",
 	"discoveryStopResume",
 }
 

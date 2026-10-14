@@ -436,9 +436,11 @@ func randomBytes(n int) []byte {
 // buildSecretKeyPayload builds the complete secret-key result for keyID, as
 // required on a synchronous 200 and inside a completed status result.
 func buildSecretKeyPayload(keyID string, algorithm mdl.KeyAlgorithm, length int32) *mdl.SecretKeyDataResponseV2Dto {
+	keyData := mdl.NewSecretKeyDataV2Dto(algorithm)
+	keyData.SetLength(length) // every algorithm this example creates requires one
 	return &mdl.SecretKeyDataResponseV2Dto{
 		KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-		KeyData:        mdl.NewSecretKeyDataV2Dto(algorithm, length),
+		KeyData:        keyData,
 		KeyMeta:        []mdl.MetadataAttribute{metaAttr(keyID, "secretKeyHandle", "Secret key handle")},
 	}
 }
@@ -448,15 +450,20 @@ func buildSecretKeyPayload(keyID string, algorithm mdl.KeyAlgorithm, length int3
 // halves carry pairID as their handle, so later calls resolve to the one
 // keyRecord tracking the pair.
 func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length int32, spki string) *mdl.KeyPairDataResponseV2Dto {
+	// Every algorithm this example creates requires a length.
+	publicKey := mdl.NewPublicKeyDataV2Dto(algorithm, spki)
+	publicKey.SetLength(length)
+	privateKey := mdl.NewPrivateKeyDataV2Dto(algorithm)
+	privateKey.SetLength(length)
 	return &mdl.KeyPairDataResponseV2Dto{
 		KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR,
 		PublicKeyData: &mdl.PublicKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metaAttr(pairID, "publicKeyHandle", "Public key handle")},
-			KeyData: *mdl.NewPublicKeyDataV2Dto(algorithm, length, spki),
+			KeyData: *publicKey,
 		},
 		PrivateKeyData: &mdl.PrivateKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metaAttr(pairID, "privateKeyHandle", "Private key handle")},
-			KeyData: *mdl.NewPrivateKeyDataV2Dto(algorithm, length),
+			KeyData: *privateKey,
 		},
 		KeyPairMeta: []mdl.MetadataAttribute{metaAttr(pairID, "keyPairHandle", "Key pair handle")},
 	}

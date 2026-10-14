@@ -288,23 +288,6 @@
               }
             }
           },
-          "422": {
-            "description": "Unprocessable entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "example": [
-                  "Error Message 1",
-                  "Error Message 2"
-                ]
-              }
-            }
-          },
           "400": {
             "description": "Bad Request",
             "content": {
@@ -335,6 +318,23 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorMessageDto"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "example": [
+                  "Error Message 1",
+                  "Error Message 2"
+                ]
               }
             }
           },
@@ -402,26 +402,6 @@
           "200": {
             "description": "Attribute validation completed"
           },
-          "422": {
-            "description": "Attribute validation failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "examples": [
-                      "Attribute Validation error message"
-                    ]
-                  }
-                },
-                "example": [
-                  "Error Message 1",
-                  "Error Message 2"
-                ]
-              }
-            }
-          },
           "400": {
             "description": "Bad Request",
             "content": {
@@ -452,6 +432,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorMessageDto"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Attribute validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "examples": [
+                      "Attribute Validation error message"
+                    ]
+                  }
+                },
+                "example": [
+                  "Error Message 1",
+                  "Error Message 2"
+                ]
               }
             }
           },
@@ -1348,17 +1348,17 @@
           }
         ],
         "properties": {
-          "type": {
-            "$ref": "#/components/schemas/AttributeConstraintType",
-            "description": "Attribute Constraint Type"
+          "description": {
+            "type": "string",
+            "description": "Description of the constraint"
           },
           "errorMessage": {
             "type": "string",
             "description": "Error message to be displayed for wrong data"
           },
-          "description": {
-            "type": "string",
-            "description": "Description of the constraint"
+          "type": {
+            "$ref": "#/components/schemas/AttributeConstraintType",
+            "description": "Attribute Constraint Type"
           }
         },
         "required": [
@@ -1486,6 +1486,11 @@
           }
         ],
         "properties": {
+          "uuid": {
+            "type": "string",
+            "description": "UUID of the Attribute for unique identification",
+            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
+          },
           "name": {
             "type": "string",
             "description": "Name of the Attribute that is used for identification",
@@ -1493,18 +1498,13 @@
               "Attribute"
             ]
           },
-          "type": {
-            "$ref": "#/components/schemas/AttributeType",
-            "description": "Type of the Attribute"
-          },
-          "uuid": {
-            "type": "string",
-            "description": "UUID of the Attribute for unique identification",
-            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
-          },
           "description": {
             "type": "string",
             "description": "Optional description of the Attribute, should contain helper text on what is expected"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttributeType",
+            "description": "Type of the Attribute"
           }
         },
         "required": [

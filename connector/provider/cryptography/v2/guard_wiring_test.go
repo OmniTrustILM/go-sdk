@@ -36,11 +36,11 @@ func keyPairCreationResponse(mutate func(*mdl.KeyPairDataResponseV2Dto)) *mdl.Ke
 		KeyPairMeta:    []mdl.MetadataAttribute{metadataAttributeFixture()},
 		PublicKeyData: &mdl.PublicKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metadataAttributeFixture()},
-			KeyData: *mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048, "AA=="),
+			KeyData: *newPublicKeyData(mdl.KEYALGORITHM_RSA, 2048, "AA=="),
 		},
 		PrivateKeyData: &mdl.PrivateKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metadataAttributeFixture()},
-			KeyData: *mdl.NewPrivateKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048),
+			KeyData: *newPrivateKeyData(mdl.KEYALGORITHM_RSA, 2048),
 		},
 	}
 	mutate(v)
@@ -153,7 +153,7 @@ func TestUnencodableResponseIsRejectedBeforeCommit(t *testing.T) {
 		{"createKey 200 keyMeta content", &stubProvider{createKeyResp: &mdl.KeyCreationResponse{
 			SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 				KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-				KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048),
+				KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
 				KeyMeta:        []mdl.MetadataAttribute{unencodableMetadata()},
 			},
 		}}, "/v2/cryptographyProvider/keys", createKeyBody("synchronous"), "create_key"},
@@ -177,7 +177,7 @@ func TestUnencodableResponseIsRejectedBeforeCommit(t *testing.T) {
 // The key descriptors' own metadata lists are enumerated too, with the precise
 // message rather than the probe's generic one.
 func TestCreateKeyKeyDataMetadataElementsMustPopulateOneVariant(t *testing.T) {
-	keyData := mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048)
+	keyData := newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048)
 	keyData.Metadata = []mdl.MetadataAttribute{{}}
 	p := &stubProvider{createKeyResp: &mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
@@ -240,8 +240,8 @@ func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
 	p := &stubProvider{createKeyResp: keyPairCreationResponse(func(v *mdl.KeyPairDataResponseV2Dto) {
 		v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
 		v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
-		v.PublicKeyData.KeyData.Length = 512
-		v.PrivateKeyData.KeyData.Length = 256
+		v.PublicKeyData.KeyData.Length = new(int32(512))
+		v.PrivateKeyData.KeyData.Length = new(int32(256))
 	})}
 	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/keys", keyPairCreateKeyBody("synchronous"))
 
@@ -253,11 +253,11 @@ func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
 		t.Fatalf("decode body: %v; body %s", err, rec.Body.String())
 	}
 	if got.PublicKeyData == nil || got.PublicKeyData.KeyData.PublicKeySpki != "AA==" ||
-		got.PublicKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA || got.PublicKeyData.KeyData.Length != 512 {
+		got.PublicKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA || got.PublicKeyData.KeyData.GetLength() != 512 {
 		t.Errorf("publicKeyData not round-tripped; body %s", rec.Body.String())
 	}
 	if got.PrivateKeyData == nil || got.PrivateKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA ||
-		got.PrivateKeyData.KeyData.Length != 256 {
+		got.PrivateKeyData.KeyData.GetLength() != 256 {
 		t.Errorf("privateKeyData not round-tripped; body %s", rec.Body.String())
 	}
 }

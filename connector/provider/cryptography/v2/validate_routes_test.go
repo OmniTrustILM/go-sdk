@@ -464,7 +464,7 @@ func TestCreateKeySynchronousResponseWithPartialPayloadRenders500(t *testing.T) 
 		createKeyResp: &mdl.KeyCreationResponse{
 			SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 				KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-				KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048), // KeyMeta missing: partial payload
+				KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048), // KeyMeta missing: partial payload
 			},
 		},
 		createKeyAccepted: false,
@@ -510,7 +510,7 @@ func TestCreateKeyResponseWithoutKeyRequestTypeRenders500(t *testing.T) {
 		createKeyResp: &mdl.KeyCreationResponse{
 			SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 				// Complete payload, absent discriminator.
-				KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048),
+				KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
 				KeyMeta: []mdl.MetadataAttribute{metadataAttributeFixture()},
 			},
 		},
@@ -531,7 +531,7 @@ func TestCreateKeyResponseWithMismatchedKeyRequestTypeRenders500(t *testing.T) {
 		createKeyResp: &mdl.KeyCreationResponse{
 			SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 				KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR, // names the other arm
-				KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048),
+				KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
 				KeyMeta:        []mdl.MetadataAttribute{metadataAttributeFixture()},
 			},
 		},

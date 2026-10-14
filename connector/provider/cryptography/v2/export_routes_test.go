@@ -58,13 +58,13 @@ func publicKeyExport() *mdl.ExportKeyResponseV2Dto {
 	return &mdl.ExportKeyResponseV2Dto{
 		Material:     mdl.EncryptedKeyMaterialV2Dto{EncryptedPrivateKeyInfo: inProfileEnvelope},
 		KeyReference: &reference,
-		KeyData:      mdl.PublicKeyDataV2DtoAsKeyDataV2(mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048, "AA==")),
+		KeyData:      mdl.PublicKeyDataV2DtoAsKeyDataV2(newPublicKeyData(mdl.KEYALGORITHM_RSA, 2048, "AA==")),
 	}
 }
 
 func secretKeyExport() *mdl.ExportKeyResponseV2Dto {
 	export := publicKeyExport()
-	export.KeyData = mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256))
+	export.KeyData = mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256))
 	return export
 }
 
@@ -191,14 +191,14 @@ func TestExportKeyRejectsAResponseOutsideTheContract(t *testing.T) {
 		{"material outside the profile", nil, func(e *mdl.ExportKeyResponseV2Dto) { e.Material.EncryptedPrivateKeyInfo = notDER },
 			"encryptedPrivateKeyInfo must contain a DER-encoded PKCS#8 EncryptedPrivateKeyInfo"},
 		{"a private-key descriptor", nil, func(e *mdl.ExportKeyResponseV2Dto) {
-			e.KeyData = mdl.PrivateKeyDataV2DtoAsKeyDataV2(mdl.NewPrivateKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048))
+			e.KeyData = mdl.PrivateKeyDataV2DtoAsKeyDataV2(newPrivateKeyData(mdl.KEYALGORITHM_RSA, 2048))
 		}, "keyData must describe either a public key or a secret key"},
 		{"no descriptor", nil, func(e *mdl.ExportKeyResponseV2Dto) { e.KeyData = mdl.KeyDataV2{} }, "keyData must describe the exported key"},
 		{"two descriptors", nil, func(e *mdl.ExportKeyResponseV2Dto) {
-			e.KeyData.SecretKeyDataV2Dto = mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256)
+			e.KeyData.SecretKeyDataV2Dto = newSecretKeyData(mdl.KEYALGORITHM_AES, 256)
 		}, "keyData must describe the exported key once"},
 		{"a secret key for a key pair", nil, func(e *mdl.ExportKeyResponseV2Dto) {
-			e.KeyData = mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256))
+			e.KeyData = mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256))
 		}, "keyData must describe a key pair by its public key"},
 		{"a public key for a secret key", secretExport(), func(*mdl.ExportKeyResponseV2Dto) {}, "keyData must describe a secret key"},
 		{"a public key without its SPKI", nil, func(e *mdl.ExportKeyResponseV2Dto) { e.KeyData.PublicKeyDataV2Dto.PublicKeySpki = "" },

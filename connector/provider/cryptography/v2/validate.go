@@ -593,18 +593,33 @@ func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) err
 
 // validateKeyDescriptor enforces the descriptor's required fields. An unset
 // type reaches Core as an unresolvable discriminator; a wrong one fails the
-// pinned MarshalJSON (see keyTypeSecret).
-func validateKeyDescriptor(keyType, wantType string, algorithm mdl.KeyAlgorithm, length int32, field string) error {
+// pinned MarshalJSON (see keyTypeSecret). The spec requires a length only for
+// the algorithms in lengthRequired; when present it must be positive.
+func validateKeyDescriptor(keyType, wantType string, algorithm mdl.KeyAlgorithm, length *int32, field string) error {
 	if keyType != wantType {
 		return errResponseShape(field + " must carry key type " + wantType)
 	}
 	if !algorithm.IsValid() {
 		return errResponseShape(field + " must carry a known key algorithm")
 	}
-	if length <= 0 {
+	if length == nil {
+		if lengthRequired[algorithm] {
+			return errResponseShape(field + " must carry a key length for " + string(algorithm) + " keys")
+		}
+		return nil
+	}
+	if *length <= 0 {
 		return errResponseShape(field + " must carry a positive key length")
 	}
 	return nil
+}
+
+// lengthRequired lists the key algorithms whose descriptors must carry a
+// length ("Required for RSA, ECDSA and AES; optional otherwise").
+var lengthRequired = map[mdl.KeyAlgorithm]bool{
+	mdl.KEYALGORITHM_RSA:   true,
+	mdl.KEYALGORITHM_ECDSA: true,
+	mdl.KEYALGORITHM_AES:   true,
 }
 
 // keyCreationHasMeta reports whether the populated arm carries an operationMeta
