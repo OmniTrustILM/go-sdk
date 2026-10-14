@@ -36,6 +36,7 @@ import (
 	"strings"
 	"syscall"
 
+	mdl "github.com/OmniTrustILM/go-sdk/connector/model/authority/v3"
 	authority "github.com/OmniTrustILM/go-sdk/connector/provider/authority/v3"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
@@ -66,7 +67,10 @@ func main() {
 	attrs := &Attrs{cfg: cfg}
 
 	handler, err := authority.NewHandler(backend,
-		authority.Base(handlerbase.WithStrictDecode(cfg.StrictDecode)),
+		authority.Base(
+			handlerbase.WithStrictDecode(cfg.StrictDecode),
+			handlerbase.WithFeatures(string(mdl.FEATUREFLAG_CERTIFICATE_REGISTRATION), string(mdl.FEATUREFLAG_CERTIFICATE_STATUS_POLLING)),
+		),
 		authority.WithAuthorityAttributes(attrs),
 		authority.WithRAProfileAttributes(attrs),
 		authority.WithIssueAttributes(attrs),

@@ -8,6 +8,7 @@ package main_test
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/OmniTrustILM/go-sdk/connector/examples/internal/itest"
@@ -112,19 +113,28 @@ func TestSecretV1HealthAndInfo(t *testing.T) {
 	h.AssertHealthy(t, "/v2/health/liveness")
 	h.AssertHealthy(t, "/v2/health/readiness")
 
-	var info map[string]any
+	// Decoded through the generated InfoResponse, whose ConnectorInterface and
+	// FeatureFlag enums reject any value the spec does not allow.
+	var info mdl.InfoResponse
 	if status := h.GetJSON(t, http.MethodGet, "/v2/info", nil, &info); status != http.StatusOK {
 		t.Fatalf("/v2/info = %d, want 200", status)
 	}
-	ifaces, _ := info["interfaces"].([]any)
-	var haveSecret bool
-	for _, raw := range ifaces {
-		if m, ok := raw.(map[string]any); ok && m["code"] == "secret" {
-			haveSecret = true
-		}
+	if info.Connector.Id != "example-secret-v1" || info.Connector.Version != "0.1.0" {
+		t.Errorf("/v2/info connector = %+v, want example-secret-v1 0.1.0", info.Connector)
 	}
-	if !haveSecret {
-		t.Errorf("/v2/info interfaces missing the secret interface: %v", info["interfaces"])
+	found, ok := itest.Find(info.Interfaces, func(i mdl.ConnectorInterfaceInfo) mdl.ConnectorInterface { return i.Code },
+		mdl.CONNECTORINTERFACE_SECRET)
+	if !ok || found.Version != "v1" {
+		t.Errorf("/v2/info interfaces missing {secret, v1}: %+v", info.Interfaces)
+	}
+	// main.go advertises this through handlerbase.WithFeatures.
+	wantFeatures := []mdl.FeatureFlag{mdl.FEATUREFLAG_SECRET_ROTATION}
+	if !slices.Equal(found.Features, wantFeatures) {
+		t.Errorf("/v2/info secret v1 features = %v, want %v", found.Features, wantFeatures)
+	}
+	// The secret spec dropped discoveryStreaming from FeatureFlag.
+	if _, err := mdl.NewFeatureFlagFromValue("discoveryStreaming"); err == nil {
+		t.Error("FeatureFlag still accepts the removed discoveryStreaming value")
 	}
 
 	// Container logs conform to the connector.log v1 contract.

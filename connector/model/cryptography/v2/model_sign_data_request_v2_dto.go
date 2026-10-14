@@ -30,7 +30,7 @@ type SignDataRequestV2Dto struct {
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
 	// Caller-selected execution mode. The connector must not switch modes implicitly.
 	ExecutionMode OperationExecutionMode `json:"executionMode"`
-	// Signature attributes
+	// Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the signing attribute schema.
 	SignatureAttributes []RequestAttribute `json:"signatureAttributes"`
 	// Data to be signed
 	Data []SignatureDataV2Dto `json:"data"`

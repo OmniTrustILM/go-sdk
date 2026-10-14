@@ -17,34 +17,6 @@
       "url": "images/ilm-logo.svg"
     },
     "x-metrics-profile": {
-      "version": 1,
-      "histograms": {
-        "http_server_latency_buckets_seconds": [
-          0.005,
-          0.01,
-          0.025,
-          0.05,
-          0.1,
-          0.25,
-          0.5,
-          1.0,
-          2.5,
-          5.0,
-          10.0
-        ],
-        "http_client_latency_buckets_seconds": [
-          0.01,
-          0.025,
-          0.05,
-          0.1,
-          0.25,
-          0.5,
-          1.0,
-          2.5,
-          5.0,
-          10.0
-        ]
-      },
       "required": [
         {
           "type": "gauge",
@@ -85,14 +57,14 @@
           ]
         },
         {
+          "type": "histogram",
           "labels": [
             "method",
             "route"
           ],
           "buckets_ref": "http_server_latency_buckets_seconds",
           "name": "http_request_duration_seconds",
-          "unit": "seconds",
-          "type": "histogram"
+          "unit": "seconds"
         },
         {
           "type": "gauge",
@@ -113,14 +85,14 @@
           ]
         },
         {
+          "type": "histogram",
           "labels": [
             "method",
             "target"
           ],
           "buckets_ref": "http_client_latency_buckets_seconds",
           "name": "http_client_request_duration_seconds",
-          "unit": "seconds",
-          "type": "histogram"
+          "unit": "seconds"
         },
         {
           "type": "counter",
@@ -131,7 +103,35 @@
             "outcome"
           ]
         }
-      ]
+      ],
+      "version": 1,
+      "histograms": {
+        "http_client_latency_buckets_seconds": [
+          0.01,
+          0.025,
+          0.05,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2.5,
+          5,
+          10
+        ],
+        "http_server_latency_buckets_seconds": [
+          0.005,
+          0.01,
+          0.025,
+          0.05,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2.5,
+          5,
+          10
+        ]
+      }
     }
   },
   "externalDocs": {
@@ -190,8 +190,8 @@
           "required": true
         },
         "responses": {
-          "204": {
-            "description": "Revoked synchronously",
+          "202": {
+            "description": "Revocation accepted asynchronously; body carries meta tracking handle",
             "content": {
               "application/json": {
                 "schema": {
@@ -200,8 +200,8 @@
               }
             }
           },
-          "202": {
-            "description": "Revocation accepted asynchronously; body carries meta tracking handle",
+          "204": {
+            "description": "Revoked synchronously",
             "content": {
               "application/json": {
                 "schema": {
@@ -355,6 +355,16 @@
           "204": {
             "description": "Aborted"
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -367,16 +377,6 @@
           },
           "422": {
             "description": "Refused — past point of no return"
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
           },
           "500": {
             "description": "Internal Server Error",
@@ -516,8 +516,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -535,26 +555,6 @@
                   "items": {
                     "$ref": "#/components/schemas/BaseAttributeDto"
                   }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -694,8 +694,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -713,26 +733,6 @@
                   "items": {
                     "$ref": "#/components/schemas/BaseAttributeDto"
                   }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -938,6 +938,16 @@
           "204": {
             "description": "Aborted"
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -950,16 +960,6 @@
           },
           "422": {
             "description": "Refused — past point of no return"
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
           },
           "500": {
             "description": "Internal Server Error",
@@ -1251,6 +1251,16 @@
           "204": {
             "description": "Aborted"
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -1263,16 +1273,6 @@
           },
           "422": {
             "description": "Refused — past point of no return"
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
           },
           "500": {
             "description": "Internal Server Error",
@@ -1488,8 +1488,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1507,26 +1527,6 @@
                   "items": {
                     "$ref": "#/components/schemas/BaseAttributeDto"
                   }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -1571,6 +1571,9 @@
           "required": true
         },
         "responses": {
+          "204": {
+            "description": "Upstream CA is reachable with these attributes"
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1600,9 +1603,6 @@
                 }
               }
             }
-          },
-          "204": {
-            "description": "Upstream CA is reachable with these attributes"
           }
         },
         "security": [
@@ -1644,6 +1644,19 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "RA profile attributes retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BaseAttributeDto"
+                  }
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1670,19 +1683,6 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "RA profile attributes retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BaseAttributeDto"
-                  }
                 }
               }
             }
@@ -1723,6 +1723,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "CRL retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrlResponseDtoV3"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1749,16 +1759,6 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "CRL retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CrlResponseDtoV3"
                 }
               }
             }
@@ -1799,6 +1799,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "CA certificate chain retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaCertificatesResponseDtoV3"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1825,16 +1835,6 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "CA certificate chain retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CaCertificatesResponseDtoV3"
                 }
               }
             }
@@ -1885,6 +1885,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -1897,16 +1907,6 @@
           },
           "422": {
             "description": "Callback request failed validation at the connector",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1951,6 +1951,19 @@
         "description": "Top-level authority attribute schema (for the create-authority UI)",
         "operationId": "listAuthorityAttributes",
         "responses": {
+          "200": {
+            "description": "Authority attributes retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BaseAttributeDto"
+                  }
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1977,19 +1990,6 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Authority attributes retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BaseAttributeDto"
-                  }
                 }
               }
             }
@@ -2030,8 +2030,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2040,8 +2040,8 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2072,12 +2072,12 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Health check indicates service or its component is unavailable",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthInfo"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -2092,12 +2092,12 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "503": {
+            "description": "Service Unavailable. Health check indicates service or its component is unavailable",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                  "$ref": "#/components/schemas/HealthInfo"
                 }
               }
             }
@@ -2124,12 +2124,12 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Health readiness check indicates service or its component is not ready",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthInfo"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -2144,12 +2144,12 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "503": {
+            "description": "Service Unavailable. Health readiness check indicates service or its component is not ready",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                  "$ref": "#/components/schemas/HealthInfo"
                 }
               }
             }
@@ -2176,12 +2176,12 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Health liveness check indicates service or its component is not live",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthInfo"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -2196,12 +2196,12 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "503": {
+            "description": "Service Unavailable. Health liveness check indicates service or its component is not live",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                  "$ref": "#/components/schemas/HealthInfo"
                 }
               }
             }
@@ -2321,8 +2321,8 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2331,8 +2331,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2395,16 +2395,6 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Metrics could not be retrieved",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2427,6 +2417,16 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. Metrics could not be retrieved",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2637,17 +2637,17 @@
           }
         ],
         "properties": {
-          "type": {
-            "$ref": "#/components/schemas/AttributeConstraintType",
-            "description": "Attribute Constraint Type"
+          "description": {
+            "type": "string",
+            "description": "Description of the constraint"
           },
           "errorMessage": {
             "type": "string",
             "description": "Error message to be displayed for wrong data"
           },
-          "description": {
-            "type": "string",
-            "description": "Description of the constraint"
+          "type": {
+            "$ref": "#/components/schemas/AttributeConstraintType",
+            "description": "Attribute Constraint Type"
           }
         },
         "required": [
@@ -4812,6 +4812,11 @@
           }
         ],
         "properties": {
+          "uuid": {
+            "type": "string",
+            "description": "UUID of the Attribute for unique identification",
+            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
+          },
           "name": {
             "type": "string",
             "description": "Name of the Attribute that is used for identification",
@@ -4819,18 +4824,13 @@
               "Attribute"
             ]
           },
-          "type": {
-            "$ref": "#/components/schemas/AttributeType",
-            "description": "Type of the Attribute"
-          },
-          "uuid": {
-            "type": "string",
-            "description": "UUID of the Attribute for unique identification",
-            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
-          },
           "description": {
             "type": "string",
             "description": "Optional description of the Attribute, should contain helper text on what is expected"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttributeType",
+            "description": "Type of the Attribute"
           }
         },
         "required": [
@@ -6449,7 +6449,6 @@
           "certificateStatusPolling",
           "certificateRequestStructured",
           "certificateIdentityOverride",
-          "discoveryStreaming",
           "discoveryStopResume"
         ]
       },

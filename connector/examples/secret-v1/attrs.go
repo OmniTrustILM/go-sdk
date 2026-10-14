@@ -70,7 +70,7 @@ func (a *Attrs) VaultProfileAttributes(ctx context.Context, ctxAttrs []mdl.Reque
 		Name:          "hello",
 		Description:   &description,
 		SchemaVersion: mdl.ATTRIBUTEVERSION_V3,
-		Version:       1,
+		Version:       3,
 		Type:          mdl.ATTRIBUTETYPE_DATA,
 		ContentType:   mdl.ATTRIBUTECONTENTTYPE_TEXT,
 		Content:       []mdl.BaseAttributeContentDtoV3{content},

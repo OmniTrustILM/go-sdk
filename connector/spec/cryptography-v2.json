@@ -17,34 +17,6 @@
       "url": "images/ilm-logo.svg"
     },
     "x-metrics-profile": {
-      "version": 1,
-      "histograms": {
-        "http_server_latency_buckets_seconds": [
-          0.005,
-          0.01,
-          0.025,
-          0.05,
-          0.1,
-          0.25,
-          0.5,
-          1.0,
-          2.5,
-          5.0,
-          10.0
-        ],
-        "http_client_latency_buckets_seconds": [
-          0.01,
-          0.025,
-          0.05,
-          0.1,
-          0.25,
-          0.5,
-          1.0,
-          2.5,
-          5.0,
-          10.0
-        ]
-      },
       "required": [
         {
           "type": "gauge",
@@ -85,14 +57,14 @@
           ]
         },
         {
+          "type": "histogram",
           "labels": [
             "method",
             "route"
           ],
           "buckets_ref": "http_server_latency_buckets_seconds",
           "name": "http_request_duration_seconds",
-          "unit": "seconds",
-          "type": "histogram"
+          "unit": "seconds"
         },
         {
           "type": "gauge",
@@ -113,14 +85,14 @@
           ]
         },
         {
+          "type": "histogram",
           "labels": [
             "method",
             "target"
           ],
           "buckets_ref": "http_client_latency_buckets_seconds",
           "name": "http_client_request_duration_seconds",
-          "unit": "seconds",
-          "type": "histogram"
+          "unit": "seconds"
         },
         {
           "type": "counter",
@@ -131,7 +103,35 @@
             "outcome"
           ]
         }
-      ]
+      ],
+      "version": 1,
+      "histograms": {
+        "http_client_latency_buckets_seconds": [
+          0.01,
+          0.025,
+          0.05,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2.5,
+          5,
+          10
+        ],
+        "http_server_latency_buckets_seconds": [
+          0.005,
+          0.01,
+          0.025,
+          0.05,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2.5,
+          5,
+          10
+        ]
+      }
     }
   },
   "externalDocs": {
@@ -217,16 +217,6 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -239,6 +229,16 @@
           },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -316,16 +316,6 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -338,6 +328,16 @@
           },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -412,16 +412,6 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -434,6 +424,16 @@
           },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -511,16 +511,6 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -533,6 +523,16 @@
           },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -574,7 +574,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "Verify data",
-        "description": "Verify signatures with the given key (always synchronous)",
+        "description": "Verify signatures with the given key (always synchronous). signatureAttributes must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one code from the required, single-select, non-extensible list offered by /verify/attributes.",
         "operationId": "verifyData",
         "requestBody": {
           "content": {
@@ -597,8 +597,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -627,8 +627,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED), or a supplied verification parameter is not supported by the connector or key (errorCode PARAMETER_UNSUPPORTED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -637,8 +637,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -670,7 +670,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "List verification attributes",
-        "description": "Returns the verification parameter schema supported by the connector for the supplied token, profile and key context",
+        "description": "Returns the verification parameter schema supported by the connector for the supplied token, profile and key context. The schema must include exactly one v3 string data attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, as a required, single-select, non-extensible list offering the signature algorithms the key supports for verification. It must offer at least one value, and every offered value must be a code from the SignatureAlgorithm enum.",
         "operationId": "listVerifyAttributes",
         "requestBody": {
           "content": {
@@ -696,8 +696,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -726,8 +726,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -736,8 +736,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -769,7 +769,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "Sign data",
-        "description": "Sign a batch using the caller-selected execution mode (synchronous 200 or asynchronous 202).",
+        "description": "Sign a batch using the caller-selected execution mode (synchronous 200 or asynchronous 202). signatureAttributes must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one code from the required, single-select, non-extensible list offered by /sign/attributes.",
         "operationId": "signData",
         "requestBody": {
           "content": {
@@ -802,8 +802,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED), or the signatureAlgorithm selection names an algorithm the key does not support (errorCode PARAMETER_UNSUPPORTED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -832,8 +832,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED), or the signatureAlgorithm selection names an algorithm the key does not support (errorCode PARAMETER_UNSUPPORTED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -842,8 +842,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -898,6 +898,26 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -918,28 +938,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -987,6 +987,26 @@
           "204": {
             "description": "Aborted"
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -1007,28 +1027,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1060,7 +1060,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "List signing attributes",
-        "description": "Returns the signing parameter schema supported by the connector for the supplied token, profile and key context. The schema includes signatureAlgorithm, a v3 data attribute offering the signature algorithms the key supports.",
+        "description": "Returns the signing parameter schema supported by the connector for the supplied token, profile and key context. The schema must include exactly one v3 string data attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, as a required, single-select, non-extensible list offering the signature algorithms the key supports for signing. It must offer at least one value, and every offered value must be a code from the SignatureAlgorithm enum.",
         "operationId": "listSignAttributes",
         "requestBody": {
           "content": {
@@ -1086,8 +1086,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1116,8 +1116,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1126,8 +1126,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1182,8 +1182,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1212,8 +1212,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1222,8 +1222,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1281,8 +1281,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1311,8 +1311,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1321,8 +1321,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1354,7 +1354,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "Encrypt data",
-        "description": "Encrypt data with the given key (always synchronous)",
+        "description": "Encrypt data with the given key (always synchronous). cipherAttributes must include exactly one v3 string attribute named encryptionAlgorithm with UUID 5e364467-fa95-4253-907b-0c73cdfb2be7, selecting exactly one code from the required, single-select, non-extensible list offered by /encrypt/attributes. RSA OAEP profiles use MGF1 with the same hash as OAEP and an empty label.",
         "operationId": "encryptData",
         "requestBody": {
           "content": {
@@ -1377,8 +1377,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1407,8 +1407,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED), or the encryptionAlgorithm selection names an algorithm the key does not support (errorCode PARAMETER_UNSUPPORTED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1417,8 +1417,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1450,7 +1450,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "List encryption attributes",
-        "description": "Returns the encryption parameter schema supported by the connector for the supplied token, profile and key context",
+        "description": "Returns the encryption parameter schema supported by the connector for the supplied token, profile and key context. The schema must include exactly one v3 string data attribute named encryptionAlgorithm with UUID 5e364467-fa95-4253-907b-0c73cdfb2be7, as a required, single-select, non-extensible list. It must offer at least one EncryptionAlgorithm code supported by the key and backend. The codes and profile parameters are documented on CipherDataRequestV2Dto.cipherAttributes. RSA OAEP profiles use MGF1 with the same hash as OAEP and an empty label.",
         "operationId": "listEncryptAttributes",
         "requestBody": {
           "content": {
@@ -1476,8 +1476,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1506,8 +1506,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1516,8 +1516,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1549,7 +1549,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "Decrypt data",
-        "description": "Decrypt data with the given key (always synchronous)",
+        "description": "Decrypt data with the given key (always synchronous). cipherAttributes must include exactly one v3 string attribute named encryptionAlgorithm with UUID 5e364467-fa95-4253-907b-0c73cdfb2be7, selecting exactly one code from the required, single-select, non-extensible list offered by /decrypt/attributes. RSA OAEP profiles use MGF1 with the same hash as OAEP and an empty label.",
         "operationId": "decryptData",
         "requestBody": {
           "content": {
@@ -1572,8 +1572,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1602,8 +1602,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED), or the encryptionAlgorithm selection names an algorithm the key does not support (errorCode PARAMETER_UNSUPPORTED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1612,8 +1612,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1645,7 +1645,7 @@
           "Cryptographic Operations v2"
         ],
         "summary": "List decryption attributes",
-        "description": "Returns the decryption parameter schema supported by the connector for the supplied token, profile and key context",
+        "description": "Returns the decryption parameter schema supported by the connector for the supplied token, profile and key context. The schema must include exactly one v3 string data attribute named encryptionAlgorithm with UUID 5e364467-fa95-4253-907b-0c73cdfb2be7, as a required, single-select, non-extensible list. It must offer at least one EncryptionAlgorithm code supported by the key and backend. The codes and profile parameters are documented on CipherDataRequestV2Dto.cipherAttributes. RSA OAEP profiles use MGF1 with the same hash as OAEP and an empty label.",
         "operationId": "listDecryptAttributes",
         "requestBody": {
           "content": {
@@ -1671,8 +1671,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1701,8 +1701,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1711,8 +1711,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1777,18 +1777,8 @@
               }
             }
           },
-          "409": {
-            "description": "keyCreationId reused with a non-equivalent request (RESOURCE_ALREADY_EXISTS)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "- `EXPORTABLE_NOT_SUPPORTED` — the reserved `keyExportable` attribute asked for an exportable key\n  and this token cannot hold one. A connector must refuse rather than create a key whose flag it\n  cannot deliver.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule.\n",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1817,8 +1807,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "409": {
+            "description": "keyCreationId reused with a non-equivalent request (RESOURCE_ALREADY_EXISTS)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1827,8 +1817,18 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "422": {
+            "description": "- `EXPORTABLE_NOT_SUPPORTED` — the reserved `keyExportable` attribute asked for an exportable key\n  and this token cannot hold one. A connector must refuse rather than create a key whose flag it\n  cannot deliver.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1893,18 +1893,8 @@
               }
             }
           },
-          "409": {
-            "description": "`RESOURCE_ALREADY_EXISTS` — `keyImportId` was reused with a request that is not equivalent to the first one",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "- `KEY_TYPE_NOT_IMPORTABLE` — the key type or algorithm cannot be imported into this token.\n- `KEY_MATERIAL_MISMATCH` — the decrypted material is not the declared key type or algorithm.\n- `KEY_DECRYPTION_FAILED` — the material could not be decrypted with the supplied passphrase.\n- `EXPORTABLE_NOT_SUPPORTED` — the token cannot hold a key that stays exportable.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule, such as key material outside\n  the pinned protection profile.\n",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1933,8 +1923,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "409": {
+            "description": "`RESOURCE_ALREADY_EXISTS` — `keyImportId` was reused with a request that is not equivalent to the first one",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1943,8 +1933,18 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "422": {
+            "description": "- `KEY_TYPE_NOT_IMPORTABLE` — the key type or algorithm cannot be imported into this token.\n- `KEY_MATERIAL_MISMATCH` — the decrypted material is not the declared key type or algorithm.\n- `KEY_DECRYPTION_FAILED` — the material could not be decrypted with the supplied passphrase.\n- `EXPORTABLE_NOT_SUPPORTED` — the token cannot hold a key that stays exportable.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule, such as key material outside\n  the pinned protection profile.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1999,6 +1999,26 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -2019,28 +2039,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2095,6 +2095,26 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -2115,28 +2135,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2194,8 +2194,8 @@
               }
             }
           },
-          "422": {
-            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2224,8 +2224,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2234,8 +2234,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2283,6 +2283,26 @@
           "204": {
             "description": "Aborted"
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -2303,28 +2323,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2382,8 +2382,8 @@
               }
             }
           },
-          "422": {
-            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2412,8 +2412,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2422,8 +2422,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2478,8 +2478,8 @@
               }
             }
           },
-          "422": {
-            "description": "- `KEY_NOT_EXPORTABLE` — the key was not created or imported as exportable.\n- `KEY_TYPE_NOT_EXPORTABLE` — the key type or algorithm cannot be exported from this token.\n- `KEY_MATERIAL_MISMATCH` — the key the metadata identifies is not the declared key type.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule, such as an absent passphrase.\n",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2508,8 +2508,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "- `KEY_NOT_EXPORTABLE` — the key was not created or imported as exportable.\n- `KEY_TYPE_NOT_EXPORTABLE` — the key type or algorithm cannot be exported from this token.\n- `KEY_MATERIAL_MISMATCH` — the key the metadata identifies is not the declared key type.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule, such as an absent passphrase.\n",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2518,8 +2518,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2577,8 +2577,8 @@
               }
             }
           },
-          "422": {
-            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2607,8 +2607,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2617,8 +2617,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2676,8 +2676,8 @@
               }
             }
           },
-          "422": {
-            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2706,8 +2706,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "`VALIDATION_FAILED` — the body is readable but breaks a field rule",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2716,8 +2716,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2782,8 +2782,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2812,8 +2812,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2822,8 +2822,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2878,6 +2878,26 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -2898,28 +2918,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2967,6 +2967,26 @@
           "204": {
             "description": "Aborted"
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -2987,28 +3007,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3063,6 +3063,26 @@
               }
             }
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -3083,28 +3103,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3152,6 +3152,26 @@
           "204": {
             "description": "Aborted"
           },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -3172,28 +3192,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3251,8 +3251,8 @@
               }
             }
           },
-          "422": {
-            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3281,8 +3281,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "422": {
+            "description": "Request body was read successfully but violates a field validation rule (errorCode VALIDATION_FAILED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3291,8 +3291,8 @@
               }
             }
           },
-          "400": {
-            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3347,6 +3347,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found. Endpoint not found or not implemented",
             "content": {
@@ -3359,16 +3369,6 @@
           },
           "422": {
             "description": "Callback request failed validation at the connector",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3423,8 +3423,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal Server Error",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3433,8 +3433,8 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3465,12 +3465,12 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Health check indicates service or its component is unavailable",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthInfo"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -3485,12 +3485,12 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "503": {
+            "description": "Service Unavailable. Health check indicates service or its component is unavailable",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                  "$ref": "#/components/schemas/HealthInfo"
                 }
               }
             }
@@ -3517,12 +3517,12 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Health readiness check indicates service or its component is not ready",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthInfo"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -3537,12 +3537,12 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "503": {
+            "description": "Service Unavailable. Health readiness check indicates service or its component is not ready",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                  "$ref": "#/components/schemas/HealthInfo"
                 }
               }
             }
@@ -3569,12 +3569,12 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Health liveness check indicates service or its component is not live",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthInfo"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -3589,12 +3589,12 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "503": {
+            "description": "Service Unavailable. Health liveness check indicates service or its component is not live",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                  "$ref": "#/components/schemas/HealthInfo"
                 }
               }
             }
@@ -3783,8 +3783,8 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found. Endpoint not found or not implemented",
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3793,8 +3793,8 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3857,16 +3857,6 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable. Metrics could not be retrieved",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetailExtended"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -3889,6 +3879,16 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. Metrics could not be retrieved",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4099,17 +4099,17 @@
           }
         ],
         "properties": {
-          "type": {
-            "$ref": "#/components/schemas/AttributeConstraintType",
-            "description": "Attribute Constraint Type"
+          "description": {
+            "type": "string",
+            "description": "Description of the constraint"
           },
           "errorMessage": {
             "type": "string",
             "description": "Error message to be displayed for wrong data"
           },
-          "description": {
-            "type": "string",
-            "description": "Description of the constraint"
+          "type": {
+            "$ref": "#/components/schemas/AttributeConstraintType",
+            "description": "Attribute Constraint Type"
           }
         },
         "required": [
@@ -5930,6 +5930,11 @@
           }
         ],
         "properties": {
+          "uuid": {
+            "type": "string",
+            "description": "UUID of the Attribute for unique identification",
+            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
+          },
           "name": {
             "type": "string",
             "description": "Name of the Attribute that is used for identification",
@@ -5937,18 +5942,13 @@
               "Attribute"
             ]
           },
-          "type": {
-            "$ref": "#/components/schemas/AttributeType",
-            "description": "Type of the Attribute"
-          },
-          "uuid": {
-            "type": "string",
-            "description": "UUID of the Attribute for unique identification",
-            "example": "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7"
-          },
           "description": {
             "type": "string",
             "description": "Optional description of the Attribute, should contain helper text on what is expected"
+          },
+          "type": {
+            "$ref": "#/components/schemas/AttributeType",
+            "description": "Type of the Attribute"
           }
         },
         "required": [
@@ -7057,7 +7057,7 @@
           },
           "signatureAttributes": {
             "type": "array",
-            "description": "Signature attributes",
+            "description": "Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the verification attribute schema.",
             "items": {
               "$ref": "#/components/schemas/RequestAttribute"
             }
@@ -7203,7 +7203,7 @@
           },
           "signatureAttributes": {
             "type": "array",
-            "description": "Signature attributes",
+            "description": "Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the signing attribute schema.",
             "items": {
               "$ref": "#/components/schemas/RequestAttribute"
             }
@@ -7240,7 +7240,7 @@
           },
           "operationMeta": {
             "type": "array",
-            "description": "Connector-defined signing operation metadata. Present on async 202 as the tracking handle for the whole batch. Supply it by itself to /operations/sign/status and /operations/sign/cancel. It must remain valid for the operation's entire tracking lifetime.",
+            "description": "Connector-defined signing operation metadata. Required and non-empty on asynchronous 202 as the tracking handle for the whole batch; must be absent on synchronous 200. Supply it by itself to /operations/sign/status and /operations/sign/cancel. It must remain valid for the operation's entire tracking lifetime.",
             "items": {
               "$ref": "#/components/schemas/MetadataAttribute"
             },
@@ -7406,7 +7406,7 @@
           },
           "cipherAttributes": {
             "type": "array",
-            "description": "Batch-wide cipher settings.",
+            "description": "Batch-wide cipher settings. Must include exactly one v3 string attribute named encryptionAlgorithm with UUID 5e364467-fa95-4253-907b-0c73cdfb2be7, selecting exactly one code offered by the corresponding encryption or decryption attribute schema. Algorithm codes are values from the EncryptionAlgorithm enum. RSA OAEP profiles use MGF1 with the same hash as OAEP and an empty label. PKCS1 v1.5 and OAEP with SHA-1 are compatibility choices.",
             "items": {
               "$ref": "#/components/schemas/RequestAttribute"
             }
@@ -7662,7 +7662,7 @@
           "length": {
             "type": "integer",
             "format": "int32",
-            "description": "Bit length of the key",
+            "description": "Key length in bits. Required for RSA, ECDSA and AES; optional otherwise.",
             "minimum": 1
           },
           "metadata": {
@@ -7675,7 +7675,6 @@
         },
         "required": [
           "algorithm",
-          "length",
           "type"
         ]
       },
@@ -7721,7 +7720,7 @@
           "length": {
             "type": "integer",
             "format": "int32",
-            "description": "Bit length of the key",
+            "description": "Key length in bits. Required for RSA, ECDSA and AES; optional otherwise.",
             "minimum": 1
           },
           "metadata": {
@@ -7739,7 +7738,6 @@
         },
         "required": [
           "algorithm",
-          "length",
           "publicKeySpki",
           "type"
         ]
@@ -7800,7 +7798,7 @@
           "length": {
             "type": "integer",
             "format": "int32",
-            "description": "Bit length of the key",
+            "description": "Key length in bits. Required for RSA, ECDSA and AES; optional otherwise.",
             "minimum": 1
           },
           "metadata": {
@@ -7813,7 +7811,6 @@
         },
         "required": [
           "algorithm",
-          "length",
           "type"
         ]
       },
@@ -7926,14 +7923,14 @@
           }
         ],
         "properties": {
+          "status": {
+            "$ref": "#/components/schemas/OperationStatus"
+          },
           "reason": {
             "type": "string"
           },
           "result": {
             "$ref": "#/components/schemas/KeyCreationResponse"
-          },
-          "status": {
-            "$ref": "#/components/schemas/OperationStatus"
           },
           "keyRequestType": {
             "$ref": "#/components/schemas/KeyRequestType"
@@ -8185,15 +8182,15 @@
           }
         ],
         "properties": {
-          "length": {
-            "type": "integer",
-            "format": "int32"
-          },
           "type": {
             "$ref": "#/components/schemas/KeyTypeV2"
           },
           "algorithm": {
             "$ref": "#/components/schemas/KeyAlgorithm"
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
           },
           "metadata": {
             "type": "array",
@@ -8618,7 +8615,6 @@
           "certificateStatusPolling",
           "certificateRequestStructured",
           "certificateIdentityOverride",
-          "discoveryStreaming",
           "discoveryStopResume"
         ]
       },

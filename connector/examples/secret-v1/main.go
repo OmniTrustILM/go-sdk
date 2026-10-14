@@ -30,6 +30,7 @@ import (
 	"strings"
 	"syscall"
 
+	mdl "github.com/OmniTrustILM/go-sdk/connector/model/secret/v1"
 	secret "github.com/OmniTrustILM/go-sdk/connector/provider/secret/v1"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
@@ -55,7 +56,10 @@ func main() {
 	attrs := &Attrs{}
 
 	handler, err := secret.NewHandler(store,
-		secret.Base(handlerbase.WithStrictDecode(cfg.StrictDecode)),
+		secret.Base(
+			handlerbase.WithStrictDecode(cfg.StrictDecode),
+			handlerbase.WithFeatures(string(mdl.FEATUREFLAG_SECRET_ROTATION)),
+		),
 		secret.WithVaultAttributes(attrs),
 		secret.WithVaultProfileAttributes(attrs),
 	)

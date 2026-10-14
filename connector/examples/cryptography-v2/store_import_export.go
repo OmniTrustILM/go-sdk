@@ -254,7 +254,9 @@ func (s *Store) ExportKey(ctx context.Context, req *mdl.ExportKeyRequestV2Dto) (
 	if !ok {
 		return nil, cryptography.ErrKeyTypeNotExportable
 	}
-	resp.KeyData = mdl.PublicKeyDataV2DtoAsKeyDataV2(mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_ECDSA, 256, spki))
+	publicKey := mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_ECDSA, spki)
+	publicKey.SetLength(256)
+	resp.KeyData = mdl.PublicKeyDataV2DtoAsKeyDataV2(publicKey)
 	material, err := cryptography.ProtectKeyMaterial(privateKeyInfo, req.Passphrase)
 	if err != nil {
 		return nil, err
