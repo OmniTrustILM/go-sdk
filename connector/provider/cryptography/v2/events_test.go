@@ -30,7 +30,6 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 		{http.MethodPost, "/v2/cryptographyProvider/operations/verify/attributes", keyScopedRequestBody, "list_verify_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/operations/random/attributes", tokenProfileScopedBody, "list_random_data_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/tokens/status", tokenScopedBody, "token_status"},
-		{http.MethodPost, "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages", tokenScopedBody, "token_profile_key_usages"},
 		{http.MethodPost, "/v2/cryptographyProvider/tokens/keyRequestTypes", tokenProfileScopedBody, "key_request_types"},
 		{http.MethodPost, "/v2/cryptographyProvider/keys", createKeyBody("synchronous"), "create_key"},
 		{http.MethodPost, "/v2/cryptographyProvider/keys/destroy", destroyKeyBody("synchronous"), "destroy_key"},
@@ -55,8 +54,8 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 		{http.MethodPost, "/v2/cryptographyProvider/keys/export/attributes", keyScopedRequestBody, "list_export_key_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/keys/export", exportKeyBody(nil), "export_key"},
 	}
-	if len(routes) != 33 {
-		t.Fatalf("test bug: table has %d routes, need 33", len(routes))
+	if len(routes) != 32 {
+		t.Fatalf("test bug: table has %d routes, need 32", len(routes))
 	}
 
 	for _, tc := range routes {

@@ -19,9 +19,6 @@ type stubProvider struct {
 	tokenStatus    *mdl.TokenStatusResponseV2Dto
 	tokenStatusErr error
 
-	tokenProfileKeyUsages    []mdl.KeyUsage
-	tokenProfileKeyUsagesErr error
-
 	keyRequestTypes    []mdl.KeyRequestType
 	keyRequestTypesErr error
 
@@ -52,10 +49,6 @@ type stubProvider struct {
 
 func (s *stubProvider) TokenStatus(ctx context.Context, req *mdl.TokenScopedRequestV2Dto) (*mdl.TokenStatusResponseV2Dto, error) {
 	return s.tokenStatus, s.tokenStatusErr
-}
-
-func (s *stubProvider) TokenProfileKeyUsages(ctx context.Context, req *mdl.TokenScopedRequestV2Dto) ([]mdl.KeyUsage, error) {
-	return s.tokenProfileKeyUsages, s.tokenProfileKeyUsagesErr
 }
 
 func (s *stubProvider) KeyRequestTypes(ctx context.Context, req *mdl.TokenProfileScopedRequestV2Dto) ([]mdl.KeyRequestType, error) {

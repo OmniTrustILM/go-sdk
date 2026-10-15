@@ -773,8 +773,8 @@ func TestMountRegistersEveryRoute(t *testing.T) {
 
 func assertMountedExactly(t *testing.T, patterns []string) {
 	t.Helper()
-	if len(patterns) != 33 {
-		t.Fatalf("mounted %d routes, want 33: %v", len(patterns), patterns)
+	if len(patterns) != 32 {
+		t.Fatalf("mounted %d routes, want 32: %v", len(patterns), patterns)
 	}
 
 	want := map[string]bool{
@@ -787,7 +787,6 @@ func assertMountedExactly(t *testing.T, patterns []string) {
 		"POST /v2/cryptographyProvider/operations/verify/attributes":   true,
 		"POST /v2/cryptographyProvider/operations/random/attributes":   true,
 		"POST /v2/cryptographyProvider/tokens/status":                  true,
-		"POST /v2/cryptographyProvider/tokens/tokenProfile/keyUsages":  true,
 		"POST /v2/cryptographyProvider/tokens/keyRequestTypes":         true,
 		"POST /v2/cryptographyProvider/keys":                           true,
 		"POST /v2/cryptographyProvider/keys/destroy":                   true,
@@ -812,8 +811,8 @@ func assertMountedExactly(t *testing.T, patterns []string) {
 		"POST /v2/cryptographyProvider/keys/export/attributes":         true,
 		"POST /v2/cryptographyProvider/keys/export":                    true,
 	}
-	if len(want) != 33 {
-		t.Fatalf("test bug: want set has %d entries, need 33", len(want))
+	if len(want) != 32 {
+		t.Fatalf("test bug: want set has %d entries, need 32", len(want))
 	}
 	for _, p := range patterns {
 		if strings.ContainsAny(p, "{}") {

@@ -110,7 +110,6 @@ func (h *Handler) Mount(r shared.Router) {
 	r.Handle(http.MethodPost, base+"/operations/random/attributes", h.listRandomDataAttributes)
 
 	r.Handle(http.MethodPost, base+"/tokens/status", h.tokenStatus)
-	r.Handle(http.MethodPost, base+"/tokens/tokenProfile/keyUsages", h.tokenProfileKeyUsages)
 	r.Handle(http.MethodPost, base+"/tokens/keyRequestTypes", h.keyRequestTypes)
 
 	r.Handle(http.MethodPost, base+"/keys", h.createKey)

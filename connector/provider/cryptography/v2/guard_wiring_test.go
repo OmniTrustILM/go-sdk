@@ -340,12 +340,6 @@ func TestTokenStatusResponseMustCarryAKnownStatus(t *testing.T) {
 	assertShapeViolation(t, rec, "token status must be a known token status")
 }
 
-func TestTokenProfileKeyUsagesMustBeKnownValues(t *testing.T) {
-	p := &stubProvider{tokenProfileKeyUsages: []mdl.KeyUsage{"bogus"}}
-	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages", tokenScopedBody)
-	assertShapeViolation(t, rec, "key usages must contain only known values")
-}
-
 func TestKeyRequestTypesMustBeKnownValues(t *testing.T) {
 	p := &stubProvider{keyRequestTypes: []mdl.KeyRequestType{"x"}}
 	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/tokens/keyRequestTypes", tokenProfileScopedBody)

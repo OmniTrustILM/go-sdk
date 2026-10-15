@@ -16,7 +16,7 @@ import (
 )
 
 // Provider is the surface every v2 cryptography connector implements. A
-// synchronous-only connector implements these ten methods and always returns
+// synchronous-only connector implements these nine methods and always returns
 // accepted == false; attribute schemas and async status/cancel live in separate
 // interfaces.
 //
@@ -36,9 +36,6 @@ type Provider interface {
 	// TokenStatus reports whether the token described by req.TokenAttributes
 	// is reachable and usable.
 	TokenStatus(ctx context.Context, req *mdl.TokenScopedRequestV2Dto) (*mdl.TokenStatusResponseV2Dto, error)
-
-	// TokenProfileKeyUsages lists the key usages the token profile supports.
-	TokenProfileKeyUsages(ctx context.Context, req *mdl.TokenScopedRequestV2Dto) ([]mdl.KeyUsage, error)
 
 	// KeyRequestTypes lists the key request types the token profile supports.
 	KeyRequestTypes(ctx context.Context, req *mdl.TokenProfileScopedRequestV2Dto) ([]mdl.KeyRequestType, error)

@@ -18,16 +18,15 @@ const (
 	eventVerifyAttributes       = "list_verify_attributes"
 	eventRandomDataAttributes   = "list_random_data_attributes"
 
-	eventTokenStatus           = "token_status"
-	eventTokenProfileKeyUsages = "token_profile_key_usages"
-	eventKeyRequestTypes       = "key_request_types"
-	eventCreateKey             = "create_key"
-	eventDestroyKey            = "destroy_key"
-	eventSignData              = "sign_data"
-	eventEncryptData           = "encrypt_data"
-	eventDecryptData           = "decrypt_data"
-	eventVerifyData            = "verify_data"
-	eventRandomData            = "random_data"
+	eventTokenStatus     = "token_status"
+	eventKeyRequestTypes = "key_request_types"
+	eventCreateKey       = "create_key"
+	eventDestroyKey      = "destroy_key"
+	eventSignData        = "sign_data"
+	eventEncryptData     = "encrypt_data"
+	eventDecryptData     = "decrypt_data"
+	eventVerifyData      = "verify_data"
+	eventRandomData      = "random_data"
 
 	eventCreateKeyStatus  = "create_key_status"
 	eventCancelCreateKey  = "cancel_create_key"
@@ -302,27 +301,6 @@ func (h *Handler) tokenStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write tokenStatus response", "err", writeErr)
-	}
-}
-
-func (h *Handler) tokenProfileKeyUsages(w http.ResponseWriter, r *http.Request) {
-	var in mdl.TokenScopedRequestV2Dto
-	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
-		shared.EmitEvent(r.Context(), eventTokenProfileKeyUsages, err)
-		shared.RenderError(w, r, err)
-		return
-	}
-	out, err := h.provider.TokenProfileKeyUsages(r.Context(), &in)
-	if err == nil {
-		err = validateKnownEnums(out, "key usages")
-	}
-	shared.EmitEvent(r.Context(), eventTokenProfileKeyUsages, err)
-	if err != nil {
-		shared.RenderError(w, r, err)
-		return
-	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, shared.EnsureSlice(out)); writeErr != nil {
-		h.LoggerFor(r).Error("write tokenProfileKeyUsages response", "err", writeErr)
 	}
 }
 
