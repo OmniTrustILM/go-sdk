@@ -84,59 +84,6 @@ func TestTokenStatusRejectsNilProviderResponse(t *testing.T) {
 	}
 }
 
-// --- /tokens/tokenProfile/keyUsages --------------------------------------------
-
-func TestTokenProfileKeyUsagesReturns200WithProviderPayload(t *testing.T) {
-	p := &stubProvider{tokenProfileKeyUsages: []mdl.KeyUsage{mdl.KEYUSAGE_SIGN, mdl.KEYUSAGE_VERIFY}}
-	srv := newTestServer(t, p)
-
-	req := httptest.NewRequest(http.MethodPost, "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages", strings.NewReader(tokenScopedBody))
-	rec := httptest.NewRecorder()
-
-	srv.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body.String())
-	}
-	var got []mdl.KeyUsage
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if len(got) != 2 || got[0] != mdl.KEYUSAGE_SIGN || got[1] != mdl.KEYUSAGE_VERIFY {
-		t.Errorf("got %v, want [sign verify]", got)
-	}
-}
-
-func TestTokenProfileKeyUsagesNormalizesNilToEmptyArray(t *testing.T) {
-	srv := newTestServer(t, &stubProvider{})
-
-	req := httptest.NewRequest(http.MethodPost, "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages", strings.NewReader(tokenScopedBody))
-	rec := httptest.NewRecorder()
-
-	srv.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body.String())
-	}
-	if got := strings.TrimSpace(rec.Body.String()); got != "[]" {
-		t.Errorf("body = %s, want []", got)
-	}
-}
-
-func TestTokenProfileKeyUsagesMapsProviderErrorToProblem(t *testing.T) {
-	p := &stubProvider{tokenProfileKeyUsagesErr: cryptography.ErrTokenNotFound}
-	srv := newTestServer(t, p)
-
-	req := httptest.NewRequest(http.MethodPost, "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages", strings.NewReader(tokenScopedBody))
-	rec := httptest.NewRecorder()
-
-	srv.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404; body %s", rec.Code, rec.Body.String())
-	}
-}
-
 // --- /tokens/keyRequestTypes ---------------------------------------------------
 
 func TestKeyRequestTypesReturns200WithProviderPayload(t *testing.T) {

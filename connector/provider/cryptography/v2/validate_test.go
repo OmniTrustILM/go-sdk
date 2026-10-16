@@ -1159,10 +1159,10 @@ func TestValidateTokenStatus(t *testing.T) {
 }
 
 func TestValidateKnownEnums(t *testing.T) {
-	wantNoError(t, validateKnownEnums([]mdl.KeyUsage{mdl.KEYUSAGE_SIGN, mdl.KEYUSAGE_VERIFY}, "key usages"))
-	wantNoError(t, validateKnownEnums[mdl.KeyUsage](nil, "key usages"))
-	wantResponseShapeError(t, validateKnownEnums([]mdl.KeyUsage{mdl.KEYUSAGE_SIGN, "bogus"}, "key usages"),
-		"key usages must contain only known values")
+	wantNoError(t, validateKnownEnums([]mdl.KeyRequestType{mdl.KEYREQUESTTYPE_SECRET, mdl.KEYREQUESTTYPE_KEY_PAIR}, "key request types"))
+	wantNoError(t, validateKnownEnums[mdl.KeyRequestType](nil, "key request types"))
+	wantResponseShapeError(t, validateKnownEnums([]mdl.KeyRequestType{mdl.KEYREQUESTTYPE_SECRET, "bogus"}, "key request types"),
+		"key request types must contain only known values")
 	wantResponseShapeError(t, validateKnownEnums([]mdl.KeyRequestType{""}, "key request types"),
 		"key request types must contain only known values")
 }

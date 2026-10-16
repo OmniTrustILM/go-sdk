@@ -519,18 +519,6 @@ func (s *Store) TokenStatus(ctx context.Context, req *mdl.TokenScopedRequestV2Dt
 	return &mdl.TokenStatusResponseV2Dto{Status: mdl.TOKENSTATUSV2_CONNECTED}, nil
 }
 
-// TokenProfileKeyUsages reports every key usage this example understands.
-func (s *Store) TokenProfileKeyUsages(ctx context.Context, req *mdl.TokenScopedRequestV2Dto) ([]mdl.KeyUsage, error) {
-	return []mdl.KeyUsage{
-		mdl.KEYUSAGE_SIGN,
-		mdl.KEYUSAGE_VERIFY,
-		mdl.KEYUSAGE_ENCRYPT,
-		mdl.KEYUSAGE_DECRYPT,
-		mdl.KEYUSAGE_WRAP,
-		mdl.KEYUSAGE_UNWRAP,
-	}, nil
-}
-
 // KeyRequestTypes reports both key request types this example supports.
 func (s *Store) KeyRequestTypes(ctx context.Context, req *mdl.TokenProfileScopedRequestV2Dto) ([]mdl.KeyRequestType, error) {
 	return []mdl.KeyRequestType{mdl.KEYREQUESTTYPE_SECRET, mdl.KEYREQUESTTYPE_KEY_PAIR}, nil
