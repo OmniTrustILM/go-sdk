@@ -176,17 +176,12 @@ func debugTestConnector(t *testing.T, buf *bytes.Buffer, opts ...Option) *Connec
 	return newTestConnector(t, buf, append([]Option{WithLogger(logger)}, opts...)...)
 }
 
-// completedSeverity sends one GET for path and returns the severity of the
-// "request completed" line it logged.
+// completedSeverity serves one GET for path and returns the severity of the
+// "request completed" line it logged. The request is served in-process, so
+// the line is written before ServeHTTP returns and buf is read.
 func completedSeverity(t *testing.T, c *Connector, buf *bytes.Buffer, path string) string {
 	t.Helper()
-	srv := httptest.NewServer(c.Handler())
-	defer srv.Close()
-	resp, err := http.Get(srv.URL + path)
-	if err != nil {
-		t.Fatalf("request: %v", err)
-	}
-	resp.Body.Close()
+	c.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil))
 	var severities []string
 	for _, l := range logLines(t, buf) {
 		if l["message"] == "request completed" {
