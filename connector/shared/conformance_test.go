@@ -62,7 +62,7 @@ func TestConformanceLoggingAndTracing(t *testing.T) {
 	defer srv.Close()
 
 	const inboundTrace = "4bf92f3577b34da6a3ce929d0e0e4736"
-	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/v2/health", nil)
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/v2/info", nil)
 	req.Header.Set("traceparent", "00-"+inboundTrace+"-00f067aa0ba902b7-01")
 	req.Header.Set(CorrelationHeader, "conformance-corr-1")
 	resp, err := http.DefaultClient.Do(req)
@@ -135,7 +135,7 @@ func TestConformanceUntracedRequestStillSatisfiesInvariant(t *testing.T) {
 	srv := httptest.NewServer(c.Handler())
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/v2/health")
+	resp, err := http.Get(srv.URL + "/v2/info")
 	if err != nil {
 		t.Fatalf("request: %v", err)
 	}
@@ -144,10 +144,12 @@ func TestConformanceUntracedRequestStillSatisfiesInvariant(t *testing.T) {
 		t.Error("no Correlation-Id generated and echoed")
 	}
 
+	checked := 0
 	for i, l := range logLines(t, &buf) {
 		if l["message"] != "request completed" {
 			continue
 		}
+		checked++
 		tid, _ := l["trace_id"].(string)
 		sid, _ := l["span_id"].(string)
 		if !traceIDRe.MatchString(tid) {
@@ -157,6 +159,77 @@ func TestConformanceUntracedRequestStillSatisfiesInvariant(t *testing.T) {
 			t.Errorf("line %d: span_id %q not 16-hex", i, sid)
 		}
 	}
+	if checked == 0 {
+		t.Fatal(`no "request completed" line to check`)
+	}
+}
+
+// debugTestConnector is newTestConnector logging at DEBUG, so a line logged
+// below INFO is written and its severity can be checked.
+func debugTestConnector(t *testing.T, buf *bytes.Buffer, opts ...Option) *Connector {
+	t.Helper()
+	logger := slog.New(NewLogHandler(buf, &LogHandlerOptions{
+		Level:          slog.LevelDebug,
+		ServiceName:    "conformance-test",
+		ServiceVersion: "0.0.1",
+	}))
+	return newTestConnector(t, buf, append([]Option{WithLogger(logger)}, opts...)...)
+}
+
+// completedSeverity serves one GET for path and returns the severity of the
+// "request completed" line it logged. The request is served in-process, so
+// the line is written before ServeHTTP returns and buf is read.
+func completedSeverity(t *testing.T, c *Connector, buf *bytes.Buffer, path string) string {
+	t.Helper()
+	c.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil))
+	var severities []string
+	for _, l := range logLines(t, buf) {
+		if l["message"] == "request completed" {
+			s, _ := l["severity"].(string)
+			severities = append(severities, s)
+		}
+	}
+	if len(severities) != 1 {
+		t.Fatalf(`want one "request completed" line for %s, got %d`, path, len(severities))
+	}
+	return severities[0]
+}
+
+// TestConformanceProbesAndScrapesAreQuietUnlessTheyFail: a platform polls the
+// health routes and scrapes the metrics every few seconds, so a successful
+// request to one is logged at DEBUG and stays out of an INFO log, while one
+// that fails is logged at WARN. Any other request is logged at INFO.
+func TestConformanceProbesAndScrapesAreQuietUnlessTheyFail(t *testing.T) {
+	for _, path := range []string{"/v2/health", "/v2/health/liveness", "/v2/health/readiness", "/v1/metrics"} {
+		t.Run("a successful "+path, func(t *testing.T) {
+			var buf bytes.Buffer
+			c := debugTestConnector(t, &buf, WithMetrics(DefaultPrometheus(BuildInfo{Version: "0.0.1"})))
+			if got := completedSeverity(t, c, &buf, path); got != "DEBUG" {
+				t.Errorf("severity = %q, want DEBUG", got)
+			}
+		})
+	}
+	t.Run("a successful /v1/health", func(t *testing.T) {
+		var buf bytes.Buffer
+		c := debugTestConnector(t, &buf, WithHealthVersion(VersionV1))
+		if got := completedSeverity(t, c, &buf, "/v1/health"); got != "DEBUG" {
+			t.Errorf("severity = %q, want DEBUG", got)
+		}
+	})
+	t.Run("a failing readiness probe", func(t *testing.T) {
+		var buf bytes.Buffer
+		up := HealthStatus{Status: HealthUp}
+		c := debugTestConnector(t, &buf, WithHealthCheck(stubChecker{live: up, ready: HealthStatus{Status: HealthDown}, health: up}))
+		if got := completedSeverity(t, c, &buf, "/v2/health/readiness"); got != "WARN" {
+			t.Errorf("severity = %q, want WARN", got)
+		}
+	})
+	t.Run("any other request", func(t *testing.T) {
+		var buf bytes.Buffer
+		if got := completedSeverity(t, debugTestConnector(t, &buf), &buf, "/v2/info"); got != "INFO" {
+			t.Errorf("severity = %q, want INFO", got)
+		}
+	})
 }
 
 // TestConformanceRealTracerComposition simulates a connector that installs

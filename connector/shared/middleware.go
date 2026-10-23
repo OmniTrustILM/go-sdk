@@ -102,13 +102,38 @@ func sanitizeCorrelationID(v string) string {
 	return v
 }
 
+// probeAndScrapePaths are the routes a platform polls every few seconds: the
+// health routes mountHealth serves and the metrics scrape. A successful request
+// to one is logged at DEBUG, so the polling does not drown an INFO log, and a
+// failed one at WARN, so a failing probe still stands out.
+var probeAndScrapePaths = map[string]bool{
+	"/v1/health":           true,
+	"/v2/health":           true,
+	"/v2/health/liveness":  true,
+	"/v2/health/readiness": true,
+	"/v1/metrics":          true,
+}
+
+// completedLevel is the level of the "request completed" line for a request
+// that ended with status: INFO, except for a probe or scrape (see
+// probeAndScrapePaths).
+func completedLevel(r *http.Request, status int) slog.Level {
+	if r.Method != http.MethodGet || !probeAndScrapePaths[r.URL.Path] {
+		return slog.LevelInfo
+	}
+	if status >= http.StatusBadRequest {
+		return slog.LevelWarn
+	}
+	return slog.LevelDebug
+}
+
 // withSlogLogger builds the request-scoped logger and emits the built-in
-// "request completed" line. It binds trace_id / span_id / trace_flags (from
-// the span context established by the tracing middleware) and correlation_id
-// onto the logger, so every record logged through LoggerFromContext carries
-// the spec's conditional fields even when callers use the context-free slog
-// methods. The connector.log handler promotes those bound keys to top-level
-// envelope fields.
+// "request completed" line, at the level completedLevel gives it. It binds
+// trace_id / span_id / trace_flags (from the span context established by the
+// tracing middleware) and correlation_id onto the logger, so every record
+// logged through LoggerFromContext carries the spec's conditional fields even
+// when callers use the context-free slog methods. The connector.log handler
+// promotes those bound keys to top-level envelope fields.
 func withSlogLogger(base *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +161,7 @@ func withSlogLogger(base *slog.Logger) Middleware {
 			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rec, r.WithContext(ctx))
 
-			log.InfoContext(ctx, "request completed",
+			log.Log(ctx, completedLevel(r, rec.status), "request completed",
 				"status", rec.status,
 				"bytes", rec.bytes,
 				"duration_ms", time.Since(start).Milliseconds(),
