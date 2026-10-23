@@ -218,3 +218,35 @@ type KeyExportProvider interface {
 	//     return none when it is not
 	ExportKey(ctx context.Context, req *mdl.ExportKeyRequestV2Dto) (*mdl.ExportKeyResponseV2Dto, error)
 }
+
+// KeyListProvider lets the platform onboard the keys a token already holds.
+// Register it with WithKeyList and advertise FeatureFlag.KEY_LIST, an
+// ENFORCED flag.
+type KeyListProvider interface {
+	// ListKeys returns one full page of the token's keys of req.KeyRequestType,
+	// at most req.Limit of them after skipping req.Offset. Implementers must:
+	//   - return ErrKeyTypeNotListable for a key request type they cannot
+	//     list, since an empty page would claim the token holds none
+	//   - count every key of the type in TotalItems, and put each counted key
+	//     on its page: in Items when the platform can onboard it, else in
+	//     UnusableKeys with its reason
+	//   - keep the order stable while the token is unchanged
+	//   - leave PublicKeyData nil for a private key whose public object is
+	//     missing
+	//   - return metadata that every later request accepts, as CreateKey
+	//     does; a secret key's KeyMeta is its only identity, so it must equal
+	//     what CreateKey returned for it
+	//   - fail only for a fault of the whole token (session, login or PIN,
+	//     transport), and report an error about one key in that key's entry
+	ListKeys(ctx context.Context, req *mdl.ListKeysRequestV2Dto) (*mdl.ListKeysResponseV2Dto, error)
+
+	// ResolveKeys answers each of req.Keys once, under its Identifier.
+	// Implementers must:
+	//   - give each handle a KeyResolutionOutcome, and set Key for FOUND only,
+	//     in the shape ListKeys returns
+	//   - return ErrKeyTypeNotListable for a key request type they cannot
+	//     list
+	//   - fail only for a fault of the whole token, and report an error about
+	//     one key in that key's result
+	ResolveKeys(ctx context.Context, req *mdl.ResolveKeysRequestV2Dto) (*mdl.ResolveKeysResponseV2Dto, error)
+}

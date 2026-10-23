@@ -281,7 +281,7 @@ func (s *Store) exportable(req *mdl.ExportKeyRequestV2Dto) ([]byte, *mdl.ExportK
 		return nil, nil, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
 	}
 	kind := mdl.KEYREQUESTTYPE_SECRET
-	if rec.spki != "" {
+	if rec.isKeyPair() {
 		kind = mdl.KEYREQUESTTYPE_KEY_PAIR
 	}
 	switch {

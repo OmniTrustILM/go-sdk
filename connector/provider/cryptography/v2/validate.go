@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -29,6 +30,12 @@ const maxIdempotencyKeyLen = 256
 // maxRandomDataLength mirrors RandomDataRequestV2Dto.length's documented 1 MiB
 // cap, which the generated DTO does not enforce.
 const maxRandomDataLength = 1048576
+
+// maxKeyPage mirrors the spec's maximum on ListKeysRequestV2Dto.limit.
+const maxKeyPage = 1000
+
+// maxResolvedKeys mirrors the spec's maximum on ResolveKeysRequestV2Dto.keys.
+const maxResolvedKeys = 1000
 
 // errValidationFailed renders 422 VALIDATION_FAILED. msg must be a %-free
 // literal naming the violated rule: shared.Invalid is printf-style, and echoing
@@ -508,20 +515,27 @@ func validateKeyCreationMetadata(out *mdl.KeyCreationResponse) error {
 		); err != nil {
 			return err
 		}
-		if v.PublicKeyData != nil {
-			if err := firstError(
-				validateMetadataElements(v.PublicKeyData.KeyMeta, "publicKeyData.keyMeta"),
-				validateMetadataElements(v.PublicKeyData.KeyData.Metadata, "publicKeyData.keyData.metadata"),
-			); err != nil {
-				return err
-			}
+		return validateKeyHalvesMetadata(v.PublicKeyData, v.PrivateKeyData)
+	}
+	return nil
+}
+
+// validateKeyHalvesMetadata applies validateMetadataElements to a key pair's
+// halves, whose metadata later requests send back.
+func validateKeyHalvesMetadata(public *mdl.PublicKeyDataResponseV2Dto, private *mdl.PrivateKeyDataResponseV2Dto) error {
+	if public != nil {
+		if err := firstError(
+			validateMetadataElements(public.KeyMeta, "publicKeyData.keyMeta"),
+			validateMetadataElements(public.KeyData.Metadata, "publicKeyData.keyData.metadata"),
+		); err != nil {
+			return err
 		}
-		if v.PrivateKeyData != nil {
-			return firstError(
-				validateMetadataElements(v.PrivateKeyData.KeyMeta, "privateKeyData.keyMeta"),
-				validateMetadataElements(v.PrivateKeyData.KeyData.Metadata, "privateKeyData.keyData.metadata"),
-			)
-		}
+	}
+	if private != nil {
+		return firstError(
+			validateMetadataElements(private.KeyMeta, "privateKeyData.keyMeta"),
+			validateMetadataElements(private.KeyData.Metadata, "privateKeyData.keyData.metadata"),
+		)
 	}
 	return nil
 }
@@ -575,17 +589,23 @@ func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) err
 	if len(v.PublicKeyData.KeyMeta) == 0 || len(v.PrivateKeyData.KeyMeta) == 0 {
 		return errIncompleteKeyPayload(subject)
 	}
-	pub, priv := &v.PublicKeyData.KeyData, &v.PrivateKeyData.KeyData
-	if err := firstError(
-		validateKeyDescriptor(pub.Type, keyTypePublic, pub.Algorithm, pub.Length, "publicKeyData.keyData"),
-		validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"),
-	); err != nil {
+	priv := &v.PrivateKeyData.KeyData
+	if err := validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"); err != nil {
+		return err
+	}
+	return validatePublicHalf(&v.PublicKeyData.KeyData, priv.Algorithm)
+}
+
+// validatePublicHalf holds a public key descriptor to its SPKI and to its
+// private key's algorithm.
+func validatePublicHalf(pub *mdl.PublicKeyDataV2Dto, privateAlgorithm mdl.KeyAlgorithm) error {
+	if err := validateKeyDescriptor(pub.Type, keyTypePublic, pub.Algorithm, pub.Length, "publicKeyData.keyData"); err != nil {
 		return err
 	}
 	if pub.PublicKeySpki == "" {
 		return errResponseShape("publicKeyData.keyData must carry publicKeySpki")
 	}
-	if pub.Algorithm != priv.Algorithm {
+	if pub.Algorithm != privateAlgorithm {
 		return errResponseShape("public and private key algorithms must match")
 	}
 	return nil
@@ -929,12 +949,7 @@ func validateExportShape(req *mdl.ExportKeyRequestV2Dto, out *mdl.ExportKeyRespo
 // length, and never a private-key descriptor, which says nothing Core could
 // check.
 func validateExportedDescriptor(requested mdl.KeyRequestType, keyData *mdl.KeyDataV2) error {
-	arms := 0
-	for _, set := range []bool{keyData.PublicKeyDataV2Dto != nil, keyData.SecretKeyDataV2Dto != nil, keyData.PrivateKeyDataV2Dto != nil} {
-		if set {
-			arms++
-		}
-	}
+	arms := keyDataArms(keyData)
 	switch {
 	case arms == 0:
 		return errResponseShape("keyData must describe the exported key")
@@ -947,6 +962,16 @@ func validateExportedDescriptor(requested mdl.KeyRequestType, keyData *mdl.KeyDa
 	default:
 		return validateExportedSecretKey(keyData.SecretKeyDataV2Dto)
 	}
+}
+
+func keyDataArms(keyData *mdl.KeyDataV2) int {
+	arms := 0
+	for _, set := range []bool{keyData.PublicKeyDataV2Dto != nil, keyData.SecretKeyDataV2Dto != nil, keyData.PrivateKeyDataV2Dto != nil} {
+		if set {
+			arms++
+		}
+	}
+	return arms
 }
 
 func validateExportedPublicKey(publicKey *mdl.PublicKeyDataV2Dto) error {
@@ -1001,4 +1026,220 @@ func validateResponseMaterial(material mdl.EncryptedKeyMaterialV2Dto) error {
 		return errResponseShape(err.Error())
 	}
 	return nil
+}
+
+func validateListKeysRequest(in *mdl.ListKeysRequestV2Dto) error {
+	switch {
+	case in.Offset < 0:
+		return errValidationFailed("offset must not be negative")
+	case in.Limit < 1:
+		return errValidationFailed("limit must be positive")
+	case in.Limit > maxKeyPage:
+		return errValidationFailed("limit must not exceed " + strconv.Itoa(maxKeyPage))
+	}
+	return nil
+}
+
+// validateListKeysResponse holds a provider to a full page of the requested
+// type: every key the page counts, each an entry or an unusable key. A page
+// past the total is empty, since the token can lose keys between two pages.
+func validateListKeysResponse(in *mdl.ListKeysRequestV2Dto, out *mdl.ListKeysResponseV2Dto) error {
+	if out.TotalItems < 0 {
+		return errResponseShape("totalItems must not be negative")
+	}
+	remaining := max(0, out.TotalItems-int64(in.Offset))
+	if int64(len(out.Items)+len(out.UnusableKeys)) != min(int64(in.Limit), remaining) {
+		return errResponseShape("key listing must hold every key its page counts")
+	}
+	for i := range out.Items {
+		handle, err := validateListedKey(in.KeyRequestType, &out.Items[i])
+		if err != nil {
+			return err
+		}
+		if !unambiguousHandle(handle) {
+			return errResponseShape("a listed key's metadata must be an unambiguous handle")
+		}
+	}
+	for i := range out.UnusableKeys {
+		if err := validateUnusableKey(in.KeyRequestType, &out.UnusableKeys[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateResolveKeysRequest(in *mdl.ResolveKeysRequestV2Dto) error {
+	if err := validateNonEmptyBatch(len(in.Keys), "keys"); err != nil {
+		return err
+	}
+	if len(in.Keys) > maxResolvedKeys {
+		return errValidationFailed("keys must not exceed " + strconv.Itoa(maxResolvedKeys))
+	}
+	ids := make([]string, len(in.Keys))
+	for i, key := range in.Keys {
+		if strings.TrimSpace(key.Identifier) == "" {
+			return errValidationFailed("keys identifiers must not be blank")
+		}
+		if len(key.KeyMeta) == 0 {
+			return errValidationFailed("keys must not contain an empty handle")
+		}
+		ids[i] = key.Identifier
+	}
+	return validateUniqueIdentifiers(ids, "keys")
+}
+
+// validateResolveKeysResponse holds a provider to one result per handle, with
+// a key exactly for a found one, in the shape a listing returns.
+func validateResolveKeysResponse(in *mdl.ResolveKeysRequestV2Dto, out *mdl.ResolveKeysResponseV2Dto) error {
+	requested := make([]string, len(in.Keys))
+	for i, key := range in.Keys {
+		requested[i] = key.Identifier
+	}
+	answered := make([]string, len(out.Results))
+	for i, result := range out.Results {
+		answered[i] = result.Identifier
+	}
+	if err := validateResponseIdentifiers(requested, answered, "key resolution"); err != nil {
+		return err
+	}
+	for i := range out.Results {
+		result := &out.Results[i]
+		if !result.Outcome.IsValid() {
+			return errResponseShape("outcome must be a KeyResolutionOutcome")
+		}
+		if (result.Key != nil) != (result.Outcome == mdl.KEYRESOLUTIONOUTCOME_FOUND) {
+			return errResponseShape("a key resolution must carry a key exactly when its outcome is found")
+		}
+		if result.Key == nil {
+			continue
+		}
+		handle, err := validateListedKey(in.KeyRequestType, result.Key)
+		if err != nil {
+			return err
+		}
+		if !unambiguousHandle(handle) {
+			return errResponseShape("a listed key's metadata must be an unambiguous handle")
+		}
+	}
+	return nil
+}
+
+// validateListedKey holds an entry to one variant of the requested type and
+// returns its handle.
+func validateListedKey(requested mdl.KeyRequestType, key *mdl.ListedKeyV2) ([]mdl.MetadataAttribute, error) {
+	pair, secret := key.ListedKeyPairV2Dto, key.ListedSecretKeyV2Dto
+	switch {
+	case (pair == nil) == (secret == nil):
+		return nil, errResponseShape("a listed key must populate exactly one variant")
+	case requested == mdl.KEYREQUESTTYPE_KEY_PAIR && pair != nil:
+		return pair.KeyPairMeta, validateListedKeyPair(pair)
+	case requested == mdl.KEYREQUESTTYPE_SECRET && secret != nil:
+		return secret.KeyMeta, validateListedSecretKey(secret)
+	default:
+		return nil, errResponseShape("key listing must return only keys of the requested key request type")
+	}
+}
+
+// validateUnusableKey holds an unusable key to a known reason and, when it
+// describes the key, to the requested type. A key pair listing reports such a
+// pair by its private key.
+func validateUnusableKey(requested mdl.KeyRequestType, key *mdl.UnusableKeyV2Dto) error {
+	if !key.Reason.IsValid() {
+		return errResponseShape("unusableKeys.reason must be an UnusableKeyReason")
+	}
+	if key.KeyData == nil {
+		return nil
+	}
+	data := key.KeyData
+	if keyDataArms(data) != 1 {
+		return errResponseShape("unusableKeys.keyData must describe the key once")
+	}
+	switch {
+	case requested == mdl.KEYREQUESTTYPE_KEY_PAIR && data.PrivateKeyDataV2Dto != nil:
+		private := data.PrivateKeyDataV2Dto
+		return firstError(
+			validateKeyDescriptor(private.Type, keyTypePrivate, private.Algorithm, private.Length, "unusableKeys.keyData"),
+			validateMetadataElements(private.Metadata, "unusableKeys.keyData.metadata"),
+		)
+	case requested == mdl.KEYREQUESTTYPE_SECRET && data.SecretKeyDataV2Dto != nil:
+		secret := data.SecretKeyDataV2Dto
+		return firstError(
+			validateKeyDescriptor(secret.Type, keyTypeSecret, secret.Algorithm, secret.Length, "unusableKeys.keyData"),
+			validateMetadataElements(secret.Metadata, "unusableKeys.keyData.metadata"),
+		)
+	default:
+		return errResponseShape("unusableKeys must describe keys of the requested key request type")
+	}
+}
+
+func validateListedKeyPair(pair *mdl.ListedKeyPairV2Dto) error {
+	if err := validateKeyRequestType(pair.KeyRequestType, mdl.KEYREQUESTTYPE_KEY_PAIR); err != nil {
+		return err
+	}
+	if len(pair.KeyPairMeta) == 0 {
+		return errResponseShape("keyPairMeta must not be empty")
+	}
+	if len(pair.PrivateKeyData.KeyMeta) == 0 {
+		return errResponseShape("privateKeyData.keyMeta must not be empty")
+	}
+	priv := &pair.PrivateKeyData.KeyData
+	if err := validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"); err != nil {
+		return err
+	}
+	if pair.PublicKeyData != nil {
+		if len(pair.PublicKeyData.KeyMeta) == 0 {
+			return errResponseShape("publicKeyData.keyMeta must not be empty")
+		}
+		if err := validatePublicHalf(&pair.PublicKeyData.KeyData, priv.Algorithm); err != nil {
+			return err
+		}
+	}
+	return firstError(
+		validateMetadataElements(pair.KeyPairMeta, "keyPairMeta"),
+		validateKeyHalvesMetadata(pair.PublicKeyData, &pair.PrivateKeyData),
+	)
+}
+
+func validateListedSecretKey(key *mdl.ListedSecretKeyV2Dto) error {
+	if len(key.KeyMeta) == 0 {
+		return errResponseShape("keyMeta must not be empty")
+	}
+	data := &key.KeyData
+	return firstError(
+		validateKeyRequestType(key.KeyRequestType, mdl.KEYREQUESTTYPE_SECRET),
+		validateKeyDescriptor(data.Type, keyTypeSecret, data.Algorithm, data.Length, "keyData"),
+		validateMetadataElements(key.KeyMeta, "keyMeta"),
+		validateMetadataElements(data.Metadata, "keyData.metadata"),
+	)
+}
+
+// unambiguousHandle reports whether a handle can name one key: a repeated
+// name, a content item without data or an encoding failure makes it ambiguous.
+func unambiguousHandle(handle []mdl.MetadataAttribute) bool {
+	names := make(map[string]bool, len(handle))
+	for _, attribute := range handle {
+		raw, err := json.Marshal(attribute)
+		if err != nil {
+			return false
+		}
+		var decoded struct {
+			Name    string `json:"name"`
+			Content []struct {
+				Data *json.RawMessage `json:"data"`
+			} `json:"content"`
+		}
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			return false
+		}
+		if names[decoded.Name] {
+			return false
+		}
+		names[decoded.Name] = true
+		for _, item := range decoded.Content {
+			if item.Data == nil {
+				return false
+			}
+		}
+	}
+	return true
 }

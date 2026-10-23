@@ -82,4 +82,8 @@ var (
 	// ErrKeyTypeNotExportable -> 422. The key type or algorithm cannot be
 	// exported from this token.
 	ErrKeyTypeNotExportable = shared.Invalid("KEY_TYPE_NOT_EXPORTABLE", "key type or algorithm cannot be exported from this token")
+
+	// ErrKeyTypeNotListable -> 422. The connector cannot list keys of the
+	// requested key request type on this token.
+	ErrKeyTypeNotListable = shared.Invalid("KEY_TYPE_NOT_LISTABLE", "keys of this type cannot be listed on this token")
 )

@@ -17,6 +17,13 @@ import (
 // private key handle with the key itself.
 func importExportable(t *testing.T, store *Store) ([]mdl.MetadataAttribute, *ecdsa.PrivateKey) {
 	t.Helper()
+	imported, key := importP256Key(t, store, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS)
+	return imported.KeyPairDataResponseV2Dto.PrivateKeyData.KeyMeta, key
+}
+
+// importP256Key imports a fresh exportable P-256 key in mode.
+func importP256Key(t *testing.T, store *Store, mode mdl.OperationExecutionMode) (*mdl.KeyCreationResponse, *ecdsa.PrivateKey) {
+	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
@@ -32,7 +39,7 @@ func importExportable(t *testing.T, store *Store) ([]mdl.MetadataAttribute, *ecd
 	imported, _, err := store.ImportKey(context.Background(), &mdl.ImportKeyRequestV2Dto{
 		KeyImportId:    "import-1",
 		KeyReference:   "0f8c3a4e-8d8e-4c8a-9d6b-2a6b3c1d4e5f",
-		ExecutionMode:  mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS,
+		ExecutionMode:  mode,
 		KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR,
 		Material:       material,
 		Passphrase:     "phrase",
@@ -41,7 +48,7 @@ func importExportable(t *testing.T, store *Store) ([]mdl.MetadataAttribute, *ecd
 	if err != nil {
 		t.Fatalf("ImportKey: %v", err)
 	}
-	return imported.KeyPairDataResponseV2Dto.PrivateKeyData.KeyMeta, key
+	return imported, key
 }
 
 // A destroyed key keeps its record for replays, but not the private key an

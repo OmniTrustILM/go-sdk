@@ -1755,6 +1755,102 @@
         ]
       }
     },
+    "/v2/cryptographyProvider/keys/list": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "List keys",
+        "description": "Return one page of the keys the token holds, including keys created outside the platform. An error about one key goes into that key's entry. Only a fault of the whole token fails the request.",
+        "operationId": "listKeys",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListKeysRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Keys retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListKeysResponseV2Dto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "- `KEY_TYPE_NOT_LISTABLE` — the connector cannot list keys of the requested type on this token.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
+    },
     "/v2/cryptographyProvider/keys/import": {
       "post": {
         "tags": [
@@ -3814,6 +3910,102 @@
           }
         ]
       }
+    },
+    "/v2/cryptographyProvider/keys/resolve": {
+      "post": {
+        "tags": [
+          "Key Management v2"
+        ],
+        "summary": "Resolve key handles",
+        "description": "Return the key the token holds under each handle a listing returned, or why it cannot. An error about one key goes into that key's result. Only a fault of the whole token fails the request.",
+        "operationId": "resolveKeys",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveKeysRequestV2Dto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Handles resolved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveKeysResponseV2Dto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "- `KEY_TYPE_NOT_LISTABLE` — the connector cannot list keys of the requested type on this token.\n- `VALIDATION_FAILED` — the body is readable but breaks a field rule.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. Endpoint not found or not implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body cannot be read (errorCode BAD_REQUEST), including malformed JSON, unknown properties, and values outside the published enum values",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConnectorAPIKeyAuth": []
+          },
+          {
+            "CertificateTLSAuth": []
+          },
+          {
+            "NoAuth": []
+          },
+          {
+            "BasicAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -5717,6 +5909,7 @@
           "CHECKPOINT_LOST",
           "KEY_TYPE_NOT_IMPORTABLE",
           "KEY_TYPE_NOT_EXPORTABLE",
+          "KEY_TYPE_NOT_LISTABLE",
           "KEY_MATERIAL_MISMATCH",
           "KEY_DECRYPTION_FAILED",
           "EXPORTABLE_NOT_SUPPORTED",
@@ -7704,6 +7897,182 @@
           "type"
         ]
       },
+      "ListKeysRequestV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The page of the token's keys of one type to return. The connector keeps their order stable for an unchanged\ntoken.\n",
+        "properties": {
+          "tokenAttributes": {
+            "type": "array",
+            "description": "Token attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "tokenProfileAttributes": {
+            "type": "array",
+            "description": "Token profile attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of the keys to list. The connector must refuse a type it cannot list with `KEY_TYPE_NOT_LISTABLE`."
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of keys to skip",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of keys to return. The page holds exactly this many entries, `items` and `unusableKeys` together, unless the listing ends first.",
+            "maximum": 1000,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "keyRequestType",
+          "limit",
+          "offset",
+          "tokenAttributes",
+          "tokenProfileAttributes"
+        ]
+      },
+      "ListKeysResponseV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Keys of the requested page, each of the requested key request type",
+            "items": {
+              "$ref": "#/components/schemas/ListedKeyV2"
+            }
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of keys in the whole listing. Each appears once on its page, as a listed or an unusable key.",
+            "minimum": 0
+          },
+          "unusableKeys": {
+            "type": "array",
+            "description": "Keys on this page that cannot be offered for onboarding, each with its reason",
+            "items": {
+              "$ref": "#/components/schemas/UnusableKeyV2Dto"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "totalItems"
+        ]
+      },
+      "ListedKeyV2": {
+        "type": "object",
+        "description": "A key the token holds, selected by key request type",
+        "discriminator": {
+          "propertyName": "keyRequestType",
+          "mapping": {
+            "secret": "#/components/schemas/ListedSecretKeyV2Dto",
+            "keyPair": "#/components/schemas/ListedKeyPairV2Dto"
+          }
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ListedSecretKeyV2Dto"
+          },
+          {
+            "$ref": "#/components/schemas/ListedKeyPairV2Dto"
+          }
+        ],
+        "properties": {
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "ListedKeyPairV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A key pair the token holds. Any later request accepts its metadata exactly like metadata returned at\ncreation.\n",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Label the token keeps for the key"
+          },
+          "keyPairMeta": {
+            "type": "array",
+            "description": "Connector-defined metadata for the pair as a whole. It must identify the pair durably. The key resolution takes it back as the key's handle. Each metadata name appears once, and every content item carries data. A key that cannot meet this is reported in `unusableKeys`.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            },
+            "minItems": 1
+          },
+          "privateKeyData": {
+            "$ref": "#/components/schemas/PrivateKeyDataResponseV2Dto",
+            "description": "Data of the private key"
+          },
+          "publicKeyData": {
+            "$ref": "#/components/schemas/PublicKeyDataResponseV2Dto",
+            "description": "Data of the public key, read from the public key object on the token. Absent when the token lacks a public key object for the pair."
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of the listed key",
+            "enum": [
+              "keyPair"
+            ]
+          }
+        },
+        "required": [
+          "keyPairMeta",
+          "keyRequestType",
+          "privateKeyData"
+        ]
+      },
+      "ListedSecretKeyV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A secret key the token holds. Any later request accepts its metadata exactly like metadata returned at\ncreation.\n",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Label the token keeps for the key"
+          },
+          "keyMeta": {
+            "type": "array",
+            "description": "Connector-defined metadata of the key. It must identify the key durably, and for a key the platform created it equals the metadata creation returned: a secret key has no public key, so the platform recognises one it already holds by this metadata alone. The key resolution takes it back as the key's handle. Each metadata name appears once, and every content item carries data. A key that cannot meet this is reported in `unusableKeys`.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            },
+            "minItems": 1
+          },
+          "keyData": {
+            "$ref": "#/components/schemas/SecretKeyDataV2Dto",
+            "description": "Descriptor of the secret key"
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of the listed key",
+            "enum": [
+              "secret"
+            ]
+          }
+        },
+        "required": [
+          "keyData",
+          "keyMeta",
+          "keyRequestType"
+        ]
+      },
       "EncryptedKeyMaterialV2Dto": {
         "type": "object",
         "additionalProperties": false,
@@ -8494,6 +8863,7 @@
           "asynchronous",
           "keyImport",
           "keyExport",
+          "keyList",
           "secretVersioning",
           "secretRotation",
           "contentSigning",
@@ -8593,6 +8963,156 @@
         "required": [
           "connectorVersion",
           "definitions"
+        ]
+      },
+      "KeyHandleV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Identifier of the handle. Its result echoes it.",
+            "examples": [
+              "0"
+            ],
+            "minLength": 1
+          },
+          "keyMeta": {
+            "type": "array",
+            "description": "Handle exactly as a listing returned it: `keyPairMeta` of a key pair, `keyMeta` of a secret key.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "identifier",
+          "keyMeta"
+        ]
+      },
+      "ResolveKeysRequestV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The handles of keys to resolve. Each is answered once, under its identifier.",
+        "properties": {
+          "tokenAttributes": {
+            "type": "array",
+            "description": "Token attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "tokenProfileAttributes": {
+            "type": "array",
+            "description": "Token profile attributes",
+            "items": {
+              "$ref": "#/components/schemas/RequestAttribute"
+            }
+          },
+          "keyRequestType": {
+            "$ref": "#/components/schemas/KeyRequestType",
+            "description": "Type of the keys the handles name"
+          },
+          "keys": {
+            "type": "array",
+            "description": "Handles to resolve, each under an identifier unique in the request",
+            "items": {
+              "$ref": "#/components/schemas/KeyHandleV2Dto"
+            },
+            "maxItems": 1000,
+            "minItems": 1
+          }
+        },
+        "required": [
+          "keyRequestType",
+          "keys",
+          "tokenAttributes",
+          "tokenProfileAttributes"
+        ]
+      },
+      "KeyResolutionOutcome": {
+        "type": "string",
+        "enum": [
+          "found",
+          "notFound",
+          "ambiguous",
+          "unsupportedType",
+          "unreadable",
+          "invalidHandle"
+        ]
+      },
+      "KeyResolutionV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Identifier of the handle this result answers",
+            "examples": [
+              "0"
+            ],
+            "minLength": 1
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/KeyResolutionOutcome",
+            "description": "Outcome of the resolution"
+          },
+          "key": {
+            "$ref": "#/components/schemas/ListedKeyV2",
+            "description": "Key the token holds under the handle, in the listing's shape. Present only when `outcome` is `found`."
+          }
+        },
+        "required": [
+          "identifier",
+          "outcome"
+        ]
+      },
+      "ResolveKeysResponseV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "type": "array",
+            "description": "Results, one per requested handle",
+            "items": {
+              "$ref": "#/components/schemas/KeyResolutionV2Dto"
+            }
+          }
+        },
+        "required": [
+          "results"
+        ]
+      },
+      "UnusableKeyReason": {
+        "type": "string",
+        "enum": [
+          "unaddressable",
+          "unsupportedType",
+          "unreadable",
+          "notFound"
+        ]
+      },
+      "UnusableKeyV2Dto": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A key the token holds that the platform cannot onboard, with the reason",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Label the token keeps for the key"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/UnusableKeyReason",
+            "description": "Reason the platform cannot onboard the key"
+          },
+          "keyData": {
+            "$ref": "#/components/schemas/KeyDataV2",
+            "description": "Descriptor of the key: a private key for a key pair listing, a secret key for a secret key listing"
+          }
+        },
+        "required": [
+          "reason"
         ]
       }
     },

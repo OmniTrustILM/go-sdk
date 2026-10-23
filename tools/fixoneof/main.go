@@ -262,6 +262,16 @@ var wrappers = []wrapper{
 		},
 	},
 	{
+		// Same discriminator, the entries of a key listing.
+		fileSuffix:    "model_listed_key_v2.go",
+		typeName:      "ListedKeyV2",
+		discriminator: "keyRequestType",
+		cases: map[string]string{
+			"secret":  "ListedSecretKeyV2Dto",
+			"keyPair": "ListedKeyPairV2Dto",
+		},
+	},
+	{
 		// The descriptor of an exported key (ExportKeyResponseV2Dto.keyData),
 		// discriminated on the descriptor's own `type`.
 		fileSuffix:    "model_key_data_v2.go",

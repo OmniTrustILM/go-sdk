@@ -1242,3 +1242,376 @@ func TestSignatureResultIdentifiers(t *testing.T) {
 		t.Errorf("signatureResultIdentifiers(nil) = %v, want empty", got)
 	}
 }
+
+func listedPair() *mdl.ListedKeyPairV2Dto {
+	created := keyPair(func(*mdl.KeyPairDataResponseV2Dto) {})
+	pair := mdl.NewListedKeyPairV2Dto(created.KeyPairMeta, *created.PrivateKeyData)
+	pair.PublicKeyData = created.PublicKeyData
+	return pair
+}
+
+func listedSecret() *mdl.ListedSecretKeyV2Dto {
+	return mdl.NewListedSecretKeyV2Dto([]mdl.MetadataAttribute{metaAttr()}, *newSecretKeyData(mdl.KEYALGORITHM_AES, 256))
+}
+
+func pairPage(pairs ...*mdl.ListedKeyPairV2Dto) *mdl.ListKeysResponseV2Dto {
+	page := &mdl.ListKeysResponseV2Dto{TotalItems: int64(len(pairs))}
+	for _, pair := range pairs {
+		page.Items = append(page.Items, mdl.ListedKeyPairV2DtoAsListedKeyV2(pair))
+	}
+	return page
+}
+
+func keyPairListing(limit int32) *mdl.ListKeysRequestV2Dto {
+	return &mdl.ListKeysRequestV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR, Limit: limit}
+}
+
+func secretKeyListing(limit int32) *mdl.ListKeysRequestV2Dto {
+	return &mdl.ListKeysRequestV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, Limit: limit}
+}
+
+func TestValidateListedKeyPairRejectsZeroValueMetadataElements(t *testing.T) {
+	cases := []struct {
+		mutate func(*mdl.ListedKeyPairV2Dto)
+		field  string
+	}{
+		{func(p *mdl.ListedKeyPairV2Dto) { p.KeyPairMeta = []mdl.MetadataAttribute{{}} }, "keyPairMeta"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PublicKeyData.KeyMeta = []mdl.MetadataAttribute{{}} }, "publicKeyData.keyMeta"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PublicKeyData.KeyData.Metadata = []mdl.MetadataAttribute{{}} }, "publicKeyData.keyData.metadata"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PrivateKeyData.KeyMeta = []mdl.MetadataAttribute{{}} }, "privateKeyData.keyMeta"},
+		{func(p *mdl.ListedKeyPairV2Dto) { p.PrivateKeyData.KeyData.Metadata = []mdl.MetadataAttribute{{}} }, "privateKeyData.keyData.metadata"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.field, func(t *testing.T) {
+			pair := listedPair()
+			tc.mutate(pair)
+
+			wantResponseShapeError(t, validateListedKeyPair(pair), tc.field+" entries must populate exactly one metadata attribute variant")
+		})
+	}
+}
+
+func TestValidateListedSecretKeyChecksTheEntry(t *testing.T) {
+	cases := map[string]struct {
+		mutate func(*mdl.ListedSecretKeyV2Dto)
+		want   string
+	}{
+		"empty keyMeta": {func(k *mdl.ListedSecretKeyV2Dto) { k.KeyMeta = nil }, "keyMeta must not be empty"},
+		"zero-value keyMeta element": {func(k *mdl.ListedSecretKeyV2Dto) { k.KeyMeta = []mdl.MetadataAttribute{{}} },
+			"keyMeta entries must populate exactly one metadata attribute variant"},
+		"zero-value keyData metadata element": {func(k *mdl.ListedSecretKeyV2Dto) { k.KeyData.Metadata = []mdl.MetadataAttribute{{}} },
+			"keyData.metadata entries must populate exactly one metadata attribute variant"},
+		"another discriminator": {func(k *mdl.ListedSecretKeyV2Dto) { k.KeyRequestType = mdl.KEYREQUESTTYPE_KEY_PAIR },
+			"keyRequestType must match the populated key data variant"},
+		"a private key descriptor": {func(k *mdl.ListedSecretKeyV2Dto) { k.KeyData.Type = keyTypePrivate },
+			"keyData must carry key type Secret"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			key := listedSecret()
+			tc.mutate(key)
+
+			wantResponseShapeError(t, validateListedSecretKey(key), tc.want)
+		})
+	}
+}
+
+func TestValidateListKeysResponseAcceptsSecretKeysInASecretKeyListing(t *testing.T) {
+	out := &mdl.ListKeysResponseV2Dto{Items: []mdl.ListedKeyV2{mdl.ListedSecretKeyV2DtoAsListedKeyV2(listedSecret())}, TotalItems: 1}
+
+	wantNoError(t, validateListKeysResponse(secretKeyListing(10), out))
+}
+
+func TestValidateListKeysResponseRefusesAnEntryOfAnotherType(t *testing.T) {
+	cases := map[string]struct {
+		in  *mdl.ListKeysRequestV2Dto
+		key mdl.ListedKeyV2
+	}{
+		"a secret key in a key pair listing": {keyPairListing(10), mdl.ListedSecretKeyV2DtoAsListedKeyV2(listedSecret())},
+		"a key pair in a secret key listing": {secretKeyListing(10), mdl.ListedKeyPairV2DtoAsListedKeyV2(listedPair())},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			out := &mdl.ListKeysResponseV2Dto{Items: []mdl.ListedKeyV2{tc.key}, TotalItems: 1}
+
+			wantResponseShapeError(t, validateListKeysResponse(tc.in, out),
+				"key listing must return only keys of the requested key request type")
+		})
+	}
+}
+
+func TestValidateListKeysResponseRefusesAnEntryWithoutExactlyOneVariant(t *testing.T) {
+	cases := map[string]mdl.ListedKeyV2{
+		"none": {},
+		"both": {ListedKeyPairV2Dto: listedPair(), ListedSecretKeyV2Dto: listedSecret()},
+	}
+	for name, key := range cases {
+		t.Run(name, func(t *testing.T) {
+			out := &mdl.ListKeysResponseV2Dto{Items: []mdl.ListedKeyV2{key}, TotalItems: 1}
+
+			wantResponseShapeError(t, validateListKeysResponse(keyPairListing(10), out),
+				"a listed key must populate exactly one variant")
+		})
+	}
+}
+
+func pageWithUnusableKey(mutate func(*mdl.UnusableKeyV2Dto)) *mdl.ListKeysResponseV2Dto {
+	key := mdl.NewUnusableKeyV2Dto(mdl.UNUSABLEKEYREASON_UNADDRESSABLE)
+	key.SetKeyData(mdl.PrivateKeyDataV2DtoAsKeyDataV2(newPrivateKeyData(mdl.KEYALGORITHM_RSA, 2048)))
+	mutate(key)
+	page := pairPage(listedPair())
+	page.UnusableKeys = []mdl.UnusableKeyV2Dto{*key}
+	page.TotalItems = 2
+	return page
+}
+
+func TestValidateListKeysResponseAcceptsAnUnusableKey(t *testing.T) {
+	wantNoError(t, validateListKeysResponse(keyPairListing(2), pageWithUnusableKey(func(*mdl.UnusableKeyV2Dto) {})))
+}
+
+func TestValidateListKeysResponseCountsUnusableKeysTowardThePage(t *testing.T) {
+	wantResponseShapeError(t, validateListKeysResponse(keyPairListing(1), pageWithUnusableKey(func(*mdl.UnusableKeyV2Dto) {})),
+		"key listing must hold every key its page counts")
+}
+
+func TestValidateListKeysResponseRefusesAShortPageBeforeTheEnd(t *testing.T) {
+	out := pairPage(listedPair())
+	out.TotalItems = 5
+
+	wantResponseShapeError(t, validateListKeysResponse(keyPairListing(10), out), "key listing must hold every key its page counts")
+}
+
+func TestValidateListKeysResponseRefusesMoreKeysThanTheLimit(t *testing.T) {
+	out := pairPage(listedPair(), listedPair())
+
+	wantResponseShapeError(t, validateListKeysResponse(keyPairListing(1), out), "key listing must hold every key its page counts")
+}
+
+func TestValidateListKeysResponseAcceptsAShortLastPage(t *testing.T) {
+	in := keyPairListing(10)
+	in.Offset = 4
+	out := pairPage(listedPair())
+	out.TotalItems = 5
+
+	wantNoError(t, validateListKeysResponse(in, out))
+}
+
+func TestValidateListKeysResponseExpectsAFullPageAtTheLargestOffset(t *testing.T) {
+	in := keyPairListing(1000)
+	in.Offset = math.MaxInt32
+	page := func(keys int) *mdl.ListKeysResponseV2Dto {
+		pairs := make([]*mdl.ListedKeyPairV2Dto, keys)
+		for i := range pairs {
+			pairs[i] = listedPair()
+		}
+		out := pairPage(pairs...)
+		out.TotalItems = math.MaxInt32 + 5
+		return out
+	}
+
+	wantNoError(t, validateListKeysResponse(in, page(5)))
+	wantResponseShapeError(t, validateListKeysResponse(in, page(4)), "key listing must hold every key its page counts")
+}
+
+func TestValidateListKeysResponseAcceptsAnUnusableKeyWithoutKeyData(t *testing.T) {
+	wantNoError(t, validateListKeysResponse(keyPairListing(2), pageWithUnusableKey(func(k *mdl.UnusableKeyV2Dto) { k.KeyData = nil })))
+}
+
+func TestValidateListKeysResponseRefusesAnUnknownReason(t *testing.T) {
+	out := pageWithUnusableKey(func(k *mdl.UnusableKeyV2Dto) { k.Reason = "gone" })
+
+	wantResponseShapeError(t, validateListKeysResponse(keyPairListing(2), out), "unusableKeys.reason must be an UnusableKeyReason")
+}
+
+func TestValidateListKeysResponseRefusesAPageReachingPastItsTotal(t *testing.T) {
+	in := keyPairListing(10)
+	in.Offset = 1
+
+	wantResponseShapeError(t, validateListKeysResponse(in, pairPage(listedPair())),
+		"key listing must hold every key its page counts")
+}
+
+func TestValidateListKeysResponseAcceptsAnEmptyPagePastItsTotal(t *testing.T) {
+	in := keyPairListing(10)
+	in.Offset = 5
+
+	wantNoError(t, validateListKeysResponse(in, &mdl.ListKeysResponseV2Dto{TotalItems: 2}))
+}
+
+func TestValidateListKeysResponseChecksEachUnusableKeysKeyData(t *testing.T) {
+	secret := mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256))
+	cases := map[string]struct {
+		mutate func(*mdl.UnusableKeyV2Dto)
+		want   string
+	}{
+		"an empty reason": {func(k *mdl.UnusableKeyV2Dto) { k.Reason = "" },
+			"unusableKeys.reason must be an UnusableKeyReason"},
+		"empty key data": {func(k *mdl.UnusableKeyV2Dto) { k.KeyData = &mdl.KeyDataV2{} },
+			"unusableKeys.keyData must describe the key once"},
+		"two descriptors": {func(k *mdl.UnusableKeyV2Dto) { k.KeyData.SecretKeyDataV2Dto = secret.SecretKeyDataV2Dto },
+			"unusableKeys.keyData must describe the key once"},
+		"a secret key": {func(k *mdl.UnusableKeyV2Dto) { k.KeyData = &secret },
+			"unusableKeys must describe keys of the requested key request type"},
+		"public key type": {func(k *mdl.UnusableKeyV2Dto) { k.KeyData.PrivateKeyDataV2Dto.Type = keyTypePublic },
+			"unusableKeys.keyData must carry key type Private"},
+		"unknown algorithm": {func(k *mdl.UnusableKeyV2Dto) { k.KeyData.PrivateKeyDataV2Dto.Algorithm = "bogus" },
+			"unusableKeys.keyData must carry a known key algorithm"},
+		"zero length": {func(k *mdl.UnusableKeyV2Dto) { k.KeyData.PrivateKeyDataV2Dto.SetLength(0) },
+			"unusableKeys.keyData must carry a positive key length"},
+		"zero-value metadata element": {func(k *mdl.UnusableKeyV2Dto) {
+			k.KeyData.PrivateKeyDataV2Dto.Metadata = []mdl.MetadataAttribute{{}}
+		}, "unusableKeys.keyData.metadata entries must populate exactly one metadata attribute variant"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			wantResponseShapeError(t, validateListKeysResponse(keyPairListing(2), pageWithUnusableKey(tc.mutate)), tc.want)
+		})
+	}
+}
+
+func TestValidateListKeysResponseChecksAnUnusableSecretKeysKeyData(t *testing.T) {
+	cases := map[string]struct {
+		keyData mdl.KeyDataV2
+		want    string
+	}{
+		"a secret key": {mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256)), ""},
+		"a private key": {mdl.PrivateKeyDataV2DtoAsKeyDataV2(newPrivateKeyData(mdl.KEYALGORITHM_RSA, 2048)),
+			"unusableKeys must describe keys of the requested key request type"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			key := mdl.NewUnusableKeyV2Dto(mdl.UNUSABLEKEYREASON_UNADDRESSABLE)
+			key.SetKeyData(tc.keyData)
+			out := &mdl.ListKeysResponseV2Dto{UnusableKeys: []mdl.UnusableKeyV2Dto{*key}, TotalItems: 1}
+
+			err := validateListKeysResponse(secretKeyListing(10), out)
+			if tc.want == "" {
+				wantNoError(t, err)
+				return
+			}
+			wantResponseShapeError(t, err, tc.want)
+		})
+	}
+}
+
+func TestValidateListKeysResponseRefusesAnAmbiguousHandle(t *testing.T) {
+	withoutData := mdl.MetadataAttribute{MetadataAttributeV2: &mdl.MetadataAttributeV2{
+		Name:    "keyId",
+		Content: []mdl.BaseAttributeContentDtoV2{mdl.ObjectAttributeContentV2AsBaseAttributeContentDtoV2(&mdl.ObjectAttributeContentV2{})},
+	}}
+	cases := map[string][]mdl.MetadataAttribute{
+		"repeated name":        {metaAttr(), metaAttr()},
+		"content without data": {withoutData},
+	}
+	for name, keyPairMeta := range cases {
+		t.Run(name, func(t *testing.T) {
+			pair := listedPair()
+			pair.KeyPairMeta = keyPairMeta
+
+			wantResponseShapeError(t, validateListKeysResponse(keyPairListing(10), pairPage(pair)),
+				"a listed key's metadata must be an unambiguous handle")
+		})
+	}
+}
+
+func resolveRequest(identifiers ...string) *mdl.ResolveKeysRequestV2Dto {
+	in := &mdl.ResolveKeysRequestV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR}
+	for _, id := range identifiers {
+		in.Keys = append(in.Keys, mdl.KeyHandleV2Dto{Identifier: id, KeyMeta: []mdl.MetadataAttribute{metaAttr()}})
+	}
+	return in
+}
+
+func foundResolution(id string, pair *mdl.ListedKeyPairV2Dto) mdl.KeyResolutionV2Dto {
+	result := mdl.NewKeyResolutionV2Dto(id, mdl.KEYRESOLUTIONOUTCOME_FOUND)
+	key := mdl.ListedKeyPairV2DtoAsListedKeyV2(pair)
+	result.Key = &key
+	return *result
+}
+
+func missingResolution(id string) mdl.KeyResolutionV2Dto {
+	return *mdl.NewKeyResolutionV2Dto(id, mdl.KEYRESOLUTIONOUTCOME_NOT_FOUND)
+}
+
+func TestValidateResolveKeysRequestRefusesWhatTheSpecForbids(t *testing.T) {
+	tooMany := make([]string, maxResolvedKeys+1)
+	for i := range tooMany {
+		tooMany[i] = strconv.Itoa(i)
+	}
+	emptyHandle := resolveRequest("a")
+	emptyHandle.Keys[0].KeyMeta = nil
+	cases := map[string]struct {
+		in   *mdl.ResolveKeysRequestV2Dto
+		want string
+	}{
+		"no keys":               {resolveRequest(), "keys must not be empty"},
+		"too many keys":         {resolveRequest(tooMany...), "keys must not exceed 1000"},
+		"a blank identifier":    {resolveRequest("a", " "), "keys identifiers must not be blank"},
+		"a repeated identifier": {resolveRequest("a", "a"), "keys identifiers must be unique within a batch"},
+		"an empty handle":       {emptyHandle, "keys must not contain an empty handle"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			wantValidationFailed(t, validateResolveKeysRequest(tc.in), tc.want)
+		})
+	}
+}
+
+func TestValidateResolveKeysRequestAcceptsDistinctHandles(t *testing.T) {
+	wantNoError(t, validateResolveKeysRequest(resolveRequest("a", "b")))
+}
+
+func TestValidateResolveKeysResponseChecksEachResult(t *testing.T) {
+	ambiguous := listedPair()
+	ambiguous.KeyPairMeta = []mdl.MetadataAttribute{metaAttr(), metaAttr()}
+	foundWithoutKey := mdl.NewKeyResolutionV2Dto("a", mdl.KEYRESOLUTIONOUTCOME_FOUND)
+	missingWithKey := foundResolution("a", listedPair())
+	missingWithKey.Outcome = mdl.KEYRESOLUTIONOUTCOME_NOT_FOUND
+	unknownOutcome := missingResolution("a")
+	unknownOutcome.Outcome = "gone"
+	emptyOutcome := missingResolution("a")
+	emptyOutcome.Outcome = ""
+	secret := mdl.ListedSecretKeyV2DtoAsListedKeyV2(listedSecret())
+	secretResult := mdl.NewKeyResolutionV2Dto("a", mdl.KEYRESOLUTIONOUTCOME_FOUND)
+	secretResult.Key = &secret
+	const notAKey = "a key resolution must carry a key exactly when its outcome is found"
+	cases := map[string]struct {
+		results []mdl.KeyResolutionV2Dto
+		want    string
+	}{
+		"a missing result": {nil, "key resolution response identifiers must match the request identifiers"},
+		"an unknown identifier": {[]mdl.KeyResolutionV2Dto{missingResolution("z")},
+			"key resolution response identifiers must match the request identifiers"},
+		"a repeated result": {[]mdl.KeyResolutionV2Dto{missingResolution("a"), missingResolution("a")},
+			"key resolution response identifiers must be unique"},
+		"found without a key":  {[]mdl.KeyResolutionV2Dto{*foundWithoutKey}, notAKey},
+		"not found with a key": {[]mdl.KeyResolutionV2Dto{missingWithKey}, notAKey},
+		"an unknown outcome":   {[]mdl.KeyResolutionV2Dto{unknownOutcome}, "outcome must be a KeyResolutionOutcome"},
+		"an empty outcome":     {[]mdl.KeyResolutionV2Dto{emptyOutcome}, "outcome must be a KeyResolutionOutcome"},
+		"a secret key in a key pair resolution": {[]mdl.KeyResolutionV2Dto{*secretResult},
+			"key listing must return only keys of the requested key request type"},
+		"an ambiguous handle": {[]mdl.KeyResolutionV2Dto{foundResolution("a", ambiguous)},
+			"a listed key's metadata must be an unambiguous handle"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			out := &mdl.ResolveKeysResponseV2Dto{Results: tc.results}
+
+			wantResponseShapeError(t, validateResolveKeysResponse(resolveRequest("a"), out), tc.want)
+		})
+	}
+}
+
+func TestValidateResolveKeysResponseAcceptsEveryOutcome(t *testing.T) {
+	results := []mdl.KeyResolutionV2Dto{foundResolution("a", listedPair())}
+	for i, outcome := range []mdl.KeyResolutionOutcome{
+		mdl.KEYRESOLUTIONOUTCOME_NOT_FOUND, mdl.KEYRESOLUTIONOUTCOME_AMBIGUOUS,
+		mdl.KEYRESOLUTIONOUTCOME_UNSUPPORTED_TYPE, mdl.KEYRESOLUTIONOUTCOME_UNREADABLE,
+		mdl.KEYRESOLUTIONOUTCOME_INVALID_HANDLE,
+	} {
+		results = append(results, *mdl.NewKeyResolutionV2Dto(strconv.Itoa(i), outcome))
+	}
+	in := resolveRequest("a", "0", "1", "2", "3", "4")
+
+	wantNoError(t, validateResolveKeysResponse(in, &mdl.ResolveKeysResponseV2Dto{Results: results}))
+}
