@@ -44,9 +44,11 @@ func TestHarnessSmoke(t *testing.T) {
 	}
 
 	// New helpers: a scraped series for the health probe the harness polled,
-	// and the completion log line for the same request, matched on attributes.
+	// and the completion log line for the /v2/info request above, matched on
+	// attributes. A successful health probe is logged at DEBUG, below the
+	// example's default INFO, so it leaves no line to match.
 	h.AssertMetric(t, `http_requests_total{method="GET",route="/v2/health",status="200"}`)
-	h.AssertLogged(t, "request completed", map[string]any{"method": "GET", "path": "/v2/health", "status": 200})
+	h.AssertLogged(t, "request completed", map[string]any{"method": "GET", "path": "/v2/info", "status": 200})
 
 	// A v2-family connector mounts no v1 health route: the mux's own 404.
 	h.AssertNotServed(t, "/v1/health")
