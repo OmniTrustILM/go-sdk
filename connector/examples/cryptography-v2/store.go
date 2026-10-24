@@ -189,24 +189,16 @@ func (op *asyncSignOp) status(delay time.Duration) mdl.OperationStatus {
 
 // --- Metadata-handle helpers ------------------------------------------------
 
-// metaAttr builds a MetadataAttribute carrying id as its Uuid, this Store's
-// opaque durable handle. It always populates the MetadataAttributeV2 variant,
-// because the oneOf wrapper's zero value marshals to `nil, nil` and would
-// silently write an empty response body.
+// metaAttr builds this Store's opaque durable handle: a v3 MetadataAttribute
+// carrying id as its uuid and as string content. Handles are told apart by
+// their names and data, and Core refuses a listed key's metadata without content.
 func metaAttr(id, name, label string) mdl.MetadataAttribute {
-	return mdl.MetadataAttribute{
-		MetadataAttributeV2: &mdl.MetadataAttributeV2{
-			Uuid:        id,
-			Name:        name,
-			Version:     2,
-			Type:        mdl.ATTRIBUTETYPE_META,
-			ContentType: mdl.ATTRIBUTECONTENTTYPE_STRING,
-			Properties: mdl.MetadataAttributeProperties{
-				Label:   label,
-				Visible: true,
-			},
-		},
+	meta := mdl.NewMetadataAttributeV3(id, name, attributeV3Version, mdl.ATTRIBUTETYPE_META, mdl.ATTRIBUTECONTENTTYPE_STRING,
+		*mdl.NewMetadataAttributeProperties(label, true), mdl.ATTRIBUTEVERSION_V3)
+	meta.Content = []mdl.BaseAttributeContentDtoV3{
+		mdl.StringAttributeContentV3AsBaseAttributeContentDtoV3(mdl.NewStringAttributeContentV3(id, mdl.ATTRIBUTECONTENTTYPE_STRING)),
 	}
+	return mdl.MetadataAttributeV3AsMetadataAttribute(meta)
 }
 
 // metaID extracts the handle metaAttr attached to a slice of metadata
@@ -214,9 +206,6 @@ func metaAttr(id, name, label string) mdl.MetadataAttribute {
 // own maps.
 func metaID(meta []mdl.MetadataAttribute) (string, bool) {
 	for _, m := range meta {
-		if m.MetadataAttributeV2 != nil && m.MetadataAttributeV2.Uuid != "" {
-			return m.MetadataAttributeV2.Uuid, true
-		}
 		if m.MetadataAttributeV3 != nil && m.MetadataAttributeV3.Uuid != "" {
 			return m.MetadataAttributeV3.Uuid, true
 		}

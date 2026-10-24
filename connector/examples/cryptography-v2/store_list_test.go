@@ -91,6 +91,34 @@ func TestListKeysGivesEachPairDistinctHandleData(t *testing.T) {
 	}
 }
 
+func TestListKeysCarriesThePairIDAsContentInEveryHandle(t *testing.T) {
+	s := NewStore(0)
+	pairID := createKeyPair(t, s, "create-1")
+
+	page, err := s.ListKeys(context.Background(), pairListing(0, 10))
+	if err != nil {
+		t.Fatalf("ListKeys: %v", err)
+	}
+
+	pair := page.Items[0].ListedKeyPairV2Dto
+	handles := map[string][]mdl.MetadataAttribute{
+		"keyPairMeta":            pair.KeyPairMeta,
+		"privateKeyData.keyMeta": pair.PrivateKeyData.KeyMeta,
+		"publicKeyData.keyMeta":  pair.PublicKeyData.KeyMeta,
+	}
+	for field, handle := range handles {
+		if len(handle) != 1 || handle[0].MetadataAttributeV3 == nil {
+			t.Errorf("%s = %+v, want one v3 attribute", field, handle)
+			continue
+		}
+		v3 := handle[0].MetadataAttributeV3
+		if v3.Uuid != pairID || len(v3.Content) != 1 || v3.Content[0].StringAttributeContentV3 == nil ||
+			v3.Content[0].StringAttributeContentV3.Data != pairID {
+			t.Errorf("%s = %+v, want %s as uuid and as string content", field, v3, pairID)
+		}
+	}
+}
+
 func TestListKeysLeavesOutPendingAndCancelledCreations(t *testing.T) {
 	s := NewStore(time.Hour)
 	req := keyPairRequest("create-async", mdl.KEYALGORITHM_ECDSA)

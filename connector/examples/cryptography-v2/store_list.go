@@ -105,16 +105,9 @@ func pageOf(ids []string, offset, limit int32) []string {
 	return ids[start:end]
 }
 
-// pairHandle carries the pair ID as content data, since handles are told apart
-// by their names and data. Version 3 content names its type, so a client can
-// decode it.
+// pairHandle is a key pair's keyPairMeta.
 func pairHandle(pairID string) []mdl.MetadataAttribute {
-	meta := mdl.NewMetadataAttributeV3(pairID, pairHandleName, attributeV3Version, mdl.ATTRIBUTETYPE_META, mdl.ATTRIBUTECONTENTTYPE_STRING,
-		*mdl.NewMetadataAttributeProperties("Key pair handle", true), mdl.ATTRIBUTEVERSION_V3)
-	meta.Content = []mdl.BaseAttributeContentDtoV3{
-		mdl.StringAttributeContentV3AsBaseAttributeContentDtoV3(mdl.NewStringAttributeContentV3(pairID, mdl.ATTRIBUTECONTENTTYPE_STRING)),
-	}
-	return []mdl.MetadataAttribute{mdl.MetadataAttributeV3AsMetadataAttribute(meta)}
+	return []mdl.MetadataAttribute{metaAttr(pairID, pairHandleName, "Key pair handle")}
 }
 
 // pairIDOf reads back the pair ID from exactly the handle pairHandle wrote.

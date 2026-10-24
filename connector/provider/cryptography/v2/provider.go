@@ -230,6 +230,8 @@ type KeyListProvider interface {
 	//   - count every key of the type in TotalItems, and put each counted key
 	//     on its page: in Items when the platform can onboard it, else in
 	//     UnusableKeys with its reason
+	//   - report a counted key that is gone before it is read in UnusableKeys
+	//     with UNUSABLEKEYREASON_NOT_FOUND
 	//   - keep the order stable while the token is unchanged
 	//   - leave PublicKeyData nil for a private key whose public object is
 	//     missing
