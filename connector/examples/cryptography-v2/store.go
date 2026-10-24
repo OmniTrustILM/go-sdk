@@ -89,6 +89,7 @@ var (
 	_ cryptography.KeyImportProvider             = (*Store)(nil)
 	_ cryptography.AsyncKeyImportProvider        = (*Store)(nil)
 	_ cryptography.KeyExportProvider             = (*Store)(nil)
+	_ cryptography.KeyListProvider               = (*Store)(nil)
 )
 
 // --- Records --------------------------------------------------------------
@@ -108,6 +109,11 @@ type keyRecord struct {
 	keyReference   string
 	privateKeyInfo []byte
 	destroyed      bool
+}
+
+// isKeyPair holds because only a key pair stores an SPKI.
+func (r *keyRecord) isKeyPair() bool {
+	return r.spki != ""
 }
 
 // creationRecord makes CreateKey idempotent per keyCreationId. An equivalent
@@ -183,24 +189,16 @@ func (op *asyncSignOp) status(delay time.Duration) mdl.OperationStatus {
 
 // --- Metadata-handle helpers ------------------------------------------------
 
-// metaAttr builds a MetadataAttribute carrying id as its Uuid, this Store's
-// opaque durable handle. It always populates the MetadataAttributeV2 variant,
-// because the oneOf wrapper's zero value marshals to `nil, nil` and would
-// silently write an empty response body.
+// metaAttr builds this Store's opaque durable handle: a v3 MetadataAttribute
+// carrying id as its uuid and as string content. Handles are told apart by
+// their names and data, and Core refuses a listed key's metadata without content.
 func metaAttr(id, name, label string) mdl.MetadataAttribute {
-	return mdl.MetadataAttribute{
-		MetadataAttributeV2: &mdl.MetadataAttributeV2{
-			Uuid:        id,
-			Name:        name,
-			Version:     2,
-			Type:        mdl.ATTRIBUTETYPE_META,
-			ContentType: mdl.ATTRIBUTECONTENTTYPE_STRING,
-			Properties: mdl.MetadataAttributeProperties{
-				Label:   label,
-				Visible: true,
-			},
-		},
+	meta := mdl.NewMetadataAttributeV3(id, name, attributeV3Version, mdl.ATTRIBUTETYPE_META, mdl.ATTRIBUTECONTENTTYPE_STRING,
+		*mdl.NewMetadataAttributeProperties(label, true), mdl.ATTRIBUTEVERSION_V3)
+	meta.Content = []mdl.BaseAttributeContentDtoV3{
+		mdl.StringAttributeContentV3AsBaseAttributeContentDtoV3(mdl.NewStringAttributeContentV3(id, mdl.ATTRIBUTECONTENTTYPE_STRING)),
 	}
+	return mdl.MetadataAttributeV3AsMetadataAttribute(meta)
 }
 
 // metaID extracts the handle metaAttr attached to a slice of metadata
@@ -208,9 +206,6 @@ func metaAttr(id, name, label string) mdl.MetadataAttribute {
 // own maps.
 func metaID(meta []mdl.MetadataAttribute) (string, bool) {
 	for _, m := range meta {
-		if m.MetadataAttributeV2 != nil && m.MetadataAttributeV2.Uuid != "" {
-			return m.MetadataAttributeV2.Uuid, true
-		}
 		if m.MetadataAttributeV3 != nil && m.MetadataAttributeV3.Uuid != "" {
 			return m.MetadataAttributeV3.Uuid, true
 		}
@@ -465,7 +460,7 @@ func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length int32
 			KeyMeta: []mdl.MetadataAttribute{metaAttr(pairID, "privateKeyHandle", "Private key handle")},
 			KeyData: *privateKey,
 		},
-		KeyPairMeta: []mdl.MetadataAttribute{metaAttr(pairID, "keyPairHandle", "Key pair handle")},
+		KeyPairMeta: pairHandle(pairID),
 	}
 }
 
@@ -814,6 +809,7 @@ func (s *Store) CancelCreateKey(ctx context.Context, req *mdl.OperationTrackingR
 		return cryptography.ErrCancelPastPointOfNoReturn
 	}
 	op.cancelled = true
+	s.keys[op.keyID].destroyed = true
 	return nil
 }
 

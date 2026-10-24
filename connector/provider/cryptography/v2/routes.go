@@ -45,6 +45,9 @@ const (
 	eventExportableKeyTypes  = "list_exportable_key_types"
 	eventExportKeyAttributes = "list_export_key_attributes"
 	eventExportKey           = "export_key"
+
+	eventListKeys    = "list_keys"
+	eventResolveKeys = "resolve_keys"
 )
 
 // errKeyImportNotSupported is the import routes' answer without WithKeyImport,
@@ -53,6 +56,8 @@ var errKeyImportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key i
 
 // errKeyExportNotSupported is the export routes' answer without WithKeyExport.
 var errKeyExportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key export is not implemented by this connector")
+
+var errKeyListNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key listing is not implemented by this connector")
 
 // rejectRequest emits the outcome event and renders the problem response for a
 // failed request guard.
@@ -965,4 +970,77 @@ func (h *Handler) exportKey(w http.ResponseWriter, r *http.Request) {
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write exportKey response", "err", writeErr)
 	}
+}
+
+// --- Key listing -------------------------------------------------------------
+
+func (h *Handler) listKeys(w http.ResponseWriter, r *http.Request) {
+	if h.keyList == nil {
+		h.rejectRequest(w, r, eventListKeys, errKeyListNotSupported)
+		return
+	}
+	var in mdl.ListKeysRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventListKeys, err)
+		return
+	}
+	if err := validateListKeysRequest(&in); err != nil {
+		h.rejectRequest(w, r, eventListKeys, err)
+		return
+	}
+	out, err := h.keyList.ListKeys(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.ListKeysResponseV2Dto) error {
+			return validateListKeysResponse(&in, out)
+		})
+	}
+	shared.EmitEvent(r.Context(), eventListKeys, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, wirePage(out)); writeErr != nil {
+		h.LoggerFor(r).Error("write listKeys response", "err", writeErr)
+	}
+}
+
+func (h *Handler) resolveKeys(w http.ResponseWriter, r *http.Request) {
+	if h.keyList == nil {
+		h.rejectRequest(w, r, eventResolveKeys, errKeyListNotSupported)
+		return
+	}
+	var in mdl.ResolveKeysRequestV2Dto
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		h.rejectRequest(w, r, eventResolveKeys, err)
+		return
+	}
+	if err := validateResolveKeysRequest(&in); err != nil {
+		h.rejectRequest(w, r, eventResolveKeys, err)
+		return
+	}
+	out, err := h.keyList.ResolveKeys(r.Context(), &in)
+	if err == nil {
+		err = validateResponse(out, func(out *mdl.ResolveKeysResponseV2Dto) error {
+			return validateResolveKeysResponse(&in, out)
+		})
+	}
+	shared.EmitEvent(r.Context(), eventResolveKeys, err)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
+		h.LoggerFor(r).Error("write resolveKeys response", "err", writeErr)
+	}
+}
+
+// wirePage normalises a copy because a provider may cache and share its page.
+func wirePage(out *mdl.ListKeysResponseV2Dto) *mdl.ListKeysResponseV2Dto {
+	page := *out
+	page.Items = shared.EnsureSlice(out.Items)
+	// The generated encoder omits only a nil list.
+	if len(out.UnusableKeys) == 0 {
+		page.UnusableKeys = nil
+	}
+	return &page
 }

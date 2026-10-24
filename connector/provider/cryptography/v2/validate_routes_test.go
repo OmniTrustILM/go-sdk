@@ -287,6 +287,8 @@ var tokenProfileScopedRoutes = []struct {
 	{exportableKeyTypesPath, tokenProfileScopedBody, http.StatusNotFound},
 	{exportKeyAttrsPath, keyScopedRequestBody, http.StatusOK},
 	{exportKeyPath, exportKeyBody(nil), http.StatusNotFound},
+	{listKeysPath, listKeysBody(listKeyPairs), http.StatusNotFound},
+	{resolveKeysPath, resolveBody(resolvePairs, resolveHandle("a", "0a")), http.StatusNotFound},
 }
 
 // tokenNotFoundProvider fails every token-profile-scoped call with
@@ -305,14 +307,15 @@ func tokenNotFoundProvider() *stubProvider {
 	}
 }
 
-// tokenNotFoundServer serves tokenNotFoundProvider with key import and export
-// registered, failing the same way.
+// tokenNotFoundServer serves tokenNotFoundProvider with key import, export
+// and listing registered, failing the same way.
 func tokenNotFoundServer(t *testing.T) http.Handler {
 	t.Helper()
 	err := cryptography.ErrTokenNotFound
 	return newTestServer(t, tokenNotFoundProvider(),
 		cryptography.WithKeyImport(&stubKeyImport{keyTypesErr: err, importErr: err}),
 		cryptography.WithKeyExport(&stubKeyExport{keyTypesErr: err, exportErr: err}),
+		cryptography.WithKeyList(&stubKeyList{err: err, resolveErr: err}),
 	)
 }
 

@@ -25,6 +25,7 @@ func TestKeyTransferSentinelsRenderTheContractCodes(t *testing.T) {
 		{cryptography.ErrExportableNotSupported, http.StatusUnprocessableEntity, "EXPORTABLE_NOT_SUPPORTED", "https://docs.otilm.com/problems/connector/cryptography/EXPORTABLE_NOT_SUPPORTED"},
 		{cryptography.ErrKeyNotExportable, http.StatusUnprocessableEntity, "KEY_NOT_EXPORTABLE", "https://docs.otilm.com/problems/connector/cryptography/KEY_NOT_EXPORTABLE"},
 		{cryptography.ErrKeyTypeNotExportable, http.StatusUnprocessableEntity, "KEY_TYPE_NOT_EXPORTABLE", "https://docs.otilm.com/problems/connector/cryptography/KEY_TYPE_NOT_EXPORTABLE"},
+		{cryptography.ErrKeyTypeNotListable, http.StatusUnprocessableEntity, "KEY_TYPE_NOT_LISTABLE", "https://docs.otilm.com/problems/connector/cryptography/KEY_TYPE_NOT_LISTABLE"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.code, func(t *testing.T) {

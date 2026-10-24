@@ -53,9 +53,11 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 		{http.MethodPost, "/v2/cryptographyProvider/keys/export/keyTypes", tokenProfileScopedBody, "list_exportable_key_types"},
 		{http.MethodPost, "/v2/cryptographyProvider/keys/export/attributes", keyScopedRequestBody, "list_export_key_attributes"},
 		{http.MethodPost, "/v2/cryptographyProvider/keys/export", exportKeyBody(nil), "export_key"},
+		{http.MethodPost, listKeysPath, listKeysBody(listKeyPairs), "list_keys"},
+		{http.MethodPost, resolveKeysPath, resolveBody(resolvePairs, resolveHandle("a", "0a")), "resolve_keys"},
 	}
-	if len(routes) != 32 {
-		t.Fatalf("test bug: table has %d routes, need 32", len(routes))
+	if len(routes) != 34 {
+		t.Fatalf("test bug: table has %d routes, need 34", len(routes))
 	}
 
 	for _, tc := range routes {
@@ -67,6 +69,7 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 				cryptography.WithKeyImport(&stubKeyImport{}),
 				cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
 				cryptography.WithKeyExport(&stubKeyExport{}),
+				cryptography.WithKeyList(&stubKeyList{}),
 			)
 			var req *http.Request
 			if tc.body == "" {

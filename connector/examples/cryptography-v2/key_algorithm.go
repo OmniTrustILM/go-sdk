@@ -12,7 +12,7 @@ const (
 	keyAlgorithmAttributeUUID = "2d12a988-679b-478f-953d-b5bf743f5700"
 )
 
-const dataAttributeV3Version = 3
+const attributeV3Version = 3
 
 // pairAlgorithms are the key pair algorithms this Store creates.
 var pairAlgorithms = []mdl.KeyAlgorithm{mdl.KEYALGORITHM_ECDSA, mdl.KEYALGORITHM_RSA}
@@ -39,7 +39,7 @@ func keyAlgorithmDefinition() mdl.BaseAttributeDto {
 		ProtectionLevel: mdl.PROTECTIONLEVEL_NONE.Ptr(),
 	}
 	definition := mdl.NewDataAttributeV3(keyAlgorithmAttributeUUID, keyAlgorithmAttributeName,
-		dataAttributeV3Version, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING, properties, mdl.ATTRIBUTEVERSION_V3)
+		attributeV3Version, mdl.ATTRIBUTETYPE_DATA, mdl.ATTRIBUTECONTENTTYPE_STRING, properties, mdl.ATTRIBUTEVERSION_V3)
 	description := "Algorithm of the key pair to create"
 	definition.Description = &description
 	definition.Content = make([]mdl.BaseAttributeContentDtoV3, len(pairAlgorithms))

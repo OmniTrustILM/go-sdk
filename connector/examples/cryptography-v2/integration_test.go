@@ -189,18 +189,18 @@ func b64(s string) string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
+const attributeV3Version = 3
+
 // metaAttribute builds a well-formed MetadataAttribute carrying uuid. The
 // contract marks keyMeta and operationMeta minItems: 1, so even an endpoint
 // that ignores the handle needs a real one.
 func metaAttribute(uuid, name, label string) []mdl.MetadataAttribute {
-	return []mdl.MetadataAttribute{{MetadataAttributeV2: &mdl.MetadataAttributeV2{
-		Uuid:        uuid,
-		Name:        name,
-		Version:     2,
-		Type:        mdl.ATTRIBUTETYPE_META,
-		ContentType: mdl.ATTRIBUTECONTENTTYPE_STRING,
-		Properties:  mdl.MetadataAttributeProperties{Label: label, Visible: true},
-	}}}
+	meta := mdl.NewMetadataAttributeV3(uuid, name, attributeV3Version, mdl.ATTRIBUTETYPE_META, mdl.ATTRIBUTECONTENTTYPE_STRING,
+		*mdl.NewMetadataAttributeProperties(label, true), mdl.ATTRIBUTEVERSION_V3)
+	meta.Content = []mdl.BaseAttributeContentDtoV3{
+		mdl.StringAttributeContentV3AsBaseAttributeContentDtoV3(mdl.NewStringAttributeContentV3(uuid, mdl.ATTRIBUTECONTENTTYPE_STRING)),
+	}
+	return []mdl.MetadataAttribute{mdl.MetadataAttributeV3AsMetadataAttribute(meta)}
 }
 
 // unknownOperationMeta builds a well-formed MetadataAttribute carrying a
@@ -217,9 +217,6 @@ func unknownOperationMeta() []mdl.MetadataAttribute {
 func metaUUID(t *testing.T, meta []mdl.MetadataAttribute) string {
 	t.Helper()
 	for _, m := range meta {
-		if m.MetadataAttributeV2 != nil && m.MetadataAttributeV2.Uuid != "" {
-			return m.MetadataAttributeV2.Uuid
-		}
 		if m.MetadataAttributeV3 != nil && m.MetadataAttributeV3.Uuid != "" {
 			return m.MetadataAttributeV3.Uuid
 		}

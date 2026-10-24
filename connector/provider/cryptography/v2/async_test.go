@@ -755,6 +755,7 @@ func TestMountRegistersEveryRoute(t *testing.T) {
 			cryptography.WithKeyImport(&stubKeyImport{}),
 			cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
 			cryptography.WithKeyExport(&stubKeyExport{}),
+			cryptography.WithKeyList(&stubKeyList{}),
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -773,8 +774,8 @@ func TestMountRegistersEveryRoute(t *testing.T) {
 
 func assertMountedExactly(t *testing.T, patterns []string) {
 	t.Helper()
-	if len(patterns) != 32 {
-		t.Fatalf("mounted %d routes, want 32: %v", len(patterns), patterns)
+	if len(patterns) != 34 {
+		t.Fatalf("mounted %d routes, want 34: %v", len(patterns), patterns)
 	}
 
 	want := map[string]bool{
@@ -810,9 +811,11 @@ func assertMountedExactly(t *testing.T, patterns []string) {
 		"POST /v2/cryptographyProvider/keys/export/keyTypes":           true,
 		"POST /v2/cryptographyProvider/keys/export/attributes":         true,
 		"POST /v2/cryptographyProvider/keys/export":                    true,
+		"POST /v2/cryptographyProvider/keys/list":                      true,
+		"POST /v2/cryptographyProvider/keys/resolve":                   true,
 	}
-	if len(want) != 32 {
-		t.Fatalf("test bug: want set has %d entries, need 32", len(want))
+	if len(want) != 34 {
+		t.Fatalf("test bug: want set has %d entries, need 34", len(want))
 	}
 	for _, p := range patterns {
 		if strings.ContainsAny(p, "{}") {

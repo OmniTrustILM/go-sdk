@@ -173,6 +173,7 @@ var (
 		// connector/cryptography, non-retryable
 		"KEY_TYPE_NOT_IMPORTABLE":  {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 		"KEY_TYPE_NOT_EXPORTABLE":  {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
+		"KEY_TYPE_NOT_LISTABLE":    {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 		"KEY_MATERIAL_MISMATCH":    {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 		"KEY_DECRYPTION_FAILED":    {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 		"EXPORTABLE_NOT_SUPPORTED": {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
