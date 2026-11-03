@@ -30,6 +30,8 @@ type SignDataRequestV2Dto struct {
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
 	// Caller-selected execution mode. The connector must not switch modes implicitly.
 	ExecutionMode OperationExecutionMode `json:"executionMode"`
+	// How the connector treats each data item. Absent means data.
+	SignatureInputMode *SignatureInputMode `json:"signatureInputMode,omitempty"`
 	// Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the signing attribute schema.
 	SignatureAttributes []RequestAttribute `json:"signatureAttributes"`
 	// Data to be signed
@@ -157,6 +159,38 @@ func (o *SignDataRequestV2Dto) SetExecutionMode(v OperationExecutionMode) {
 	o.ExecutionMode = v
 }
 
+// GetSignatureInputMode returns the SignatureInputMode field value if set, zero value otherwise.
+func (o *SignDataRequestV2Dto) GetSignatureInputMode() SignatureInputMode {
+	if o == nil || IsNil(o.SignatureInputMode) {
+		var ret SignatureInputMode
+		return ret
+	}
+	return *o.SignatureInputMode
+}
+
+// GetSignatureInputModeOk returns a tuple with the SignatureInputMode field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *SignDataRequestV2Dto) GetSignatureInputModeOk() (*SignatureInputMode, bool) {
+	if o == nil || IsNil(o.SignatureInputMode) {
+		return nil, false
+	}
+	return o.SignatureInputMode, true
+}
+
+// HasSignatureInputMode returns a boolean if a field has been set.
+func (o *SignDataRequestV2Dto) HasSignatureInputMode() bool {
+	if o != nil && !IsNil(o.SignatureInputMode) {
+		return true
+	}
+
+	return false
+}
+
+// SetSignatureInputMode gets a reference to the given SignatureInputMode and assigns it to the SignatureInputMode field.
+func (o *SignDataRequestV2Dto) SetSignatureInputMode(v SignatureInputMode) {
+	o.SignatureInputMode = &v
+}
+
 // GetSignatureAttributes returns the SignatureAttributes field value
 func (o *SignDataRequestV2Dto) GetSignatureAttributes() []RequestAttribute {
 	if o == nil {
@@ -219,6 +253,9 @@ func (o SignDataRequestV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
 	toSerialize["keyMeta"] = o.KeyMeta
 	toSerialize["executionMode"] = o.ExecutionMode
+	if !IsNil(o.SignatureInputMode) {
+		toSerialize["signatureInputMode"] = o.SignatureInputMode
+	}
 	toSerialize["signatureAttributes"] = o.SignatureAttributes
 	toSerialize["data"] = o.Data
 	return toSerialize, nil
