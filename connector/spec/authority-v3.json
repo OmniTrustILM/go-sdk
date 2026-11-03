@@ -6440,6 +6440,7 @@
           "keyImport",
           "keyExport",
           "keyList",
+          "prehashedSigning",
           "secretVersioning",
           "secretRotation",
           "contentSigning",
@@ -6451,8 +6452,7 @@
           "certificateStatusPolling",
           "certificateRequestStructured",
           "certificateIdentityOverride",
-          "discoveryStopResume",
-          "prehashedSigning"
+          "discoveryStopResume"
         ]
       },
       "InfoResponse": {

@@ -27,6 +27,7 @@ const (
 	FEATUREFLAG_KEY_IMPORT FeatureFlag = "keyImport"
 	FEATUREFLAG_KEY_EXPORT FeatureFlag = "keyExport"
 	FEATUREFLAG_KEY_LIST FeatureFlag = "keyList"
+	FEATUREFLAG_PREHASHED_SIGNING FeatureFlag = "prehashedSigning"
 	FEATUREFLAG_SECRET_VERSIONING FeatureFlag = "secretVersioning"
 	FEATUREFLAG_SECRET_ROTATION FeatureFlag = "secretRotation"
 	FEATUREFLAG_CONTENT_SIGNING FeatureFlag = "contentSigning"
@@ -39,7 +40,6 @@ const (
 	FEATUREFLAG_CERTIFICATE_REQUEST_STRUCTURED FeatureFlag = "certificateRequestStructured"
 	FEATUREFLAG_CERTIFICATE_IDENTITY_OVERRIDE FeatureFlag = "certificateIdentityOverride"
 	FEATUREFLAG_DISCOVERY_STOP_RESUME FeatureFlag = "discoveryStopResume"
-	FEATUREFLAG_PREHASHED_SIGNING FeatureFlag = "prehashedSigning"
 )
 
 // All allowed values of FeatureFlag enum
@@ -50,6 +50,7 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"keyImport",
 	"keyExport",
 	"keyList",
+	"prehashedSigning",
 	"secretVersioning",
 	"secretRotation",
 	"contentSigning",
@@ -62,7 +63,6 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"certificateRequestStructured",
 	"certificateIdentityOverride",
 	"discoveryStopResume",
-	"prehashedSigning",
 }
 
 func (v *FeatureFlag) UnmarshalJSON(src []byte) error {
