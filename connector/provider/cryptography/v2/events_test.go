@@ -70,6 +70,7 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 				cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
 				cryptography.WithKeyExport(&stubKeyExport{}),
 				cryptography.WithKeyList(&stubKeyList{}),
+				cryptography.WithPrehashedSigning(&stubPrehashed{}),
 			)
 			var req *http.Request
 			if tc.body == "" {

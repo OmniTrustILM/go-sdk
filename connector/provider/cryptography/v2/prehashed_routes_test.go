@@ -49,6 +49,7 @@ func TestDataAndAbsentModeReachSignData(t *testing.T) {
 	bodies := map[string]string{
 		"data":   signDataBodyWithMode("synchronous", "data"),
 		"absent": signDataBody("synchronous"),
+		"null":   strings.Replace(signDataBody("synchronous"), `"signatureAttributes"`, `"signatureInputMode":null,"signatureAttributes"`, 1),
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
@@ -102,17 +103,25 @@ func TestUnknownInputModeIsRejectedWhileDecoding(t *testing.T) {
 }
 
 func TestPrehashedRequestIsGuardedBeforeRouting(t *testing.T) {
-	p := &countingProvider{}
-	stub := &stubPrehashed{}
-	srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub))
-	body := strings.Replace(signDataBodyWithMode("synchronous", "prehashedDigest"),
-		`"data":[{"identifier":"d-1","data":"AA=="}]`, `"data":[{"identifier":"d-1","data":""}]`, 1)
+	valid := signDataBodyWithMode("synchronous", "prehashedDigest")
+	item := `"data":[{"identifier":"d-1","data":"AA=="}]`
+	cases := map[string]string{
+		"empty payload": strings.Replace(valid, item, `"data":[{"identifier":"d-1","data":""}]`, 1),
+		"empty batch":   strings.Replace(valid, item, `"data":[]`, 1),
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			p := &countingProvider{}
+			stub := &stubPrehashed{}
+			srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub))
 
-	rec := post(t, srv, signPath, body)
+			rec := post(t, srv, signPath, body)
 
-	assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
-	if p.signCalls != 0 || stub.got != nil {
-		t.Fatal("a provider was called for an invalid request")
+			assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+			if p.signCalls != 0 || stub.got != nil {
+				t.Fatal("a provider was called for an invalid request")
+			}
+		})
 	}
 }
 

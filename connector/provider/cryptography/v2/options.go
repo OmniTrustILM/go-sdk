@@ -210,8 +210,8 @@ func WithKeyList(p KeyListProvider) Option {
 }
 
 // WithPrehashedSigning registers the provider that signs prehashed requests.
-// When absent they answer 422 PARAMETER_UNSUPPORTED. See PrehashedSignProvider
-// for the feature flag.
+// Without it a prehashed request is answered 422 PARAMETER_UNSUPPORTED. See
+// PrehashedSignProvider for the feature flag.
 func WithPrehashedSigning(p PrehashedSignProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {
