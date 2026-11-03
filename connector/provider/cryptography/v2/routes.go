@@ -59,6 +59,10 @@ var errKeyExportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key e
 
 var errKeyListNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key listing is not implemented by this connector")
 
+// errPrehashedSigningNotSupported is the sign route's answer to a prehashed
+// request without WithPrehashedSigning; the contract forbids ignoring the mode.
+var errPrehashedSigningNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "prehashed signing is not implemented by this connector")
+
 // rejectRequest emits the outcome event and renders the problem response for a
 // failed request guard.
 func (h *Handler) rejectRequest(w http.ResponseWriter, r *http.Request, event string, err error) {
@@ -432,7 +436,15 @@ func (h *Handler) signData(w http.ResponseWriter, r *http.Request) {
 		h.rejectRequest(w, r, eventSignData, err)
 		return
 	}
-	out, accepted, err := h.provider.SignData(r.Context(), &in)
+	sign := h.provider.SignData
+	if InputMode(&in) == mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST {
+		if h.prehashed == nil {
+			h.rejectRequest(w, r, eventSignData, errPrehashedSigningNotSupported)
+			return
+		}
+		sign = h.prehashed.SignPrehashed
+	}
+	out, accepted, err := sign(r.Context(), &in)
 	if err == nil {
 		err = validateResponse(out, func(out *mdl.SignDataResponseV2Dto) error {
 			if err := firstError(
