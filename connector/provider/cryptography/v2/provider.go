@@ -228,11 +228,17 @@ type PrehashedSignProvider interface {
 	// SignPrehashed signs a batch, with Provider.SignData's accepted
 	// semantics. Each item is already the digest the selected signature
 	// algorithm fixes: sign it without hashing again. RSA PKCS#1 v1.5 wraps
-	// it in a DigestInfo per RFC 8017 section 9.2 with NULL parameters;
-	// RSA-PSS and ECDSA sign the digest with the parameters the selected
-	// signature algorithm code fixes. Like SignData, sign with the algorithm
-	// read by SelectedSignatureAlgorithm, and refuse one the key does not
-	// support with ErrSignatureAlgorithmUnsupported.
+	// it in a DigestInfo per RFC 8017 section 9.2 with explicit NULL
+	// parameters; RSA-PSS and ECDSA sign the digest with the parameters the
+	// selected signature algorithm code fixes. Like SignData, sign with the
+	// algorithm read by SelectedSignatureAlgorithm, and refuse one the key
+	// does not support with ErrSignatureAlgorithmUnsupported.
+	//
+	// Prehashed signing is defined for the RSA PKCS#1 v1.5, RSA-PSS and ECDSA
+	// signature algorithm codes only: refuse any other selected algorithm with
+	// ErrSignatureAlgorithmUnsupported (422 PARAMETER_UNSUPPORTED). Refuse an
+	// item whose length is not the output size of the digest the algorithm
+	// fixes with a shared.Invalid("VALIDATION_FAILED", ...) error (422).
 	SignPrehashed(ctx context.Context, req *mdl.SignDataRequestV2Dto) (resp *mdl.SignDataResponseV2Dto, accepted bool, err error)
 }
 
