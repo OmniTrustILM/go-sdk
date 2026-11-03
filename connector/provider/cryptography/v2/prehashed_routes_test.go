@@ -1,6 +1,7 @@
 package cryptography_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -14,6 +15,17 @@ const signPath = "/v2/cryptographyProvider/operations/sign"
 
 func signedBatch() *mdl.SignDataResponseV2Dto {
 	return &mdl.SignDataResponseV2Dto{Signatures: []mdl.SignatureDataV2Dto{{Identifier: "d-1", Data: "AA=="}}}
+}
+
+// countingProvider counts the SignData calls that reach the base provider.
+type countingProvider struct {
+	stubProvider
+	signCalls int
+}
+
+func (c *countingProvider) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error) {
+	c.signCalls++
+	return c.stubProvider.SignData(ctx, req)
 }
 
 func TestPrehashedSignAnswers422WithoutItsProvider(t *testing.T) {
@@ -43,6 +55,36 @@ func TestPrehashedSignReachesThePrehashedProvider(t *testing.T) {
 	if p.signCalls != 0 {
 		t.Fatalf("SignData called %d times for a prehashed request", p.signCalls)
 	}
+}
+
+func TestPrehashedSignRendersAcceptedAs202(t *testing.T) {
+	stub := &stubPrehashed{accepted: true, resp: &mdl.SignDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{metadataAttributeFixture()}}}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+
+	rec := post(t, srv, signPath, signDataBodyWithMode("asynchronous", "prehashedDigest"))
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body %s", rec.Code, rec.Body)
+	}
+}
+
+func TestPrehashedSignIsHeldToTheCallersExecutionMode(t *testing.T) {
+	stub := &stubPrehashed{accepted: true, resp: signedBatch()}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+
+	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+
+	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
+	assertDetail(t, problem, "provider response violates the contract: sign data requested synchronously must not be accepted for asynchronous execution")
+}
+
+func TestPrehashedSignMapsProviderErrorToProblem(t *testing.T) {
+	stub := &stubPrehashed{err: cryptography.ErrSignatureAlgorithmUnsupported}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+
+	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+
+	assertProblem(t, rec, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
 }
 
 func TestDataAndAbsentModeReachSignData(t *testing.T) {

@@ -14,6 +14,20 @@ import (
 // below 400. The table drives every route through bare providers — nil
 // responses, so the guarded routes fail on ErrNilResponse — with every
 // sub-provider registered, so no route short-circuits on the 404 path.
+func TestPrehashedRequestWithoutItsProviderEmitsOneSignDataErrorEvent(t *testing.T) {
+	mc := &recordingMetrics{events: map[string]int{}}
+	srv := newMeteredServer(t, &stubProvider{}, mc)
+
+	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body %s", rec.Code, rec.Body)
+	}
+	if len(mc.events) != 1 || mc.events["sign_data/error"] != 1 {
+		t.Errorf("events = %v, want exactly one sign_data/error", mc.events)
+	}
+}
+
 func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 	routes := []struct {
 		method string
