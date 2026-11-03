@@ -16,7 +16,7 @@ import (
 	"fmt"
 )
 
-// SignatureInputMode Whether each data item is the content to sign or already the digest of it
+// SignatureInputMode Whether each data item is the content to sign or already the digest of it. Under prehashedDigest each item is already the digest the selected signature algorithm fixes and is never hashed again. RSA PKCS#1 v1.5 wraps it in a DigestInfo per RFC 8017 section 9.2 with explicit NULL parameters; RSA-PSS and ECDSA sign it with the parameters the signature algorithm code fixes. A connector that does not implement the mode answers 422 PARAMETER_UNSUPPORTED and never ignores the field; one that implements it advertises the prehashedSigning feature flag.
 type SignatureInputMode string
 
 // List of SignatureInputMode

@@ -7256,7 +7256,7 @@
       },
       "SignatureInputMode": {
         "type": "string",
-        "description": "Whether each data item is the content to sign or already the digest of it",
+        "description": "Whether each data item is the content to sign or already the digest of it. Under prehashedDigest each item is already the digest the selected signature algorithm fixes and is never hashed again. RSA PKCS#1 v1.5 wraps it in a DigestInfo per RFC 8017 section 9.2 with explicit NULL parameters; RSA-PSS and ECDSA sign it with the parameters the signature algorithm code fixes. A connector that does not implement the mode answers 422 PARAMETER_UNSUPPORTED and never ignores the field; one that implements it advertises the prehashedSigning feature flag.",
         "enum": [
           "data",
           "prehashedDigest"
@@ -7294,7 +7294,7 @@
           },
           "signatureInputMode": {
             "$ref": "#/components/schemas/SignatureInputMode",
-            "description": "How the connector treats each data item. Absent means data."
+            "description": "How the connector treats each data item. Absent means data, and callers omit the field for data mode because released connectors refuse unknown properties. Under prehashedDigest each item is already the digest the selected signature algorithm fixes and is never hashed again: RSA PKCS#1 v1.5 wraps it in a DigestInfo per RFC 8017 section 9.2 with explicit NULL parameters; RSA-PSS and ECDSA sign it with the parameters the signature algorithm code fixes. A connector that does not implement the mode answers 422 PARAMETER_UNSUPPORTED and never ignores the field; one that implements it advertises the prehashedSigning feature flag."
           },
           "signatureAttributes": {
             "type": "array",
