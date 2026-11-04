@@ -10,8 +10,10 @@ import (
 // added by a later regeneration reaches signerFor's default branch.
 func TestSignerForRefusesAModeItDoesNotRoute(t *testing.T) {
 	h := &Handler{}
+	req := &mdl.SignDataRequestV2Dto{}
+	req.SetSignatureInputMode(mdl.SignatureInputMode("externalMu"))
 
-	sign, err := h.signerFor(mdl.SignatureInputMode("externalMu"))
+	sign, err := h.signerFor(req)
 
 	if err != errInputModeNotSupported {
 		t.Fatalf("signerFor error = %v, want errInputModeNotSupported", err)

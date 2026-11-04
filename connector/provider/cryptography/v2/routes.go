@@ -68,16 +68,20 @@ var errInputModeNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "this sig
 
 type signFunc func(context.Context, *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error)
 
-// signerFor picks the provider method for an input mode. A mode added to the
-// contract after this switch was written is refused rather than signed as
-// data, which would hash its item a second time.
-func (h *Handler) signerFor(mode mdl.SignatureInputMode) (signFunc, error) {
-	switch mode {
+// signerFor picks the provider method for the request's input mode, once the
+// request meets that mode's rules. A mode added to the contract after this
+// switch was written is refused rather than signed as data, which would hash
+// its item a second time.
+func (h *Handler) signerFor(req *mdl.SignDataRequestV2Dto) (signFunc, error) {
+	switch InputMode(req) {
 	case mdl.SIGNATUREINPUTMODE_DATA:
 		return h.provider.SignData, nil
 	case mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST:
 		if h.prehashed == nil {
 			return nil, errPrehashedSigningNotSupported
+		}
+		if err := validatePrehashedRequest(req); err != nil {
+			return nil, err
 		}
 		return h.prehashed.SignPrehashed, nil
 	default:
@@ -458,7 +462,7 @@ func (h *Handler) signData(w http.ResponseWriter, r *http.Request) {
 		h.rejectRequest(w, r, eventSignData, err)
 		return
 	}
-	sign, err := h.signerFor(InputMode(&in))
+	sign, err := h.signerFor(&in)
 	if err != nil {
 		h.rejectRequest(w, r, eventSignData, err)
 		return

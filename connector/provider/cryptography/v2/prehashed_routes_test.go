@@ -2,6 +2,8 @@ package cryptography_test
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,6 +17,24 @@ const signPath = "/v2/cryptographyProvider/operations/sign"
 
 func signedBatch() *mdl.SignDataResponseV2Dto {
 	return &mdl.SignDataResponseV2Dto{Signatures: []mdl.SignatureDataV2Dto{{Identifier: "d-1", Data: "AA=="}}}
+}
+
+// prehashedSignBody is a prehashed sign request selecting algorithm, whose one
+// item is digest.
+func prehashedSignBody(t *testing.T, executionMode string, algorithm cryptography.SignatureAlgorithm, digest []byte) string {
+	t.Helper()
+	selection, err := json.Marshal([]mdl.RequestAttribute{cryptography.SignatureAlgorithmSelection(algorithm)})
+	if err != nil {
+		t.Fatalf("marshal selection: %v", err)
+	}
+	body := strings.Replace(signDataBodyWithMode(executionMode, "prehashedDigest"),
+		`"signatureAttributes":[]`, `"signatureAttributes":`+string(selection), 1)
+	return strings.Replace(body, `"data":"AA=="`, `"data":"`+base64.StdEncoding.EncodeToString(digest)+`"`, 1)
+}
+
+// validPrehashedSignBody selects SHA256withECDSA and carries a 32-byte digest.
+func validPrehashedSignBody(t *testing.T, executionMode string) string {
+	return prehashedSignBody(t, executionMode, cryptography.SignatureAlgorithmSHA256WithECDSA, make([]byte, 32))
 }
 
 // countingProvider counts the SignData calls that reach the base provider.
@@ -44,7 +64,7 @@ func TestPrehashedSignReachesThePrehashedProvider(t *testing.T) {
 	stub := &stubPrehashed{resp: signedBatch()}
 	srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
 
-	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+	rec := post(t, srv, signPath, validPrehashedSignBody(t, "synchronous"))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
@@ -61,7 +81,7 @@ func TestPrehashedSignRendersAcceptedAs202(t *testing.T) {
 	stub := &stubPrehashed{accepted: true, resp: &mdl.SignDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{metadataAttributeFixture()}}}
 	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
 
-	rec := post(t, srv, signPath, signDataBodyWithMode("asynchronous", "prehashedDigest"))
+	rec := post(t, srv, signPath, validPrehashedSignBody(t, "asynchronous"))
 
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("status = %d, want 202; body %s", rec.Code, rec.Body)
@@ -72,7 +92,7 @@ func TestPrehashedSignIsHeldToTheCallersExecutionMode(t *testing.T) {
 	stub := &stubPrehashed{accepted: true, resp: signedBatch()}
 	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
 
-	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+	rec := post(t, srv, signPath, validPrehashedSignBody(t, "synchronous"))
 
 	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 	assertDetail(t, problem, "provider response violates the contract: sign data requested synchronously must not be accepted for asynchronous execution")
@@ -82,9 +102,72 @@ func TestPrehashedSignMapsProviderErrorToProblem(t *testing.T) {
 	stub := &stubPrehashed{err: cryptography.ErrSignatureAlgorithmUnsupported}
 	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
 
-	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+	rec := post(t, srv, signPath, validPrehashedSignBody(t, "synchronous"))
 
 	assertProblem(t, rec, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
+}
+
+func TestPrehashedSignRefusesAnAlgorithmItIsNotDefinedFor(t *testing.T) {
+	for _, algorithm := range []cryptography.SignatureAlgorithm{
+		cryptography.SignatureAlgorithmEd25519, cryptography.SignatureAlgorithmMLDSA65, cryptography.SignatureAlgorithmSLHDSASHA2128S,
+	} {
+		t.Run(string(algorithm), func(t *testing.T) {
+			stub := &stubPrehashed{resp: signedBatch()}
+			srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+
+			rec := post(t, srv, signPath, prehashedSignBody(t, "synchronous", algorithm, make([]byte, 64)))
+
+			problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
+			assertDetail(t, problem, "prehashed signing is not defined for the selected signature algorithm")
+			if stub.got != nil {
+				t.Fatal("prehashed provider was called for an algorithm prehashed signing does not cover")
+			}
+		})
+	}
+}
+
+func TestPrehashedSignRefusesAnItemOfTheWrongLength(t *testing.T) {
+	cases := map[string]struct {
+		algorithm cryptography.SignatureAlgorithm
+		digest    []byte
+	}{
+		"longer than SHA-256":  {cryptography.SignatureAlgorithmSHA256WithECDSA, make([]byte, 64)},
+		"shorter than SHA-384": {cryptography.SignatureAlgorithmSHA384WithRSAPSS, make([]byte, 32)},
+		"shorter than SHA-512": {cryptography.SignatureAlgorithmSHA512WithRSA, make([]byte, 48)},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			stub := &stubPrehashed{resp: signedBatch()}
+			srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+
+			rec := post(t, srv, signPath, prehashedSignBody(t, "synchronous", c.algorithm, c.digest))
+
+			assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+			if stub.got != nil {
+				t.Fatal("prehashed provider was called for an item of the wrong length")
+			}
+		})
+	}
+}
+
+func TestPrehashedSignAcceptsEachDigestLength(t *testing.T) {
+	cases := map[cryptography.SignatureAlgorithm]int{
+		cryptography.SignatureAlgorithmSHA256WithRSA:    32,
+		cryptography.SignatureAlgorithmSHA384WithECDSA:  48,
+		cryptography.SignatureAlgorithmSHA512WithRSAPSS: 64,
+	}
+	for algorithm, size := range cases {
+		t.Run(string(algorithm), func(t *testing.T) {
+			stub := &stubPrehashed{resp: signedBatch()}
+			srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+
+			rec := post(t, srv, signPath, prehashedSignBody(t, "synchronous", algorithm, make([]byte, size)))
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
+			}
+		})
+	}
 }
 
 func TestDataAndAbsentModeReachSignData(t *testing.T) {

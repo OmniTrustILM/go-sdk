@@ -234,11 +234,9 @@ type PrehashedSignProvider interface {
 	// algorithm read by SelectedSignatureAlgorithm, and refuse one the key
 	// does not support with ErrSignatureAlgorithmUnsupported.
 	//
-	// Prehashed signing is defined for the RSA PKCS#1 v1.5, RSA-PSS and ECDSA
-	// signature algorithm codes only: refuse any other selected algorithm with
-	// ErrSignatureAlgorithmUnsupported (422 PARAMETER_UNSUPPORTED). Refuse an
-	// item whose length is not the output size of the digest the algorithm
-	// fixes with a shared.Invalid("VALIDATION_FAILED", ...) error (422).
+	// The handler has already refused an algorithm prehashed signing is not
+	// defined for, which leaves the RSA PKCS#1 v1.5, RSA-PSS and ECDSA codes,
+	// and every item that is not a digest of the length the algorithm fixes.
 	SignPrehashed(ctx context.Context, req *mdl.SignDataRequestV2Dto) (resp *mdl.SignDataResponseV2Dto, accepted bool, err error)
 }
 
