@@ -1,6 +1,7 @@
 package cryptography
 
 import (
+	"context"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
@@ -62,6 +63,27 @@ var errKeyListNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key lis
 // errPrehashedSigningNotSupported is the sign route's answer to a prehashed
 // request without WithPrehashedSigning; the contract forbids ignoring the mode.
 var errPrehashedSigningNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "prehashed signing is not implemented by this connector")
+
+var errInputModeNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "this signature input mode is not implemented by this connector")
+
+type signFunc func(context.Context, *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error)
+
+// signerFor picks the provider method for an input mode. A mode added to the
+// contract after this switch was written is refused rather than signed as
+// data, which would hash its item a second time.
+func (h *Handler) signerFor(mode mdl.SignatureInputMode) (signFunc, error) {
+	switch mode {
+	case mdl.SIGNATUREINPUTMODE_DATA:
+		return h.provider.SignData, nil
+	case mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST:
+		if h.prehashed == nil {
+			return nil, errPrehashedSigningNotSupported
+		}
+		return h.prehashed.SignPrehashed, nil
+	default:
+		return nil, errInputModeNotSupported
+	}
+}
 
 // rejectRequest emits the outcome event and renders the problem response for a
 // failed request guard.
@@ -436,13 +458,10 @@ func (h *Handler) signData(w http.ResponseWriter, r *http.Request) {
 		h.rejectRequest(w, r, eventSignData, err)
 		return
 	}
-	sign := h.provider.SignData
-	if InputMode(&in) == mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST {
-		if h.prehashed == nil {
-			h.rejectRequest(w, r, eventSignData, errPrehashedSigningNotSupported)
-			return
-		}
-		sign = h.prehashed.SignPrehashed
+	sign, err := h.signerFor(InputMode(&in))
+	if err != nil {
+		h.rejectRequest(w, r, eventSignData, err)
+		return
 	}
 	out, accepted, err := sign(r.Context(), &in)
 	if err == nil {
