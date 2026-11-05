@@ -70,6 +70,7 @@ type wrapper struct {
 const noSpecStanza = "-"
 
 var wrappers = []wrapper{
+	{fileSuffix: "model_discovered_item_payload.go", typeName: "DiscoveredItemPayload", discriminator: "resource", cases: map[string]string{"certificates": "DiscoveredCertificateDto", "keys": "DiscoveredKeyDto"}},
 	{
 		fileSuffix:    "model_base_attribute_content_dto_v3.go",
 		typeName:      "BaseAttributeContentDtoV3",

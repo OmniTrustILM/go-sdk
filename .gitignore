@@ -8,12 +8,16 @@
 /cryptography-v1
 /cryptography-v2
 /disco-v1
+/disco-v2
 /entity-v1
 /legacy-auth-v1
 /multi-v1
 /notification-v1
 /secret-v1
 /fixoneof
+
+# Build output directory
+/built-artifacts/
 
 # Go build/test artifacts
 *.exe
