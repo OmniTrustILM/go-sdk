@@ -13,6 +13,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"net/http"
@@ -389,8 +390,10 @@ func TestCryptographyV2InfoAndHealth(t *testing.T) {
 	if idx < 0 {
 		t.Fatalf("/v2/info missing {cryptography, v2} interface: %+v", info.Interfaces)
 	}
-	if !slices.Contains(info.Interfaces[idx].Features, "asynchronous") {
-		t.Errorf("cryptography interface features = %v, want to contain %q", info.Interfaces[idx].Features, "asynchronous")
+	for _, feature := range []string{"asynchronous", "prehashedSigning"} {
+		if !slices.Contains(info.Interfaces[idx].Features, feature) {
+			t.Errorf("cryptography interface features = %v, want to contain %q", info.Interfaces[idx].Features, feature)
+		}
 	}
 
 	h.AssertLogsConform(t)
@@ -645,6 +648,28 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item, selecting(cryptography.SignatureAlgorithmSHA512WithECDSA),
 		)})
 		itest.AssertStatus(t, resp, http.StatusOK)
+	})
+
+	t.Run("a key pair signs a prehashed digest", func(t *testing.T) {
+		digest := sha256.Sum256([]byte("sign-me"))
+		req := signRequestWith(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta,
+			[]mdl.SignatureDataV2Dto{{Data: b64(string(digest[:])), Identifier: "item-1"}},
+			selecting(cryptography.SignatureAlgorithmSHA256WithECDSA))
+		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST)
+
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: req})
+
+		itest.AssertStatus(t, resp, http.StatusOK)
+	})
+
+	t.Run("a prehashed item of the wrong length is refused", func(t *testing.T) {
+		req := signRequestWith(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item,
+			selecting(cryptography.SignatureAlgorithmSHA256WithECDSA))
+		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST)
+
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: req})
+
+		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 	})
 
 	t.Run("a sign request without a selection is refused", func(t *testing.T) {

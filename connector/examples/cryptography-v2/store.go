@@ -653,6 +653,13 @@ func (s *Store) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*m
 	return &mdl.SignDataResponseV2Dto{Signatures: sigs}, false, nil
 }
 
+// SignPrehashed signs digests the caller has already computed. fakeSign treats
+// every item as opaque bytes, so a digest is signed exactly as SignData signs
+// data; a real signer hands the digest over without hashing it again.
+func (s *Store) SignPrehashed(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error) {
+	return s.SignData(ctx, req)
+}
+
 // VerifyData verifies a batch of signatures against their signed data. Always
 // synchronous; the handler guarantees req.Data and req.Signatures carry the
 // same identifier set.
