@@ -23,6 +23,9 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 	cipherAttributes := []mdl.RequestAttribute{
 		cryptography.EncryptionAlgorithmSelection(cryptography.EncryptionAlgorithmRSAOAEPSHA256),
 	}
+	signatureAttributes := []mdl.RequestAttribute{
+		cryptography.SignatureAlgorithmSelection(cryptography.SignatureAlgorithmSHA256WithRSA),
+	}
 
 	for iter := 0; iter < iterations; iter++ {
 		store := NewStore(defaultAsyncOperationDelay)
@@ -36,7 +39,7 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 
 		// EncryptData needs base64: a rejected fixture never reaches the race.
 		plaintext := base64.StdEncoding.EncodeToString([]byte("hello world"))
-		signature := fakeSignForTest(keyMeta, plaintext)
+		signature := fakeSignForTest(t, keyMeta, cryptography.SignatureAlgorithmSHA256WithRSA, plaintext)
 		ciphertext, err := fakeEncrypt(mustKeyID(keyMeta), plaintext)
 		if err != nil {
 			t.Fatalf("iteration %d: fakeEncrypt: %v", iter, err)
@@ -80,9 +83,10 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 				switch op {
 				case 0:
 					resp, err := store.VerifyData(ctx, &mdl.VerifyDataRequestV2Dto{
-						KeyMeta:    keyMeta,
-						Data:       []mdl.SignatureDataV2Dto{{Identifier: "1", Data: plaintext}},
-						Signatures: []mdl.SignatureDataV2Dto{{Identifier: "1", Data: signature}},
+						KeyMeta:             keyMeta,
+						SignatureAttributes: signatureAttributes,
+						Data:                []mdl.SignatureDataV2Dto{{Identifier: "1", Data: plaintext}},
+						Signatures:          []mdl.SignatureDataV2Dto{{Identifier: "1", Data: signature}},
 					})
 					if (resp == nil) == (err == nil) {
 						t.Errorf("VerifyData: expected exactly one of (resp, err) to be nil, got resp=%v err=%v", resp, err)
@@ -114,9 +118,15 @@ func TestStoreConcurrentVerifyEncryptDecryptVsDestroy(t *testing.T) {
 	}
 }
 
-// fakeSignForTest computes the signature a live key would produce for data.
-func fakeSignForTest(keyMeta []mdl.MetadataAttribute, data string) string {
-	return fakeSign(mustKeyID(keyMeta), data)
+// fakeSignForTest computes the signature a live key would produce for data
+// under algorithm.
+func fakeSignForTest(t *testing.T, keyMeta []mdl.MetadataAttribute, algorithm cryptography.SignatureAlgorithm, data string) string {
+	t.Helper()
+	digest, err := digestToSign(algorithm, data, false)
+	if err != nil {
+		t.Fatalf("digestToSign: %v", err)
+	}
+	return fakeSign(mustKeyID(keyMeta), digest)
 }
 
 // mustKeyID extracts the handle a Store attached to keyMeta.

@@ -148,7 +148,7 @@ func verifyRequest(keyMeta []mdl.MetadataAttribute, data, sigs []mdl.SignatureDa
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
 		KeyMeta:                keyMeta,
-		SignatureAttributes:    noAttrs,
+		SignatureAttributes:    []mdl.RequestAttribute{cryptography.SignatureAlgorithmSelection(cryptography.SignatureAlgorithmSHA256WithECDSA)},
 		Data:                   data,
 		Signatures:             sigs,
 	}
@@ -659,7 +659,21 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: req})
 
-		itest.AssertStatus(t, resp, http.StatusOK)
+		if !itest.AssertStatus(t, resp, http.StatusOK) {
+			t.FailNow()
+		}
+		var signed mdl.SignDataResponseV2Dto
+		resp.JSON(t, &signed)
+		verifyResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathVerify,
+			Body: verifyRequest(pairMeta, item, signed.Signatures)})
+		if !itest.AssertStatus(t, verifyResp, http.StatusOK) {
+			t.FailNow()
+		}
+		var verified mdl.VerifyDataResponseV2Dto
+		verifyResp.JSON(t, &verified)
+		if len(verified.Verifications) != 1 || !verified.Verifications[0].Result {
+			t.Errorf("a signature over the message's digest does not verify against the message: %+v", verified.Verifications)
+		}
 	})
 
 	t.Run("a prehashed item of the wrong length is refused", func(t *testing.T) {
