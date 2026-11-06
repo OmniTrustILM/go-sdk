@@ -336,16 +336,18 @@ var signatureDigests = map[cryptography.SignatureAlgorithm]func() hash.Hash{
 }
 
 // digestToSign is the base64 digest a signature over item covers. A prehashed
-// item already is that digest and is signed as given: hashing it again is the
-// step a real signer must not repeat. A data item is hashed first, so a
-// signature over a digest the caller computed verifies against the message.
+// item already is that digest and is signed without hashing it again, the step
+// a real signer must not repeat. A data item is hashed first, so a signature
+// over a digest the caller computed verifies against the message. Both are
+// re-encoded, because the decoder accepts line breaks the signed form must not
+// carry.
 func digestToSign(algorithm cryptography.SignatureAlgorithm, item string, prehashed bool) (string, error) {
-	if prehashed {
-		return item, nil
-	}
 	data, err := base64.StdEncoding.DecodeString(item)
 	if err != nil {
 		return "", err
+	}
+	if prehashed {
+		return base64.StdEncoding.EncodeToString(data), nil
 	}
 	h := signatureDigests[algorithm]()
 	h.Write(data)
@@ -1022,10 +1024,10 @@ func (s *Store) SignAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2D
 	return []mdl.BaseAttributeDto{cryptography.SignatureAlgorithmDefinition(offered...)}, nil
 }
 
-// VerifyAttributes reports the verification attribute schema: none for this
-// example.
+// VerifyAttributes offers the key's signature algorithms, the selection
+// VerifyData requires.
 func (s *Store) VerifyAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	return nil, nil
+	return s.SignAttributes(ctx, req)
 }
 
 // RandomDataAttributes reports the random-data attribute schema: none for

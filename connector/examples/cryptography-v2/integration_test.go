@@ -625,6 +625,14 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 		}
 	})
 
+	t.Run("verification offers the algorithms signing does", func(t *testing.T) {
+		schema := attributeSchema(t, h, pathVerifyAttrs, keyScopedRequest(pairMeta))
+		want := []string{"SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA"}
+		if got := schemaOffer(t, schema, cryptography.SignatureAlgorithmAttributeName); !slices.Equal(got, want) {
+			t.Errorf("offered algorithms = %v, want %v", got, want)
+		}
+	})
+
 	t.Run("an RSA pair offers the RSA algorithms", func(t *testing.T) {
 		schema := attributeSchema(t, h, pathSignAttrs, keyScopedRequest(rsaMeta))
 		want := []string{
@@ -844,9 +852,6 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 		}
 	}
 
-	// keyMeta is minItems: 1, so these endpoints need a well-formed handle
-	// even though they ignore the key it names.
-	keyScoped := keyScopedRequest(metaAttribute(uuid.NewString(), "keyHandle", "key handle"))
 	pairMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
 	rsaMeta := createRSAPair(t, h)
 
@@ -864,7 +869,7 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 		{"encryptAttributes", http.MethodPost, pathEncryptAttrs, keyScopedRequest(rsaMeta)},
 		{"decryptAttributes", http.MethodPost, pathDecryptAttrs, keyScopedRequest(rsaMeta)},
 		{"signAttributes", http.MethodPost, pathSignAttrs, keyScopedRequest(pairMeta)},
-		{"verifyAttributes", http.MethodPost, pathVerifyAttrs, keyScoped},
+		{"verifyAttributes", http.MethodPost, pathVerifyAttrs, keyScopedRequest(pairMeta)},
 		{"randomDataAttributes", http.MethodPost, pathRandomAttrs, mdl.TokenProfileScopedRequestV2Dto{
 			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs,
 		}},

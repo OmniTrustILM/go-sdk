@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
+	"reflect"
 	"testing"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
@@ -64,6 +65,52 @@ func TestPrehashedSignatureVerifiesAgainstTheMessage(t *testing.T) {
 	}
 	if !verified.Verifications[0].Result {
 		t.Error("a signature over the message's digest does not verify against the message")
+	}
+}
+
+func TestALineWrappedPrehashedDigestVerifiesAgainstTheMessage(t *testing.T) {
+	store := NewStore(defaultAsyncOperationDelay)
+	ctx := context.Background()
+	keyMeta := rsaKeyMeta(t, store)
+	message := []byte("sign-me")
+	digest := sha512.Sum384(message)
+	req := signRequestFor(keyMeta, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, digest[:])
+	encoded := req.Data[0].Data
+	req.Data[0].Data = encoded[:32] + "\r\n" + encoded[32:]
+
+	resp, _, err := store.SignPrehashed(ctx, req)
+	signature := onlySignature(t, resp, err)
+
+	verified, err := store.VerifyData(ctx, &mdl.VerifyDataRequestV2Dto{
+		KeyMeta:             keyMeta,
+		SignatureAttributes: sha384WithRSAPSS,
+		Data:                []mdl.SignatureDataV2Dto{{Identifier: "1", Data: base64.StdEncoding.EncodeToString(message)}},
+		Signatures:          []mdl.SignatureDataV2Dto{{Identifier: "1", Data: signature}},
+	})
+	if err != nil {
+		t.Fatalf("VerifyData: %v", err)
+	}
+	if !verified.Verifications[0].Result {
+		t.Error("a signature over a line-wrapped digest does not verify against the message")
+	}
+}
+
+func TestVerificationOffersTheSignatureAlgorithms(t *testing.T) {
+	store := NewStore(defaultAsyncOperationDelay)
+	ctx := context.Background()
+	req := &mdl.KeyScopedRequestV2Dto{KeyMeta: rsaKeyMeta(t, store)}
+
+	verify, err := store.VerifyAttributes(ctx, req)
+	if err != nil {
+		t.Fatalf("VerifyAttributes: %v", err)
+	}
+	sign, err := store.SignAttributes(ctx, req)
+	if err != nil {
+		t.Fatalf("SignAttributes: %v", err)
+	}
+
+	if len(verify) == 0 || !reflect.DeepEqual(verify, sign) {
+		t.Errorf("verify attributes = %+v, want the sign offer %+v", verify, sign)
 	}
 }
 
