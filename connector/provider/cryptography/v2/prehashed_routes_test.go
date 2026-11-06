@@ -228,25 +228,61 @@ func TestUnknownInputModeIsRejectedWhileDecoding(t *testing.T) {
 }
 
 func TestPrehashedRequestIsGuardedBeforeRouting(t *testing.T) {
-	valid := signDataBodyWithMode("synchronous", "prehashedDigest")
-	item := `"data":[{"identifier":"d-1","data":"AA=="}]`
-	cases := map[string]string{
-		"empty payload": strings.Replace(valid, item, `"data":[{"identifier":"d-1","data":""}]`, 1),
-		"empty batch":   strings.Replace(valid, item, `"data":[]`, 1),
+	valid := validPrehashedSignBody(t, "synchronous")
+	item := `"data":[{"identifier":"d-1","data":"` + base64.StdEncoding.EncodeToString(make([]byte, 32)) + `"}]`
+	cases := map[string]struct{ body, detail string }{
+		"empty payload": {strings.Replace(valid, item, `"data":[{"identifier":"d-1","data":""}]`, 1), "data entries must not carry empty data"},
+		"empty batch":   {strings.Replace(valid, item, `"data":[]`, 1), "data must not be empty"},
 	}
-	for name, body := range cases {
+	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			p := &countingProvider{}
 			stub := &stubPrehashed{}
 			srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub))
 
-			rec := post(t, srv, signPath, body)
+			rec := post(t, srv, signPath, c.body)
 
-			assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+			problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+			assertDetail(t, problem, c.detail)
 			if p.signCalls != 0 || stub.got != nil {
 				t.Fatal("a provider was called for an invalid request")
 			}
 		})
+	}
+}
+
+func TestPrehashedSignChecksEveryItem(t *testing.T) {
+	digest := base64.StdEncoding.EncodeToString(make([]byte, 48))
+	short := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	body := strings.Replace(
+		prehashedSignBody(t, "synchronous", cryptography.SignatureAlgorithmSHA384WithECDSA, make([]byte, 48)),
+		`"data":"`+digest+`"}]`, `"data":"`+digest+`"},{"identifier":"d-2","data":"`+short+`"}]`, 1)
+
+	assertPrehashedItemRefused(t, body, "data entries must be 48-byte digests for SHA384withECDSA")
+}
+
+func TestPrehashedSignRefusesAnItemThatIsNotBase64(t *testing.T) {
+	digest := base64.StdEncoding.EncodeToString(make([]byte, 48))
+	// The 48 bytes before the invalid character still decode, so only the
+	// decoding error tells this item apart from a valid SHA-384 digest.
+	body := strings.Replace(
+		prehashedSignBody(t, "synchronous", cryptography.SignatureAlgorithmSHA384WithECDSA, make([]byte, 48)),
+		`"data":"`+digest+`"`, `"data":"`+digest+`!"`, 1)
+
+	assertPrehashedItemRefused(t, body, "data entries must be 48-byte digests for SHA384withECDSA")
+}
+
+func assertPrehashedItemRefused(t *testing.T, body, detail string) {
+	t.Helper()
+	stub := &stubPrehashed{resp: signedBatch()}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+
+	rec := post(t, srv, signPath, body)
+
+	problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
+	assertDetail(t, problem, detail)
+	if stub.got != nil {
+		t.Fatal("prehashed provider was called for an invalid item")
 	}
 }
 
