@@ -16,7 +16,7 @@ import (
 	"fmt"
 )
 
-// SignatureInputMode Whether each data item is the content to sign or already the digest the signature algorithm fixes
+// SignatureInputMode Whether each data item is the data itself or its digest. A hash-then-sign algorithm computes a digest of the data and signs that digest, while a pure algorithm signs the data itself. The platform sends prehashedDigest for raw signing, where its caller has already computed the digest
 type SignatureInputMode string
 
 // List of SignatureInputMode

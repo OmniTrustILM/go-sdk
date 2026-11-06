@@ -229,8 +229,8 @@ type PrehashedSignProvider interface {
 	// semantics. Each item is already the digest the selected signature
 	// algorithm fixes: sign it without hashing again. RSA PKCS#1 v1.5 wraps
 	// it in a DigestInfo per RFC 8017 section 9.2 with explicit NULL
-	// parameters; RSA-PSS and ECDSA sign the digest with the parameters the
-	// selected signature algorithm code fixes. Like SignData, sign with the
+	// parameters; RSA-PSS signs it with the parameters documented on
+	// SignatureAlgorithm, and ECDSA signs it as given. Like SignData, sign with the
 	// algorithm read by SelectedSignatureAlgorithm, and refuse one the key
 	// does not support with ErrSignatureAlgorithmUnsupported.
 	//
