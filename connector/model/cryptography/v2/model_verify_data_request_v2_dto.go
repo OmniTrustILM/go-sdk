@@ -28,7 +28,7 @@ type VerifyDataRequestV2Dto struct {
 	TokenProfileAttributes []RequestAttribute `json:"tokenProfileAttributes"`
 	// Connector-defined metadata identifying the key, as returned when the key was created, listed or identified. Supply the metadata unchanged in subsequent requests for the key. Metadata must identify the key durably—it must remain valid across connector restarts and sessions; ephemeral handles must not be used.
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
-	// Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the verification attribute schema.
+	// Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the verification attribute schema. RSA-PSS codes use MGF1 with the same hash as the code, a salt as long as that hash's output, and trailer field 1.
 	SignatureAttributes []RequestAttribute `json:"signatureAttributes"`
 	// Signed data, correlated to the signatures by identifier
 	Data []SignatureDataV2Dto `json:"data"`

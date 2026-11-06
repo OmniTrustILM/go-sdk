@@ -70,6 +70,7 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 				cryptography.WithAsyncKeyImport(&stubAsyncKeyImport{}),
 				cryptography.WithKeyExport(&stubKeyExport{}),
 				cryptography.WithKeyList(&stubKeyList{}),
+				cryptography.WithPrehashedSigning(&stubPrehashed{}),
 			)
 			var req *http.Request
 			if tc.body == "" {
@@ -95,5 +96,19 @@ func TestEveryRouteEmitsExactlyOneEventConsistentWithStatus(t *testing.T) {
 				t.Errorf("status %d, events = %v, want %s", rec.Code, mc.events, want)
 			}
 		})
+	}
+}
+
+func TestPrehashedRequestWithoutItsProviderEmitsOneSignDataErrorEvent(t *testing.T) {
+	mc := &recordingMetrics{events: map[string]int{}}
+	srv := newMeteredServer(t, &stubProvider{}, mc)
+
+	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body %s", rec.Code, rec.Body)
+	}
+	if len(mc.events) != 1 || mc.events["sign_data/error"] != 1 {
+		t.Errorf("events = %v, want exactly one sign_data/error", mc.events)
 	}
 }

@@ -59,6 +59,7 @@ func main() {
 		cryptography.WithAsyncKeyImport(store),
 		cryptography.WithKeyExport(store),
 		cryptography.WithKeyList(store),
+		cryptography.WithPrehashedSigning(store),
 		cryptography.WithTokenAttributes(store),
 		cryptography.WithTokenProfileAttributes(store),
 		cryptography.WithCreateKeyAttributes(store),
@@ -72,6 +73,7 @@ func main() {
 			string(mdl.FEATUREFLAG_KEY_IMPORT),
 			string(mdl.FEATUREFLAG_KEY_EXPORT),
 			string(mdl.FEATUREFLAG_KEY_LIST),
+			string(mdl.FEATUREFLAG_PREHASHED_SIGNING),
 		)),
 	)
 	if err != nil {

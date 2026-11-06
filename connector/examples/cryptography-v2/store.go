@@ -6,11 +6,13 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"slices"
 	"sync"
 	"time"
@@ -166,7 +168,7 @@ func (op *asyncDestroyOp) status(delay time.Duration) mdl.OperationStatus {
 // signItem is one element of an accepted asynchronous signing batch.
 type signItem struct {
 	identifier string
-	data       string
+	digest     string
 }
 
 // asyncSignOp tracks an accepted asynchronous signing batch.
@@ -290,15 +292,15 @@ var (
 	errKeyCannotEncrypt = shared.Invalid("VALIDATION_FAILED", "key cannot encrypt")
 )
 
-func requireOfferedSignatureAlgorithm(algorithm mdl.KeyAlgorithm, signatureAttributes []mdl.RequestAttribute) error {
+func requireOfferedSignatureAlgorithm(algorithm mdl.KeyAlgorithm, signatureAttributes []mdl.RequestAttribute) (cryptography.SignatureAlgorithm, error) {
 	selected, err := cryptography.SelectedSignatureAlgorithm(signatureAttributes)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !slices.Contains(offeredSignatureAlgorithms(algorithm), selected) {
-		return cryptography.ErrSignatureAlgorithmUnsupported
+		return "", cryptography.ErrSignatureAlgorithmUnsupported
 	}
-	return nil
+	return selected, nil
 }
 
 func requireOfferedEncryptionAlgorithm(algorithm mdl.KeyAlgorithm, cipherAttributes []mdl.RequestAttribute) error {
@@ -312,11 +314,44 @@ func requireOfferedEncryptionAlgorithm(algorithm mdl.KeyAlgorithm, cipherAttribu
 	return nil
 }
 
-// fakeSign derives a deterministic "signature" from the key handle and data,
-// so verifying against the same Store recomputes the same value.
-func fakeSign(keyID, data string) string {
-	sum := sha256.Sum256([]byte("sign:" + keyID + ":" + data))
+// fakeSign derives a deterministic "signature" from the key handle and the
+// base64 digest it signs, so verifying against the same Store recomputes the
+// same value.
+func fakeSign(keyID, digest string) string {
+	sum := sha256.Sum256([]byte("sign:" + keyID + ":" + digest))
 	return base64.StdEncoding.EncodeToString(sum[:])
+}
+
+// signatureDigests are the digests the offered signature algorithms name.
+var signatureDigests = map[cryptography.SignatureAlgorithm]func() hash.Hash{
+	cryptography.SignatureAlgorithmSHA256WithRSA:    sha256.New,
+	cryptography.SignatureAlgorithmSHA384WithRSA:    sha512.New384,
+	cryptography.SignatureAlgorithmSHA512WithRSA:    sha512.New,
+	cryptography.SignatureAlgorithmSHA256WithRSAPSS: sha256.New,
+	cryptography.SignatureAlgorithmSHA384WithRSAPSS: sha512.New384,
+	cryptography.SignatureAlgorithmSHA512WithRSAPSS: sha512.New,
+	cryptography.SignatureAlgorithmSHA256WithECDSA:  sha256.New,
+	cryptography.SignatureAlgorithmSHA384WithECDSA:  sha512.New384,
+	cryptography.SignatureAlgorithmSHA512WithECDSA:  sha512.New,
+}
+
+// digestToSign is the base64 digest a signature over item covers. A prehashed
+// item already is that digest and is signed without hashing it again, the step
+// a real signer must not repeat. A data item is hashed first, so a signature
+// over a digest the caller computed verifies against the message. Both are
+// re-encoded, because the decoder accepts line breaks the signed form must not
+// carry.
+func digestToSign(algorithm cryptography.SignatureAlgorithm, item string, prehashed bool) (string, error) {
+	data, err := base64.StdEncoding.DecodeString(item)
+	if err != nil {
+		return "", err
+	}
+	if prehashed {
+		return base64.StdEncoding.EncodeToString(data), nil
+	}
+	h := signatureDigests[algorithm]()
+	h.Write(data)
+	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
 // fakeKeyStream derives n deterministic bytes from the key handle, repeating
@@ -617,8 +652,18 @@ func (s *Store) DestroyKey(ctx context.Context, req *mdl.DestroyKeyRequestV2Dto)
 // --- Provider: signing, verification, encryption, decryption ---------------
 
 // SignData signs a batch synchronously or asynchronously per
-// req.ExecutionMode, using the fakeSign placeholder.
+// req.ExecutionMode, using the fakeSign placeholder over each item's digest.
 func (s *Store) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error) {
+	return s.sign(req, false)
+}
+
+// SignPrehashed signs digests the caller has already computed, without hashing
+// them again.
+func (s *Store) SignPrehashed(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error) {
+	return s.sign(req, true)
+}
+
+func (s *Store) sign(req *mdl.SignDataRequestV2Dto, prehashed bool) (*mdl.SignDataResponseV2Dto, bool, error) {
 	keyID, ok := metaID(req.KeyMeta)
 	if !ok {
 		return nil, false, cryptography.ErrKeyNotFound
@@ -631,24 +676,29 @@ func (s *Store) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*m
 	if !ok || rec.destroyed {
 		return nil, false, cryptography.ErrKeyNotFound.WithProperty("key", keyID)
 	}
-	if err := requireOfferedSignatureAlgorithm(rec.algorithm, req.SignatureAttributes); err != nil {
+	algorithm, err := requireOfferedSignatureAlgorithm(rec.algorithm, req.SignatureAttributes)
+	if err != nil {
 		return nil, false, err
+	}
+	items := make([]signItem, len(req.Data))
+	for i, d := range req.Data {
+		digest, err := digestToSign(algorithm, d.Data, prehashed)
+		if err != nil {
+			return nil, false, cryptography.ErrInvalidRequest.WithProperty("identifier", d.Identifier)
+		}
+		items[i] = signItem{identifier: d.Identifier, digest: digest}
 	}
 
 	if req.ExecutionMode == mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS {
 		handle := uuid.NewString()
-		items := make([]signItem, len(req.Data))
-		for i, d := range req.Data {
-			items[i] = signItem{identifier: d.Identifier, data: d.Data}
-		}
 		s.asyncSigns[handle] = &asyncSignOp{keyID: keyID, items: items, startedAt: time.Now()}
 		meta := []mdl.MetadataAttribute{metaAttr(handle, "signOperation", "Sign operation handle")}
 		return &mdl.SignDataResponseV2Dto{OperationMeta: meta}, true, nil
 	}
 
-	sigs := make([]mdl.SignatureDataV2Dto, len(req.Data))
-	for i, d := range req.Data {
-		sigs[i] = mdl.SignatureDataV2Dto{Identifier: d.Identifier, Data: fakeSign(keyID, d.Data)}
+	sigs := make([]mdl.SignatureDataV2Dto, len(items))
+	for i, it := range items {
+		sigs[i] = mdl.SignatureDataV2Dto{Identifier: it.identifier, Data: fakeSign(keyID, it.digest)}
 	}
 	return &mdl.SignDataResponseV2Dto{Signatures: sigs}, false, nil
 }
@@ -657,7 +707,11 @@ func (s *Store) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*m
 // synchronous; the handler guarantees req.Data and req.Signatures carry the
 // same identifier set.
 func (s *Store) VerifyData(ctx context.Context, req *mdl.VerifyDataRequestV2Dto) (*mdl.VerifyDataResponseV2Dto, error) {
-	keyID, _, err := s.liveKey(req.KeyMeta)
+	keyID, keyAlgorithm, err := s.liveKey(req.KeyMeta)
+	if err != nil {
+		return nil, err
+	}
+	algorithm, err := requireOfferedSignatureAlgorithm(keyAlgorithm, req.SignatureAttributes)
 	if err != nil {
 		return nil, err
 	}
@@ -668,9 +722,13 @@ func (s *Store) VerifyData(ctx context.Context, req *mdl.VerifyDataRequestV2Dto)
 	}
 	out := make([]mdl.VerificationResponseItemV2Dto, len(req.Data))
 	for i, d := range req.Data {
+		digest, err := digestToSign(algorithm, d.Data, false)
+		if err != nil {
+			return nil, cryptography.ErrInvalidRequest.WithProperty("identifier", d.Identifier)
+		}
 		out[i] = mdl.VerificationResponseItemV2Dto{
 			Identifier: d.Identifier,
-			Result:     sigByID[d.Identifier] == fakeSign(keyID, d.Data),
+			Result:     sigByID[d.Identifier] == fakeSign(keyID, digest),
 		}
 	}
 	return &mdl.VerifyDataResponseV2Dto{Verifications: out}, nil
@@ -875,7 +933,7 @@ func (s *Store) SignDataStatus(ctx context.Context, req *mdl.OperationTrackingRe
 		item := mdl.SignatureResultItemV2Dto{Identifier: it.identifier, Status: status}
 		switch status {
 		case mdl.OPERATIONSTATUS_COMPLETED:
-			sig := fakeSign(op.keyID, it.data)
+			sig := fakeSign(op.keyID, it.digest)
 			item.Signature = &sig
 		case mdl.OPERATIONSTATUS_CANCELLED:
 			reason := cancelledReason
@@ -966,10 +1024,10 @@ func (s *Store) SignAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2D
 	return []mdl.BaseAttributeDto{cryptography.SignatureAlgorithmDefinition(offered...)}, nil
 }
 
-// VerifyAttributes reports the verification attribute schema: none for this
-// example.
+// VerifyAttributes offers the key's signature algorithms, the selection
+// VerifyData requires.
 func (s *Store) VerifyAttributes(ctx context.Context, req *mdl.KeyScopedRequestV2Dto) ([]mdl.BaseAttributeDto, error) {
-	return nil, nil
+	return s.SignAttributes(ctx, req)
 }
 
 // RandomDataAttributes reports the random-data attribute schema: none for

@@ -34,6 +34,7 @@ type Handler struct {
 	asyncImport AsyncKeyImportProvider
 	keyExport   KeyExportProvider
 	keyList     KeyListProvider
+	prehashed   PrehashedSignProvider
 
 	tokenAttrs        TokenAttributeProvider
 	tokenProfileAttrs TokenProfileAttributeProvider
@@ -84,6 +85,8 @@ func (h *Handler) requireFeatureProviders() error {
 		return errors.New("cryptography: keyExport feature advertised without WithKeyExport")
 	case advertised(mdl.FEATUREFLAG_KEY_LIST) && h.keyList == nil:
 		return errors.New("cryptography: keyList feature advertised without WithKeyList")
+	case advertised(mdl.FEATUREFLAG_PREHASHED_SIGNING) && h.prehashed == nil:
+		return errors.New("cryptography: prehashedSigning feature advertised without WithPrehashedSigning")
 	}
 	return nil
 }

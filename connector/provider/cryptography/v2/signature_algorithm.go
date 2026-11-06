@@ -5,6 +5,12 @@ import (
 )
 
 // SignatureAlgorithm is a code of the contract's SignatureAlgorithm enum.
+//
+// RSA-PSS codes use MGF1 with the same hash as the code, a salt as long as
+// that hash's output, and trailer field 1. With crypto/rsa that is
+// PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash}; a nil PSSOptions signs
+// with the longest salt the key allows, which contradicts the parameters the
+// platform declares for the signature.
 type SignatureAlgorithm string
 
 const (

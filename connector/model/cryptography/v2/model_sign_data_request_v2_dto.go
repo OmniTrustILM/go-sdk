@@ -30,7 +30,9 @@ type SignDataRequestV2Dto struct {
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
 	// Caller-selected execution mode. The connector must not switch modes implicitly.
 	ExecutionMode OperationExecutionMode `json:"executionMode"`
-	// Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the signing attribute schema.
+	// How the connector treats each data item. Absent means data, and callers omit the field for data mode because released connectors refuse unknown properties. Under prehashedDigest each item is already the digest the selected signature algorithm fixes and is never hashed again: RSA PKCS#1 v1.5 wraps it in a DigestInfo per RFC 8017 section 9.2 with explicit NULL parameters; RSA-PSS and ECDSA sign it with the parameters the signature algorithm code fixes. prehashedDigest is defined for RSA PKCS#1 v1.5, RSA-PSS and ECDSA signature algorithm codes only: any other code answers 422 PARAMETER_UNSUPPORTED, and an item whose length is not the output length of the fixed digest answers 422 VALIDATION_FAILED. A connector answers 422 PARAMETER_UNSUPPORTED to any signatureInputMode it does not implement and never ignores the field; one that implements prehashedDigest advertises the prehashedSigning feature flag.
+	SignatureInputMode *SignatureInputMode `json:"signatureInputMode,omitempty"`
+	// Batch-wide signature settings. Must include exactly one v3 string attribute named signatureAlgorithm with UUID 9180267f-c82f-4b7b-8160-d2363d813869, selecting exactly one signature algorithm code offered by the signing attribute schema. RSA-PSS codes use MGF1 with the same hash as the code, a salt as long as that hash's output, and trailer field 1.
 	SignatureAttributes []RequestAttribute `json:"signatureAttributes"`
 	// Data to be signed
 	Data []SignatureDataV2Dto `json:"data"`
@@ -157,6 +159,38 @@ func (o *SignDataRequestV2Dto) SetExecutionMode(v OperationExecutionMode) {
 	o.ExecutionMode = v
 }
 
+// GetSignatureInputMode returns the SignatureInputMode field value if set, zero value otherwise.
+func (o *SignDataRequestV2Dto) GetSignatureInputMode() SignatureInputMode {
+	if o == nil || IsNil(o.SignatureInputMode) {
+		var ret SignatureInputMode
+		return ret
+	}
+	return *o.SignatureInputMode
+}
+
+// GetSignatureInputModeOk returns a tuple with the SignatureInputMode field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *SignDataRequestV2Dto) GetSignatureInputModeOk() (*SignatureInputMode, bool) {
+	if o == nil || IsNil(o.SignatureInputMode) {
+		return nil, false
+	}
+	return o.SignatureInputMode, true
+}
+
+// HasSignatureInputMode returns a boolean if a field has been set.
+func (o *SignDataRequestV2Dto) HasSignatureInputMode() bool {
+	if o != nil && !IsNil(o.SignatureInputMode) {
+		return true
+	}
+
+	return false
+}
+
+// SetSignatureInputMode gets a reference to the given SignatureInputMode and assigns it to the SignatureInputMode field.
+func (o *SignDataRequestV2Dto) SetSignatureInputMode(v SignatureInputMode) {
+	o.SignatureInputMode = &v
+}
+
 // GetSignatureAttributes returns the SignatureAttributes field value
 func (o *SignDataRequestV2Dto) GetSignatureAttributes() []RequestAttribute {
 	if o == nil {
@@ -219,6 +253,9 @@ func (o SignDataRequestV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize["tokenProfileAttributes"] = o.TokenProfileAttributes
 	toSerialize["keyMeta"] = o.KeyMeta
 	toSerialize["executionMode"] = o.ExecutionMode
+	if !IsNil(o.SignatureInputMode) {
+		toSerialize["signatureInputMode"] = o.SignatureInputMode
+	}
 	toSerialize["signatureAttributes"] = o.SignatureAttributes
 	toSerialize["data"] = o.Data
 	return toSerialize, nil

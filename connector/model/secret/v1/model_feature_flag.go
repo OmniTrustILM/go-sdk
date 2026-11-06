@@ -27,6 +27,7 @@ const (
 	FEATUREFLAG_KEY_IMPORT FeatureFlag = "keyImport"
 	FEATUREFLAG_KEY_EXPORT FeatureFlag = "keyExport"
 	FEATUREFLAG_KEY_LIST FeatureFlag = "keyList"
+	FEATUREFLAG_PREHASHED_SIGNING FeatureFlag = "prehashedSigning"
 	FEATUREFLAG_SECRET_VERSIONING FeatureFlag = "secretVersioning"
 	FEATUREFLAG_SECRET_ROTATION FeatureFlag = "secretRotation"
 	FEATUREFLAG_CONTENT_SIGNING FeatureFlag = "contentSigning"
@@ -49,6 +50,7 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"keyImport",
 	"keyExport",
 	"keyList",
+	"prehashedSigning",
 	"secretVersioning",
 	"secretRotation",
 	"contentSigning",

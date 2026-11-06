@@ -70,6 +70,7 @@ type Provider interface {
 	// idempotency key: a retry after a lost accepted response starts a new
 	// batch. Implementers must sign with the algorithm read by SelectedSignatureAlgorithm,
 	// and refuse one the key lacks with ErrSignatureAlgorithmUnsupported.
+	// SignData never receives a prehashed request; see PrehashedSignProvider.
 	SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (resp *mdl.SignDataResponseV2Dto, accepted bool, err error)
 
 	// VerifyData verifies signatures. Always synchronous; the handler requires
@@ -217,6 +218,26 @@ type KeyExportProvider interface {
 	//   - echo the key's own reference when req.KeyReference is set, and
 	//     return none when it is not
 	ExportKey(ctx context.Context, req *mdl.ExportKeyRequestV2Dto) (*mdl.ExportKeyResponseV2Dto, error)
+}
+
+// PrehashedSignProvider signs items the caller has already hashed. Register it
+// with WithPrehashedSigning and advertise FeatureFlag.PREHASHED_SIGNING, an
+// ENFORCED flag. Without it a prehashed request is answered 422
+// PARAMETER_UNSUPPORTED and Provider.SignData never sees it.
+type PrehashedSignProvider interface {
+	// SignPrehashed signs a batch, with Provider.SignData's accepted
+	// semantics. Each item is already the digest the selected signature
+	// algorithm fixes: sign it without hashing again. RSA PKCS#1 v1.5 wraps
+	// it in a DigestInfo per RFC 8017 section 9.2 with explicit NULL
+	// parameters; RSA-PSS signs it with the parameters documented on
+	// SignatureAlgorithm, and ECDSA signs it as given. Like SignData, sign with the
+	// algorithm read by SelectedSignatureAlgorithm, and refuse one the key
+	// does not support with ErrSignatureAlgorithmUnsupported.
+	//
+	// The handler has already refused an algorithm prehashed signing is not
+	// defined for, which leaves the RSA PKCS#1 v1.5, RSA-PSS and ECDSA codes,
+	// and every item that is not a digest of the length the algorithm fixes.
+	SignPrehashed(ctx context.Context, req *mdl.SignDataRequestV2Dto) (resp *mdl.SignDataResponseV2Dto, accepted bool, err error)
 }
 
 // KeyListProvider lets the platform onboard the keys a token already holds.

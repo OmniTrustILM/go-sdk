@@ -13,6 +13,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"net/http"
@@ -147,7 +148,7 @@ func verifyRequest(keyMeta []mdl.MetadataAttribute, data, sigs []mdl.SignatureDa
 		TokenAttributes:        noAttrs,
 		TokenProfileAttributes: noAttrs,
 		KeyMeta:                keyMeta,
-		SignatureAttributes:    noAttrs,
+		SignatureAttributes:    []mdl.RequestAttribute{cryptography.SignatureAlgorithmSelection(cryptography.SignatureAlgorithmSHA256WithECDSA)},
 		Data:                   data,
 		Signatures:             sigs,
 	}
@@ -389,8 +390,10 @@ func TestCryptographyV2InfoAndHealth(t *testing.T) {
 	if idx < 0 {
 		t.Fatalf("/v2/info missing {cryptography, v2} interface: %+v", info.Interfaces)
 	}
-	if !slices.Contains(info.Interfaces[idx].Features, "asynchronous") {
-		t.Errorf("cryptography interface features = %v, want to contain %q", info.Interfaces[idx].Features, "asynchronous")
+	for _, feature := range []string{"asynchronous", "prehashedSigning"} {
+		if !slices.Contains(info.Interfaces[idx].Features, feature) {
+			t.Errorf("cryptography interface features = %v, want to contain %q", info.Interfaces[idx].Features, feature)
+		}
 	}
 
 	h.AssertLogsConform(t)
@@ -622,6 +625,14 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 		}
 	})
 
+	t.Run("verification offers the algorithms signing does", func(t *testing.T) {
+		schema := attributeSchema(t, h, pathVerifyAttrs, keyScopedRequest(pairMeta))
+		want := []string{"SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA"}
+		if got := schemaOffer(t, schema, cryptography.SignatureAlgorithmAttributeName); !slices.Equal(got, want) {
+			t.Errorf("offered algorithms = %v, want %v", got, want)
+		}
+	})
+
 	t.Run("an RSA pair offers the RSA algorithms", func(t *testing.T) {
 		schema := attributeSchema(t, h, pathSignAttrs, keyScopedRequest(rsaMeta))
 		want := []string{
@@ -645,6 +656,42 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item, selecting(cryptography.SignatureAlgorithmSHA512WithECDSA),
 		)})
 		itest.AssertStatus(t, resp, http.StatusOK)
+	})
+
+	t.Run("a key pair signs a prehashed digest", func(t *testing.T) {
+		digest := sha256.Sum256([]byte("sign-me"))
+		req := signRequestWith(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta,
+			[]mdl.SignatureDataV2Dto{{Data: b64(string(digest[:])), Identifier: "item-1"}},
+			selecting(cryptography.SignatureAlgorithmSHA256WithECDSA))
+		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST)
+
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: req})
+
+		if !itest.AssertStatus(t, resp, http.StatusOK) {
+			t.FailNow()
+		}
+		var signed mdl.SignDataResponseV2Dto
+		resp.JSON(t, &signed)
+		verifyResp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathVerify,
+			Body: verifyRequest(pairMeta, item, signed.Signatures)})
+		if !itest.AssertStatus(t, verifyResp, http.StatusOK) {
+			t.FailNow()
+		}
+		var verified mdl.VerifyDataResponseV2Dto
+		verifyResp.JSON(t, &verified)
+		if len(verified.Verifications) != 1 || !verified.Verifications[0].Result {
+			t.Errorf("a signature over the message's digest does not verify against the message: %+v", verified.Verifications)
+		}
+	})
+
+	t.Run("a prehashed item of the wrong length is refused", func(t *testing.T) {
+		req := signRequestWith(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item,
+			selecting(cryptography.SignatureAlgorithmSHA256WithECDSA))
+		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST)
+
+		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: req})
+
+		itest.AssertProblem(t, resp, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 	})
 
 	t.Run("a sign request without a selection is refused", func(t *testing.T) {
@@ -805,9 +852,6 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 		}
 	}
 
-	// keyMeta is minItems: 1, so these endpoints need a well-formed handle
-	// even though they ignore the key it names.
-	keyScoped := keyScopedRequest(metaAttribute(uuid.NewString(), "keyHandle", "key handle"))
 	pairMeta, _ := createKeySync(t, h, mdl.KEYREQUESTTYPE_KEY_PAIR)
 	rsaMeta := createRSAPair(t, h)
 
@@ -825,7 +869,7 @@ func TestCryptographyV2AttributeEndpoints(t *testing.T) {
 		{"encryptAttributes", http.MethodPost, pathEncryptAttrs, keyScopedRequest(rsaMeta)},
 		{"decryptAttributes", http.MethodPost, pathDecryptAttrs, keyScopedRequest(rsaMeta)},
 		{"signAttributes", http.MethodPost, pathSignAttrs, keyScopedRequest(pairMeta)},
-		{"verifyAttributes", http.MethodPost, pathVerifyAttrs, keyScoped},
+		{"verifyAttributes", http.MethodPost, pathVerifyAttrs, keyScopedRequest(pairMeta)},
 		{"randomDataAttributes", http.MethodPost, pathRandomAttrs, mdl.TokenProfileScopedRequestV2Dto{
 			TokenAttributes: noAttrs, TokenProfileAttributes: noAttrs,
 		}},

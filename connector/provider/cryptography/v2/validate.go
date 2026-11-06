@@ -194,6 +194,45 @@ func validateIdentifiersMatch(want, got []string, field string) error {
 	return nil
 }
 
+// prehashedDigestSizes maps each signature algorithm prehashed signing is
+// defined for to the length of the digest it fixes. The handler checks it so
+// no connector keeps its own copy, and a missed check fails silently: ECDSA
+// truncates a longer input to the curve size and signs what is left.
+var prehashedDigestSizes = map[SignatureAlgorithm]int{
+	SignatureAlgorithmSHA256WithRSA:    32,
+	SignatureAlgorithmSHA384WithRSA:    48,
+	SignatureAlgorithmSHA512WithRSA:    64,
+	SignatureAlgorithmSHA256WithRSAPSS: 32,
+	SignatureAlgorithmSHA384WithRSAPSS: 48,
+	SignatureAlgorithmSHA512WithRSAPSS: 64,
+	SignatureAlgorithmSHA256WithECDSA:  32,
+	SignatureAlgorithmSHA384WithECDSA:  48,
+	SignatureAlgorithmSHA512WithECDSA:  64,
+}
+
+var errPrehashedAlgorithmUndefined = shared.Invalid("PARAMETER_UNSUPPORTED", "prehashed signing is not defined for the selected signature algorithm")
+
+// validatePrehashedRequest enforces the two rules prehashed signing adds: the
+// selected algorithm is one the mode is defined for, and every item decodes to
+// a digest of the length that algorithm fixes.
+func validatePrehashedRequest(req *mdl.SignDataRequestV2Dto) error {
+	algorithm, err := SelectedSignatureAlgorithm(req.SignatureAttributes)
+	if err != nil {
+		return err
+	}
+	size, ok := prehashedDigestSizes[algorithm]
+	if !ok {
+		return errPrehashedAlgorithmUndefined
+	}
+	for _, item := range req.Data {
+		digest, err := base64.StdEncoding.DecodeString(item.Data)
+		if err != nil || len(digest) != size {
+			return errValidationFailed("data entries must be " + strconv.Itoa(size) + "-byte digests for " + string(algorithm))
+		}
+	}
+	return nil
+}
+
 // validateBatchItems enforces @NotBlank on each item's identifier and @NotEmpty
 // on its data. ids and data are paired projections of one list, so unequal
 // lengths are rejected instead of indexed.

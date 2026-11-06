@@ -6440,6 +6440,7 @@
           "keyImport",
           "keyExport",
           "keyList",
+          "prehashedSigning",
           "secretVersioning",
           "secretRotation",
           "contentSigning",

@@ -33,6 +33,11 @@ func signDataBody(executionMode string) string {
 		`","signatureAttributes":[],"data":[{"identifier":"d-1","data":"AA=="}]}`
 }
 
+func signDataBodyWithMode(executionMode, inputMode string) string {
+	return strings.Replace(signDataBody(executionMode), `"signatureAttributes"`,
+		`"signatureInputMode":"`+inputMode+`","signatureAttributes"`, 1)
+}
+
 // post issues a POST request with body against srv and returns the recorder.
 func post(t *testing.T, srv http.Handler, path, body string) *httptest.ResponseRecorder {
 	t.Helper()

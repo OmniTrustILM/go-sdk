@@ -1,6 +1,7 @@
 package cryptography
 
 import (
+	"context"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/cryptography/v2"
@@ -58,6 +59,35 @@ var errKeyImportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key i
 var errKeyExportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key export is not implemented by this connector")
 
 var errKeyListNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key listing is not implemented by this connector")
+
+// errPrehashedSigningNotSupported is the sign route's answer to a prehashed
+// request without WithPrehashedSigning; the contract forbids ignoring the mode.
+var errPrehashedSigningNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "prehashed signing is not implemented by this connector")
+
+var errInputModeNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "this signature input mode is not implemented by this connector")
+
+type signFunc func(context.Context, *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error)
+
+// signerFor picks the provider method for the request's input mode, once the
+// request meets that mode's rules. A mode added to the contract after this
+// switch was written is refused rather than signed as data, which would hash
+// its item a second time.
+func (h *Handler) signerFor(req *mdl.SignDataRequestV2Dto) (signFunc, error) {
+	switch InputMode(req) {
+	case mdl.SIGNATUREINPUTMODE_DATA:
+		return h.provider.SignData, nil
+	case mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST:
+		if h.prehashed == nil {
+			return nil, errPrehashedSigningNotSupported
+		}
+		if err := validatePrehashedRequest(req); err != nil {
+			return nil, err
+		}
+		return h.prehashed.SignPrehashed, nil
+	default:
+		return nil, errInputModeNotSupported
+	}
+}
 
 // rejectRequest emits the outcome event and renders the problem response for a
 // failed request guard.
@@ -432,7 +462,12 @@ func (h *Handler) signData(w http.ResponseWriter, r *http.Request) {
 		h.rejectRequest(w, r, eventSignData, err)
 		return
 	}
-	out, accepted, err := h.provider.SignData(r.Context(), &in)
+	sign, err := h.signerFor(&in)
+	if err != nil {
+		h.rejectRequest(w, r, eventSignData, err)
+		return
+	}
+	out, accepted, err := sign(r.Context(), &in)
 	if err == nil {
 		err = validateResponse(out, func(out *mdl.SignDataResponseV2Dto) error {
 			if err := firstError(
