@@ -34,12 +34,12 @@ func privateOnlyPair(keyID string) string {
 }
 
 func privateKeyPairFields(keyID string) string {
-	return `"keyRequestType":"keyPair","keyPairMeta":` + keyHandle(keyID) + `,"label":"signer ` + keyID + `",` +
+	return `"keyRequestType":"keyPair","keyPairMeta":` + keyHandle(keyID) + `,"storageName":"signer ` + keyID + `",` +
 		`"privateKeyData":{"keyMeta":` + keyHandle(keyID) + `,"keyData":{"type":"Private","algorithm":"RSA","length":2048}}`
 }
 
 func listedSecretKey(keyID string) string {
-	return `{"keyRequestType":"secret","keyMeta":` + keyHandle(keyID) + `,"label":"wrapping ` + keyID + `",` +
+	return `{"keyRequestType":"secret","keyMeta":` + keyHandle(keyID) + `,"storageName":"wrapping ` + keyID + `",` +
 		`"keyData":{"type":"Secret","algorithm":"AES","length":256}}`
 }
 
