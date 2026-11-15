@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -20,7 +20,7 @@ var _ MappedNullable = &DiscoveryStopResponseDto{}
 
 // DiscoveryStopResponseDto struct for DiscoveryStopResponseDto
 type DiscoveryStopResponseDto struct {
-	// Opaque run handle to resume from. Core replays it on status, results, stop, resume and cancel and never shows it. At most 64 KB serialized; a larger one fails the run.
+	// Opaque run handle to resume from. Core replays it on status, results, stop, resume and cancel and never shows it. At most 64 KB serialized; a larger one fails the run. In checkpointed delivery, omit it: Core keeps the checkpoint it holds and ignores this one.
 	Checkpoint []MetadataAttribute `json:"checkpoint,omitempty"`
 	AdditionalProperties map[string]interface{}
 }

@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -25,12 +25,14 @@ type DiscoveryRunRequestDto struct {
 	RunId string `json:"runId"`
 	// Resource types the run covers, fixed at initiate and replayed unchanged. Not derivable from resourceAttributes, which leaves out a resource with no attributes of its own.
 	Resources []Resource `json:"resources"`
-	// Opaque run handle from the last initiate, stop or resume response that carried one. Absent on initiate, which mints it. At most 64 KB serialized.
+	// Opaque run handle from the last initiate, stop, resume or, in checkpointed delivery, results response that carried one. Absent on initiate, which mints it. At most 64 KB serialized.
 	Checkpoint []MetadataAttribute `json:"checkpoint,omitempty"`
 	// Run-level attributes supplied at initiate. Optional: absent or empty when the connector defines none.
 	Attributes []RequestAttribute `json:"attributes,omitempty"`
 	// Per-resource attributes, keyed by resource code. Optional: absent or empty when the connector defines none.
 	ResourceAttributes map[string][]RequestAttribute `json:"resourceAttributes,omitempty"`
+	// Delivery modes Core can drive for this run, most preferred first; the connector chooses one on initiate and resume. Core sends it on every request, so a call without it comes from a Core that predates delivery modes and offers buffered only. An empty list offers no mode. Unknown values are ignored.
+	DeliveryModes []string `json:"deliveryModes,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -199,6 +201,38 @@ func (o *DiscoveryRunRequestDto) SetResourceAttributes(v map[string][]RequestAtt
 	o.ResourceAttributes = v
 }
 
+// GetDeliveryModes returns the DeliveryModes field value if set, zero value otherwise.
+func (o *DiscoveryRunRequestDto) GetDeliveryModes() []string {
+	if o == nil || IsNil(o.DeliveryModes) {
+		var ret []string
+		return ret
+	}
+	return o.DeliveryModes
+}
+
+// GetDeliveryModesOk returns a tuple with the DeliveryModes field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DiscoveryRunRequestDto) GetDeliveryModesOk() ([]string, bool) {
+	if o == nil || IsNil(o.DeliveryModes) {
+		return nil, false
+	}
+	return o.DeliveryModes, true
+}
+
+// HasDeliveryModes returns a boolean if a field has been set.
+func (o *DiscoveryRunRequestDto) HasDeliveryModes() bool {
+	if o != nil && !IsNil(o.DeliveryModes) {
+		return true
+	}
+
+	return false
+}
+
+// SetDeliveryModes gets a reference to the given []string and assigns it to the DeliveryModes field.
+func (o *DiscoveryRunRequestDto) SetDeliveryModes(v []string) {
+	o.DeliveryModes = v
+}
+
 func (o DiscoveryRunRequestDto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -219,6 +253,9 @@ func (o DiscoveryRunRequestDto) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.ResourceAttributes) {
 		toSerialize["resourceAttributes"] = o.ResourceAttributes
+	}
+	if !IsNil(o.DeliveryModes) {
+		toSerialize["deliveryModes"] = o.DeliveryModes
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -269,6 +306,7 @@ func (o *DiscoveryRunRequestDto) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "checkpoint")
 		delete(additionalProperties, "attributes")
 		delete(additionalProperties, "resourceAttributes")
+		delete(additionalProperties, "deliveryModes")
 		o.AdditionalProperties = additionalProperties
 	}
 

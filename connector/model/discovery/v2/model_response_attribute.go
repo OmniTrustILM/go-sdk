@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -70,7 +70,6 @@ func (dst *ResponseAttribute) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("ResponseAttribute: unknown version %q", disc)
 	}
 }
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

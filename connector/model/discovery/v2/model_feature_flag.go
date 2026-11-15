@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -26,12 +26,11 @@ const (
 	FEATUREFLAG_ASYNCHRONOUS FeatureFlag = "asynchronous"
 	FEATUREFLAG_KEY_IMPORT FeatureFlag = "keyImport"
 	FEATUREFLAG_KEY_EXPORT FeatureFlag = "keyExport"
+	FEATUREFLAG_KEY_LIST FeatureFlag = "keyList"
+	FEATUREFLAG_PREHASHED_SIGNING FeatureFlag = "prehashedSigning"
+	FEATUREFLAG_SIGNER_BOUND_AT_CREATION FeatureFlag = "signerBoundAtCreation"
 	FEATUREFLAG_SECRET_VERSIONING FeatureFlag = "secretVersioning"
 	FEATUREFLAG_SECRET_ROTATION FeatureFlag = "secretRotation"
-	FEATUREFLAG_CONTENT_SIGNING FeatureFlag = "contentSigning"
-	FEATUREFLAG_LEVEL_TIMESTAMPED FeatureFlag = "levelTimestamped"
-	FEATUREFLAG_LEVEL_LONG_TERM FeatureFlag = "levelLongTerm"
-	FEATUREFLAG_LEVEL_ARCHIVAL FeatureFlag = "levelArchival"
 	FEATUREFLAG_TIMESTAMPING FeatureFlag = "timestamping"
 	FEATUREFLAG_CERTIFICATE_REGISTRATION FeatureFlag = "certificateRegistration"
 	FEATUREFLAG_CERTIFICATE_STATUS_POLLING FeatureFlag = "certificateStatusPolling"
@@ -47,12 +46,11 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"asynchronous",
 	"keyImport",
 	"keyExport",
+	"keyList",
+	"prehashedSigning",
+	"signerBoundAtCreation",
 	"secretVersioning",
 	"secretRotation",
-	"contentSigning",
-	"levelTimestamped",
-	"levelLongTerm",
-	"levelArchival",
 	"timestamping",
 	"certificateRegistration",
 	"certificateStatusPolling",

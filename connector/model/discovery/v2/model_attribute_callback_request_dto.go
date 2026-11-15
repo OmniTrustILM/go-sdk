@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -25,7 +25,7 @@ type AttributeCallbackRequestDto struct {
 	ConnectorInterface ConnectorInterface `json:"connectorInterface"`
 	// Version of the provider interface. Core-stamped from /v2/info.
 	InterfaceVersion string `json:"interfaceVersion"`
-	// Connector-global UUID of the attribute whose callback fired â€” the dispatch key.
+	// Connector-global UUID of the attribute whose callback fired — the dispatch key.
 	AttributeUuid string `json:"attributeUuid"`
 	// Name of the attribute whose callback fired. Informative / logging.
 	AttributeName string `json:"attributeName"`

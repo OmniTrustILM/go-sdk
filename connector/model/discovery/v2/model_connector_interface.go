@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -30,13 +30,11 @@ const (
 	CONNECTORINTERFACE_ENTITY ConnectorInterface = "entity"
 	CONNECTORINTERFACE_COMPLIANCE ConnectorInterface = "compliance"
 	CONNECTORINTERFACE_CRYPTOGRAPHY ConnectorInterface = "cryptography"
+	CONNECTORINTERFACE_KEY_LIFECYCLE ConnectorInterface = "keyLifecycle"
 	CONNECTORINTERFACE_NOTIFICATION ConnectorInterface = "notification"
 	CONNECTORINTERFACE_SECRET ConnectorInterface = "secret"
 	CONNECTORINTERFACE_SIGNATURE_FORMATTING ConnectorInterface = "signatureFormatting"
-	CONNECTORINTERFACE_CADES_FORMATTING ConnectorInterface = "cadesFormatting"
-	CONNECTORINTERFACE_JADES_FORMATTING ConnectorInterface = "jadesFormatting"
-	CONNECTORINTERFACE_PADES_FORMATTING ConnectorInterface = "padesFormatting"
-	CONNECTORINTERFACE_XADES_FORMATTING ConnectorInterface = "xadesFormatting"
+	CONNECTORINTERFACE_CONTENT_SIGNING_FORMATTING ConnectorInterface = "contentSigningFormatting"
 )
 
 // All allowed values of ConnectorInterface enum
@@ -50,13 +48,11 @@ var AllowedConnectorInterfaceEnumValues = []ConnectorInterface{
 	"entity",
 	"compliance",
 	"cryptography",
+	"keyLifecycle",
 	"notification",
 	"secret",
 	"signatureFormatting",
-	"cadesFormatting",
-	"jadesFormatting",
-	"padesFormatting",
-	"xadesFormatting",
+	"contentSigningFormatting",
 }
 
 func (v *ConnectorInterface) UnmarshalJSON(src []byte) error {

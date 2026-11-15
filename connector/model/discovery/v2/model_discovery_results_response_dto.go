@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -25,8 +25,10 @@ type DiscoveryResultsResponseDto struct {
 	Items []DiscoveredItemDto `json:"items"`
 	// Highest item sequence assigned in the whole run so far, not just this page; 0 means none yet. Advance a cursor only by sequences actually received.
 	HighestSequence int64 `json:"highestSequence"`
-	// Whether more items remain beyond this page
+	// true means more is ready and Core calls again now; false means nothing more is ready now. Whether the run has finished comes from status.
 	More bool `json:"more"`
+	// Checkpointed delivery only: the run's handle after this page's items, on every results page. Core stores it with its cursor and replays it on the next call. At most 64 KB serialized; a larger one fails the run. It does not count against maxBytes: Core leaves room for it.
+	Checkpoint []MetadataAttribute `json:"checkpoint,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -124,6 +126,38 @@ func (o *DiscoveryResultsResponseDto) SetMore(v bool) {
 	o.More = v
 }
 
+// GetCheckpoint returns the Checkpoint field value if set, zero value otherwise.
+func (o *DiscoveryResultsResponseDto) GetCheckpoint() []MetadataAttribute {
+	if o == nil || IsNil(o.Checkpoint) {
+		var ret []MetadataAttribute
+		return ret
+	}
+	return o.Checkpoint
+}
+
+// GetCheckpointOk returns a tuple with the Checkpoint field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DiscoveryResultsResponseDto) GetCheckpointOk() ([]MetadataAttribute, bool) {
+	if o == nil || IsNil(o.Checkpoint) {
+		return nil, false
+	}
+	return o.Checkpoint, true
+}
+
+// HasCheckpoint returns a boolean if a field has been set.
+func (o *DiscoveryResultsResponseDto) HasCheckpoint() bool {
+	if o != nil && !IsNil(o.Checkpoint) {
+		return true
+	}
+
+	return false
+}
+
+// SetCheckpoint gets a reference to the given []MetadataAttribute and assigns it to the Checkpoint field.
+func (o *DiscoveryResultsResponseDto) SetCheckpoint(v []MetadataAttribute) {
+	o.Checkpoint = v
+}
+
 func (o DiscoveryResultsResponseDto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -137,6 +171,9 @@ func (o DiscoveryResultsResponseDto) ToMap() (map[string]interface{}, error) {
 	toSerialize["items"] = o.Items
 	toSerialize["highestSequence"] = o.HighestSequence
 	toSerialize["more"] = o.More
+	if !IsNil(o.Checkpoint) {
+		toSerialize["checkpoint"] = o.Checkpoint
+	}
 
 	for key, value := range o.AdditionalProperties {
 		toSerialize[key] = value
@@ -185,6 +222,7 @@ func (o *DiscoveryResultsResponseDto) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "items")
 		delete(additionalProperties, "highestSequence")
 		delete(additionalProperties, "more")
+		delete(additionalProperties, "checkpoint")
 		o.AdditionalProperties = additionalProperties
 	}
 

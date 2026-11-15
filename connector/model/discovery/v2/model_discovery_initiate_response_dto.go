@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -20,10 +20,12 @@ var _ MappedNullable = &DiscoveryInitiateResponseDto{}
 
 // DiscoveryInitiateResponseDto struct for DiscoveryInitiateResponseDto
 type DiscoveryInitiateResponseDto struct {
-	// Opaque run handle. Core replays it on status, results, stop, resume and cancel and never shows it. At most 64 KB serialized; a larger one fails the run.
+	// Opaque run handle. Core replays it on status, results, stop, resume and cancel and never shows it. At most 64 KB serialized; a larger one fails the run. In checkpointed delivery each results page replaces it, and a resume response omits it; Core ignores one sent on resume.
 	Checkpoint []MetadataAttribute `json:"checkpoint,omitempty"`
 	// Whether this run can be stopped and resumed. Can only narrow the discoveryStopResume feature flag: true without the flag still means not stoppable, and absent leaves the flag to decide. A resume response replaces the value. A stop can still be refused past the point of no return.
 	Stoppable *bool `json:"stoppable,omitempty"`
+	// The delivery mode this run uses from this call on; one of the offered modes. Absent means buffered.
+	DeliveryMode *DiscoveryDeliveryMode `json:"deliveryMode,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -110,6 +112,38 @@ func (o *DiscoveryInitiateResponseDto) SetStoppable(v bool) {
 	o.Stoppable = &v
 }
 
+// GetDeliveryMode returns the DeliveryMode field value if set, zero value otherwise.
+func (o *DiscoveryInitiateResponseDto) GetDeliveryMode() DiscoveryDeliveryMode {
+	if o == nil || IsNil(o.DeliveryMode) {
+		var ret DiscoveryDeliveryMode
+		return ret
+	}
+	return *o.DeliveryMode
+}
+
+// GetDeliveryModeOk returns a tuple with the DeliveryMode field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DiscoveryInitiateResponseDto) GetDeliveryModeOk() (*DiscoveryDeliveryMode, bool) {
+	if o == nil || IsNil(o.DeliveryMode) {
+		return nil, false
+	}
+	return o.DeliveryMode, true
+}
+
+// HasDeliveryMode returns a boolean if a field has been set.
+func (o *DiscoveryInitiateResponseDto) HasDeliveryMode() bool {
+	if o != nil && !IsNil(o.DeliveryMode) {
+		return true
+	}
+
+	return false
+}
+
+// SetDeliveryMode gets a reference to the given DiscoveryDeliveryMode and assigns it to the DeliveryMode field.
+func (o *DiscoveryInitiateResponseDto) SetDeliveryMode(v DiscoveryDeliveryMode) {
+	o.DeliveryMode = &v
+}
+
 func (o DiscoveryInitiateResponseDto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -125,6 +159,9 @@ func (o DiscoveryInitiateResponseDto) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Stoppable) {
 		toSerialize["stoppable"] = o.Stoppable
+	}
+	if !IsNil(o.DeliveryMode) {
+		toSerialize["deliveryMode"] = o.DeliveryMode
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -150,6 +187,7 @@ func (o *DiscoveryInitiateResponseDto) UnmarshalJSON(data []byte) (err error) {
 	if err = json.Unmarshal(data, &additionalProperties); err == nil {
 		delete(additionalProperties, "checkpoint")
 		delete(additionalProperties, "stoppable")
+		delete(additionalProperties, "deliveryMode")
 		o.AdditionalProperties = additionalProperties
 	}
 

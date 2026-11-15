@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -230,7 +230,6 @@ func (dst *BaseAttributeContentDtoV3) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("BaseAttributeContentDtoV3: unknown contentType %q", disc)
 	}
 }
-
 
 
 // Marshal data from the first non-nil pointers in the struct to JSON

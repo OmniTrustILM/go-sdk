@@ -84,6 +84,7 @@ const (
 	ifaceAuthority    = "authority"
 	ifaceCryptography = "cryptography"
 	ifaceDiscovery    = "discovery"
+	ifaceKeyLifecycle = "keyLifecycle"
 )
 
 // Known extension property keys conditionally promoted to top-level
@@ -157,10 +158,12 @@ var (
 
 		// Document handling, raised by the content-signing formatting
 		// contract. Cross-interface upstream, so no iface segment.
-		"DOCUMENT_MALFORMED":    {category: CategoryConnector, retryable: false},
-		"DOCUMENT_TOO_LARGE":    {category: CategoryConnector, retryable: false},
-		"SIGNATURE_NOT_FOUND":   {category: CategoryConnector, retryable: false},
-		"PARAMETER_UNSUPPORTED": {category: CategoryConnector, retryable: false},
+		"DOCUMENT_MALFORMED":           {category: CategoryConnector, retryable: false},
+		"DOCUMENT_TOO_LARGE":           {category: CategoryConnector, retryable: false},
+		"SIGNATURE_NOT_FOUND":          {category: CategoryConnector, retryable: false},
+		"PARAMETER_UNSUPPORTED":        {category: CategoryConnector, retryable: false},
+		"SIGNATURE_PLACEMENT_REJECTED": {category: CategoryConnector, retryable: false},
+		"DOCUMENT_SIGNING_FORBIDDEN":   {category: CategoryConnector, retryable: false},
 
 		// connector/authority, non-retryable
 		"CSR_MALFORMED":            {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
@@ -178,6 +181,13 @@ var (
 		"KEY_DECRYPTION_FAILED":    {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 		"EXPORTABLE_NOT_SUPPORTED": {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 		"KEY_NOT_EXPORTABLE":       {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
+
+		// connector/keyLifecycle, non-retryable
+		"SIGNER_INVALID":      {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"SIGNER_MISMATCH":     {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"KEY_CERTIFIED":       {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"KEY_UNBOUND":         {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"PUBLIC_KEY_MISMATCH": {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
 
 		// connector/discovery, non-retryable: a lost checkpoint cannot be
 		// resumed, so the caller restarts the run rather than retrying.

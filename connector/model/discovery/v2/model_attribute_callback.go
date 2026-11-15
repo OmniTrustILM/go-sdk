@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -27,7 +27,7 @@ type AttributeCallback struct {
 	CallbackMethod *string `json:"callbackMethod,omitempty"`
 	// Mappings for the callback method
 	Mappings []AttributeCallbackMapping `json:"mappings"`
-	// Names of the attributes, within this same form, whose values this Attributes v2 callback consumes and is triggered by. Providing this field â€” even as an empty list â€” marks the callback as an Attributes v2 callback; an empty list means the callback fires once when the form opens (it depends on no other field). At most one of dependsOn or callbackContext may be set; a callback with neither field set defines no callback. Not allowed on RESOURCE attributes. These rules are enforced by the platform.
+	// Names of the attributes, within this same form, whose values this Attributes v2 callback consumes and is triggered by. Providing this field — even as an empty list — marks the callback as an Attributes v2 callback; an empty list means the callback fires once when the form opens (it depends on no other field). At most one of dependsOn or callbackContext may be set; a callback with neither field set defines no callback. Not allowed on RESOURCE attributes. These rules are enforced by the platform.
 	DependsOn []string `json:"dependsOn,omitempty"`
 	AdditionalProperties map[string]interface{}
 }

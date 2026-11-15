@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -25,17 +25,19 @@ type DiscoveryDrainRequestDto struct {
 	RunId string `json:"runId"`
 	// Resource types the run covers, fixed at initiate and replayed unchanged. Not derivable from resourceAttributes, which leaves out a resource with no attributes of its own.
 	Resources []Resource `json:"resources"`
-	// Opaque run handle from the last initiate, stop or resume response that carried one. Absent on initiate, which mints it. At most 64 KB serialized.
+	// Opaque run handle from the last initiate, stop, resume or, in checkpointed delivery, results response that carried one. Absent on initiate, which mints it. At most 64 KB serialized.
 	Checkpoint []MetadataAttribute `json:"checkpoint,omitempty"`
 	// Run-level attributes supplied at initiate. Optional: absent or empty when the connector defines none.
 	Attributes []RequestAttribute `json:"attributes,omitempty"`
 	// Per-resource attributes, keyed by resource code. Optional: absent or empty when the connector defines none.
 	ResourceAttributes map[string][]RequestAttribute `json:"resourceAttributes,omitempty"`
+	// Delivery modes Core can drive for this run, most preferred first; the connector chooses one on initiate and resume. Core sends it on every request, so a call without it comes from a Core that predates delivery modes and offers buffered only. An empty list offers no mode. Unknown values are ignored.
+	DeliveryModes []string `json:"deliveryModes,omitempty"`
 	// Return items with a sequence greater than this; 0 starts from the beginning of the run.
 	AfterSequence *int64 `json:"afterSequence,omitempty"`
 	// Maximum number of items to return. When omitted, the connector MUST apply its own bound.
 	MaxItems *int32 `json:"maxItems,omitempty"`
-	// Maximum serialized size, in bytes, of the returned items: at most 10 MiB (10485760 bytes), the transport's limit, and a larger response fails the run. When omitted, the connector MUST apply its own bound.
+	// Maximum serialized size, in bytes, of the returned items: at most 10 MiB (10485760 bytes), the transport's limit, and a larger response fails the run. In checkpointed delivery Core asks for at most 10354688 bytes: 10 MiB less a 128 KB (131072-byte) reserve, which leaves room for the page's checkpoint (at most 64 KB) and the rest of the response. When omitted, the connector MUST apply its own bound, leaving the same room in checkpointed delivery.
 	MaxBytes *int64 `json:"maxBytes,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
@@ -209,6 +211,38 @@ func (o *DiscoveryDrainRequestDto) SetResourceAttributes(v map[string][]RequestA
 	o.ResourceAttributes = v
 }
 
+// GetDeliveryModes returns the DeliveryModes field value if set, zero value otherwise.
+func (o *DiscoveryDrainRequestDto) GetDeliveryModes() []string {
+	if o == nil || IsNil(o.DeliveryModes) {
+		var ret []string
+		return ret
+	}
+	return o.DeliveryModes
+}
+
+// GetDeliveryModesOk returns a tuple with the DeliveryModes field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DiscoveryDrainRequestDto) GetDeliveryModesOk() ([]string, bool) {
+	if o == nil || IsNil(o.DeliveryModes) {
+		return nil, false
+	}
+	return o.DeliveryModes, true
+}
+
+// HasDeliveryModes returns a boolean if a field has been set.
+func (o *DiscoveryDrainRequestDto) HasDeliveryModes() bool {
+	if o != nil && !IsNil(o.DeliveryModes) {
+		return true
+	}
+
+	return false
+}
+
+// SetDeliveryModes gets a reference to the given []string and assigns it to the DeliveryModes field.
+func (o *DiscoveryDrainRequestDto) SetDeliveryModes(v []string) {
+	o.DeliveryModes = v
+}
+
 // GetAfterSequence returns the AfterSequence field value if set, zero value otherwise.
 func (o *DiscoveryDrainRequestDto) GetAfterSequence() int64 {
 	if o == nil || IsNil(o.AfterSequence) {
@@ -326,6 +360,9 @@ func (o DiscoveryDrainRequestDto) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.ResourceAttributes) {
 		toSerialize["resourceAttributes"] = o.ResourceAttributes
 	}
+	if !IsNil(o.DeliveryModes) {
+		toSerialize["deliveryModes"] = o.DeliveryModes
+	}
 	if !IsNil(o.AfterSequence) {
 		toSerialize["afterSequence"] = o.AfterSequence
 	}
@@ -384,6 +421,7 @@ func (o *DiscoveryDrainRequestDto) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "checkpoint")
 		delete(additionalProperties, "attributes")
 		delete(additionalProperties, "resourceAttributes")
+		delete(additionalProperties, "deliveryModes")
 		delete(additionalProperties, "afterSequence")
 		delete(additionalProperties, "maxItems")
 		delete(additionalProperties, "maxBytes")

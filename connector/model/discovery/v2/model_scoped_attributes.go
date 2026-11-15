@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -23,7 +23,7 @@ var _ MappedNullable = &ScopedAttributes{}
 type ScopedAttributes struct {
 	// Kind of the scope object. Serialized as the plural resource code, e.g. \"authorities\", \"raProfiles\", \"vaults\".
 	Scope Resource `json:"scope"`
-	// UUID of the scope object, for correlation/logging only â€” never a lookup key on the connector side.
+	// UUID of the scope object, for correlation/logging only — never a lookup key on the connector side.
 	ObjectUuid *string `json:"objectUuid,omitempty"`
 	// Credential-expanded attributes of the scope object.
 	Attributes []RequestAttribute `json:"attributes"`

@@ -3,7 +3,7 @@ Discovery Provider v2 API
 
 REST API for implementations of custom v2 Discovery Provider
 
-API version: 2.20.0
+API version: 2.21.0-SNAPSHOT
 Contact: ilm@omnitrust.com
 */
 
@@ -28,7 +28,7 @@ type SanMappedField struct {
 	GeneralNameType GeneralNameType `json:"generalNameType"`
 	// OID of the otherName type; required when generalNameType is OTHER_NAME
 	OtherNameOid *string `json:"otherNameOid,omitempty"`
-	// ASN.1 encoding for the otherName value; required when generalNameType is OTHER_NAME because different OtherName OIDs carry differently-typed values (e.g. UPN â†’ UTF8String)
+	// ASN.1 encoding for the otherName value; required when generalNameType is OTHER_NAME because different OtherName OIDs carry differently-typed values (e.g. UPN → UTF8String)
 	OtherNameValueEncoding *ExtensionValueEncoding `json:"otherNameValueEncoding,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
@@ -203,7 +203,7 @@ func (o *SanMappedField) UnmarshalJSON(data []byte) (err error) {
 		GeneralNameType GeneralNameType `json:"generalNameType"`
 		// OID of the otherName type; required when generalNameType is OTHER_NAME
 		OtherNameOid *string `json:"otherNameOid,omitempty"`
-		// ASN.1 encoding for the otherName value; required when generalNameType is OTHER_NAME because different OtherName OIDs carry differently-typed values (e.g. UPN â†’ UTF8String)
+		// ASN.1 encoding for the otherName value; required when generalNameType is OTHER_NAME because different OtherName OIDs carry differently-typed values (e.g. UPN → UTF8String)
 		OtherNameValueEncoding *ExtensionValueEncoding `json:"otherNameValueEncoding,omitempty"`
 	}
 
