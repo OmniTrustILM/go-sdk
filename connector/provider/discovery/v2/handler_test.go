@@ -44,7 +44,7 @@ func (p *testProvider) RunAttributes(context.Context) ([]mdl.BaseAttributeDto, e
 func (p *testProvider) ResourceAttributes(context.Context, mdl.Resource) ([]mdl.BaseAttributeDto, error) {
 	return nil, nil
 }
-func serve(t *testing.T, p *testProvider) *shared.Connector {
+func serve(t *testing.T, p Provider) *shared.Connector {
 	t.Helper()
 	h, e := NewHandler(p)
 	if e != nil {
@@ -152,10 +152,10 @@ func TestPayloadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestLostResultsUseDeclaredProblemCode(t *testing.T) {
+func TestLostResultsAnswerOperationNotTracked(t *testing.T) {
 	c := serve(t, &testProvider{err: ErrDiscoveryNotFound})
 	w := request(t, c, "/v2/discoveryProvider/discoveries/results", validBody)
-	if w.Code != 404 || !bytes.Contains(w.Body.Bytes(), []byte(`"errorCode":"RESOURCE_NOT_FOUND"`)) {
+	if w.Code != 404 || !bytes.Contains(w.Body.Bytes(), []byte(`"errorCode":"OPERATION_NOT_TRACKED"`)) {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
 }

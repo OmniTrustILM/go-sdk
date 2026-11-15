@@ -120,7 +120,7 @@ func (h *Handler) runAttributes(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) resourceAttributes(w http.ResponseWriter, r *http.Request) {
 	resource, e := mdl.NewResourceFromValue(r.PathValue("resource"))
 	if e != nil {
-		h.reply(w, r, "discovery_resource_attributes", 422, nil, ErrInvalidRequest)
+		h.reply(w, r, "discovery_resource_attributes", 404, nil, ErrResourceNotSupported)
 		return
 	}
 	out, err := h.provider.ResourceAttributes(r.Context(), *resource)

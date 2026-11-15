@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// MaxResultBytes is the transport cap on a results response: the largest maxBytes
+// a drain may ask for.
 const MaxResultBytes int64 = 10 * 1024 * 1024
 
 func validate(run string, resources []mdl.Resource, cp []mdl.MetadataAttribute) error {
@@ -27,7 +29,7 @@ func validate(run string, resources []mdl.Resource, cp []mdl.MetadataAttribute) 
 		seen[r] = true
 	}
 	b, e := json.Marshal(cp)
-	if e != nil || len(b) > 65536 {
+	if e != nil || len(b) > MaxCheckpointBytes {
 		return ErrInvalidRequest
 	}
 	return nil
