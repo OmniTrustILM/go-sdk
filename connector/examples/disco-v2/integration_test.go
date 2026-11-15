@@ -58,7 +58,59 @@ func TestDiscoV2InfoHealthAndMetadata(t *testing.T) {
 			t.Fatalf("%s %d %+v", path, status, attrs)
 		}
 	}
+	var defs mdl.AttributeDefinitionsDto
+	if status := h.GetJSON(t, "GET", "/v2/attributes", nil, &defs); status != 200 || defs.ConnectorVersion == "" || defs.Definitions == nil {
+		t.Fatalf("%d %+v", status, defs)
+	}
+	resp := h.Do(t, itest.Request{Method: "GET", Path: base + "/keys/attributes"})
+	assertProblem(t, resp, 404, "RESOURCE_NOT_FOUND")
 	h.AssertMetric(t, `app_build_info{`)
+	h.AssertLogsConform(t)
+}
+
+// A checkpointed run travels over HTTP with its checkpoint replayed on every
+// call; nothing about it is held between calls.
+func TestDiscoV2CheckpointedLifecycle(t *testing.T) {
+	h := startDisco(t)
+	modes := []string{"checkpointed", "buffered"}
+	init := mdl.DiscoveryInitiateRequestDto{RunId: uuid.NewString(), Resources: []mdl.Resource{mdl.RESOURCE_CERTIFICATES}, DeliveryModes: modes}
+	var started mdl.DiscoveryInitiateResponseDto
+	if status := h.GetJSON(t, "POST", base+"/discoveries/initiate", init, &started); status != 202 || started.GetDeliveryMode() != mdl.DISCOVERYDELIVERYMODE_CHECKPOINTED || len(started.Checkpoint) != 1 {
+		t.Fatalf("%d %+v", status, started)
+	}
+	r := mdl.DiscoveryRunRequestDto{RunId: init.RunId, Resources: init.Resources, Checkpoint: started.Checkpoint, DeliveryModes: modes}
+	var stopped mdl.DiscoveryStopResponseDto
+	if status := h.GetJSON(t, "POST", base+"/discoveries/stop", r, &stopped); status != 200 || stopped.Checkpoint != nil {
+		t.Fatalf("%d %+v", status, stopped)
+	}
+	var resumed mdl.DiscoveryInitiateResponseDto
+	if status := h.GetJSON(t, "POST", base+"/discoveries/resume", r, &resumed); status != 202 || resumed.Checkpoint != nil || resumed.GetDeliveryMode() != mdl.DISCOVERYDELIVERYMODE_CHECKPOINTED {
+		t.Fatalf("%d %+v", status, resumed)
+	}
+	d := mdl.DiscoveryDrainRequestDto{RunId: r.RunId, Resources: r.Resources, Checkpoint: r.Checkpoint, DeliveryModes: modes, MaxItems: new(int32(2))}
+	var page mdl.DiscoveryResultsResponseDto
+	for _, want := range []struct {
+		first, last int64
+		more        bool
+	}{{1, 2, true}, {3, 3, false}} {
+		if status := h.GetJSON(t, "POST", base+"/discoveries/results", d, &page); status != 200 || len(page.Items) == 0 || page.Items[0].Sequence != want.first || page.Items[len(page.Items)-1].Sequence != want.last || page.More != want.more || len(page.Checkpoint) != 1 {
+			t.Fatalf("%d %+v", status, page)
+		}
+		d.AfterSequence, d.Checkpoint = new(want.last), page.Checkpoint
+	}
+	r.Checkpoint = d.Checkpoint
+	var st mdl.DiscoveryStatusResponseDto
+	if status := h.GetJSON(t, "POST", base+"/discoveries/status", r, &st); status != 200 || st.State != mdl.DISCOVERYRUNSTATE_COMPLETED || st.HighestSequence != 3 {
+		t.Fatalf("%d %+v", status, st)
+	}
+	d.DeliveryModes = []string{"buffered"}
+	resp := h.Do(t, itest.Request{Method: "POST", Path: base + "/discoveries/results", Body: d})
+	assertProblem(t, resp, 503, "SERVICE_UNAVAILABLE")
+	d.DeliveryModes, d.AfterSequence = modes, new(int64(1))
+	resp = h.Do(t, itest.Request{Method: "POST", Path: base + "/discoveries/results", Body: d})
+	assertProblem(t, resp, 404, "OPERATION_NOT_TRACKED")
+	resp = h.Do(t, itest.Request{Method: "POST", Path: base + "/discoveries/cancel", Body: r})
+	itest.AssertStatus(t, resp, 204)
 	h.AssertLogsConform(t)
 }
 func TestDiscoV2Lifecycle(t *testing.T) {
@@ -126,7 +178,7 @@ func TestDiscoV2Lifecycle(t *testing.T) {
 	resp = h.Do(t, itest.Request{Method: "POST", Path: base + "/discoveries/cancel", Body: r})
 	itest.AssertStatus(t, resp, 204)
 	resp = h.Do(t, itest.Request{Method: "POST", Path: base + "/discoveries/status", Body: r})
-	assertProblem(t, resp, 404, "RESOURCE_NOT_FOUND")
+	assertProblem(t, resp, 404, "OPERATION_NOT_TRACKED")
 	h.AssertLogsConform(t)
 }
 func assertProblem(t *testing.T, r itest.Response, status int, code string) {

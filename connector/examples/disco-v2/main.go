@@ -1,8 +1,8 @@
-// Reference Discovery Provider v2 connector. Poll status to produce three
-// genuine X.509 certificate fixtures; drain results with sequence cursors.
+// Reference Discovery Provider v2 connector over three X.509 certificate
+// fixtures, in checkpointed or buffered delivery, whichever Core offers first.
 // Run with go run ./connector/examples/disco-v2. ADDR defaults to :8080;
 // LOG_LEVEL accepts debug/info/warn/error; STRICT_DECODE accepts Go booleans.
-// All state is in memory and lost on restart. Not for production use.
+// Buffered runs live in memory and are lost on restart. Not for production use.
 package main
 
 import (
