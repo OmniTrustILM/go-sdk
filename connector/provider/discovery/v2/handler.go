@@ -8,7 +8,11 @@ import (
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
+// DefaultBasePath is the prefix for every Discovery Provider v2 route.
 const DefaultBasePath = "/v2/discoveryProvider"
+
+// InterfaceVersion is reported via /v2/info as the implemented version of
+// the "discovery" connector interface.
 const InterfaceVersion = shared.VersionV2
 
 // Handler mounts Discovery v2 routes. Shared info, health and metrics come from shared.Connector.
@@ -17,6 +21,7 @@ type Handler struct {
 	provider Provider
 }
 
+// NewHandler builds a Handler for the given Provider.
 func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 	if p == nil {
 		return nil, errors.New("discovery v2: provider must not be nil")
@@ -27,9 +32,14 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 	}
 	return h, nil
 }
+
+// Interface satisfies shared.Registrable. Reports the "discovery" interface
+// at version v2.
 func (h *Handler) Interface() shared.InterfaceInfo {
 	return h.InterfaceInfo(shared.InterfaceCodeDiscovery, InterfaceVersion)
 }
+
+// Mount attaches every Discovery Provider v2 route onto r.
 func (h *Handler) Mount(r shared.Router) {
 	r.Handle(http.MethodPost, h.BasePath+"/discoveries/initiate", h.initiate)
 	r.Handle(http.MethodPost, h.BasePath+"/discoveries/status", h.status)

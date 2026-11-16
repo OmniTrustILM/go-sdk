@@ -13,7 +13,9 @@ var (
 	ErrDiscoveryNotFound = shared.NotFound("OPERATION_NOT_TRACKED", "discovery run not tracked")
 	// ErrCheckpointLost answers a resume whose checkpoint is no longer
 	// available. Only resume declares it.
-	ErrCheckpointLost      = &shared.Error{Status: 410, ErrorCode: "CHECKPOINT_LOST", Title: "Gone", Detail: "discovery checkpoint unavailable"}
+	ErrCheckpointLost = &shared.Error{Status: 410, ErrorCode: "CHECKPOINT_LOST", Title: "Gone", Detail: "discovery checkpoint unavailable"}
+	// ErrPastPointOfNoReturn answers a stop or cancel of a run that can no
+	// longer be stopped or cancelled.
 	ErrPastPointOfNoReturn = shared.Invalid("OPERATION_PAST_POINT_OF_NO_RETURN", "discovery cannot be stopped or cancelled")
 	// ErrResourceNotSupported answers GET /{resource}/attributes for a resource
 	// type the connector does not discover. In a lifecycle call an unsupported
@@ -27,6 +29,8 @@ var (
 	// checkpointed delivery Core calls again shortly without counting a
 	// failure, for a bounded time; in buffered delivery it counts as an
 	// unanswered drain.
-	ErrBusy        = shared.Unavailable("SERVICE_UNAVAILABLE", "connector too busy to take the call")
+	ErrBusy = shared.Unavailable("SERVICE_UNAVAILABLE", "connector too busy to take the call")
+	// ErrNilResponse answers a call whose provider method returned neither a
+	// result nor an error.
 	ErrNilResponse = shared.Internal("INTERNAL_SERVER_ERROR", "provider returned no response")
 )

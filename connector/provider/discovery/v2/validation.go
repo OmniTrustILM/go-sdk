@@ -49,7 +49,6 @@ func validate(run string, resources []mdl.Resource, cp []mdl.MetadataAttribute) 
 	return nil
 }
 
-// validateDrainBounds checks the paging bounds of a results call.
 func validateDrainBounds(in *mdl.DiscoveryDrainRequestDto) error {
 	switch {
 	case in.AfterSequence != nil && *in.AfterSequence < 0:
