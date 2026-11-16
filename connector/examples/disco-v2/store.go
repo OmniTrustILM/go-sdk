@@ -113,14 +113,20 @@ func bufferedCheckpoint(id string, r *run) []mdl.MetadataAttribute {
 	return encode(checkpoint{Mode: buffered, RunID: id, Handle: r.handle, Sequence: r.produced})
 }
 
-// replayed validates the call's scope and reads its checkpoint. A checkpoint
-// this connector did not mint for the run is unreadable: unreadable answers
-// it, since resume declares 410 where the other calls declare 422.
-func (s *Store) replayed(req replay, unreadable error) (checkpoint, error) {
+// replayed validates the call's scope and decodes its checkpoint. A call
+// without one returns missing: resume passes ErrCheckpointLost (410, the
+// checkpoint is no longer available), the other calls ErrInvalidRequest. A
+// checkpoint this connector did not mint for the run is unreadable, which is
+// ErrInvalidRequest (422) on every call.
+func (s *Store) replayed(req replay, missing error) (checkpoint, error) {
 	var cp checkpoint
 	if e := validate(req.runID, req.resources, req.attributes, req.resourceAttributes); e != nil {
 		return cp, e
 	}
+	if len(req.checkpoint) == 0 {
+		return cp, missing
+	}
+	unreadable := discovery.ErrInvalidRequest.WithProperty("reason", "the checkpoint was not minted by this connector for this run")
 	if len(req.checkpoint) != 1 {
 		return cp, unreadable
 	}

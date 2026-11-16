@@ -58,8 +58,9 @@ func TestCheckpointedRunNeedsNoState(t *testing.T) {
 			t.Fatalf("page %d: %+v %v", seq, page, e)
 		}
 		retry, e := newStore(t).Results(ctx, d)
-		if e != nil || retry.Items[0].UniqueRef != page.Items[0].UniqueRef {
-			t.Fatalf("a retried page must repeat itself: %+v %v", retry, e)
+		if e != nil || retry.Items[0].UniqueRef != page.Items[0].UniqueRef ||
+			retry.Items[0].Payload.DiscoveredCertificateDto.CertificateData != page.Items[0].Payload.DiscoveredCertificateDto.CertificateData {
+			t.Fatalf("a retried page on another instance must repeat itself: %+v %v", retry, e)
 		}
 		d.AfterSequence, d.Checkpoint = new(seq), page.Checkpoint
 	}
@@ -144,6 +145,11 @@ func TestCheckpointedRefusals(t *testing.T) {
 	_, e = s.Status(ctx, garbled)
 	assertCode(t, e, 422, "VALIDATION_FAILED")
 	_, e = s.Resume(ctx, garbled)
+	assertCode(t, e, 422, "VALIDATION_FAILED")
+
+	missing := runRequest(d)
+	missing.Checkpoint = nil
+	_, e = s.Resume(ctx, missing)
 	assertCode(t, e, 410, "CHECKPOINT_LOST")
 }
 

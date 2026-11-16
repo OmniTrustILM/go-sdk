@@ -120,13 +120,12 @@ func TestDiscoV2Lifecycle(t *testing.T) {
 	if status := h.GetJSON(t, "POST", base+"/discoveries/status", r, &st); status != 200 || st.State != mdl.DISCOVERYRUNSTATE_RUNNING || st.HighestSequence != 1 {
 		t.Fatalf("%d %+v", status, st)
 	}
-	// A repeated initiate must not replace its handle or reset production.
+	// A repeated initiate must not replace its handle or reset production; the
+	// stop and status below prove it.
 	resp := h.Do(t, itest.Request{Method: "POST", Path: base + "/discoveries/initiate", Body: mdl.DiscoveryInitiateRequestDto{RunId: r.RunId, Resources: r.Resources}})
 	if !itest.AssertStatus(t, resp, 202) {
 		t.FailNow()
 	}
-	var repeated mdl.DiscoveryInitiateResponseDto
-	resp.JSON(t, &repeated)
 	var stopped mdl.DiscoveryStopResponseDto
 	if status := h.GetJSON(t, "POST", base+"/discoveries/stop", r, &stopped); status != 200 {
 		t.Fatal(status)
@@ -200,7 +199,9 @@ func TestDiscoV2ValidationAndBounds(t *testing.T) {
 	}
 	r := initiate(t, h)
 	var st mdl.DiscoveryStatusResponseDto
-	h.GetJSON(t, "POST", base+"/discoveries/status", r, &st)
+	if status := h.GetJSON(t, "POST", base+"/discoveries/status", r, &st); status != 200 || st.HighestSequence != 1 {
+		t.Fatalf("%d %+v", status, st)
+	}
 	d := mdl.DiscoveryDrainRequestDto{RunId: r.RunId, Resources: r.Resources, Checkpoint: r.Checkpoint, MaxBytes: new(int64(1))}
 	resp := h.Do(t, itest.Request{Method: "POST", Path: base + "/discoveries/results", Body: d})
 	assertProblem(t, resp, 422, "VALIDATION_FAILED")
