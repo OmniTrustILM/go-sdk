@@ -25,6 +25,7 @@ SPECS=(
     "cryptography.json:connector/model/cryptography/v1:v1"
     "cryptography-v2.json:connector/model/cryptography/v2:v2"
     "discovery.json:connector/model/discovery/v1:v1"
+    "discovery-v2.json:connector/model/discovery/v2:v2"
     "entity.json:connector/model/entity/v1:v1"
     "notification.json:connector/model/notification/v1:v1"
     "secret.json:connector/model/secret/v1:v1"

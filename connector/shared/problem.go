@@ -84,6 +84,7 @@ const (
 	ifaceAuthority    = "authority"
 	ifaceCryptography = "cryptography"
 	ifaceDiscovery    = "discovery"
+	ifaceKeyLifecycle = "keyLifecycle"
 )
 
 // Known extension property keys conditionally promoted to top-level
@@ -157,10 +158,12 @@ var (
 
 		// Document handling, raised by the content-signing formatting
 		// contract. Cross-interface upstream, so no iface segment.
-		"DOCUMENT_MALFORMED":    {category: CategoryConnector, retryable: false},
-		"DOCUMENT_TOO_LARGE":    {category: CategoryConnector, retryable: false},
-		"SIGNATURE_NOT_FOUND":   {category: CategoryConnector, retryable: false},
-		"PARAMETER_UNSUPPORTED": {category: CategoryConnector, retryable: false},
+		"DOCUMENT_MALFORMED":           {category: CategoryConnector, retryable: false},
+		"DOCUMENT_TOO_LARGE":           {category: CategoryConnector, retryable: false},
+		"SIGNATURE_NOT_FOUND":          {category: CategoryConnector, retryable: false},
+		"PARAMETER_UNSUPPORTED":        {category: CategoryConnector, retryable: false},
+		"SIGNATURE_PLACEMENT_REJECTED": {category: CategoryConnector, retryable: false},
+		"DOCUMENT_SIGNING_FORBIDDEN":   {category: CategoryConnector, retryable: false},
 
 		// connector/authority, non-retryable
 		"CSR_MALFORMED":            {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
@@ -179,6 +182,13 @@ var (
 		"EXPORTABLE_NOT_SUPPORTED": {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 		"KEY_NOT_EXPORTABLE":       {category: CategoryConnector, iface: ifaceCryptography, retryable: false},
 
+		// connector/keyLifecycle, non-retryable
+		"SIGNER_INVALID":      {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"SIGNER_MISMATCH":     {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"KEY_CERTIFIED":       {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"KEY_UNBOUND":         {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+		"PUBLIC_KEY_MISMATCH": {category: CategoryConnector, iface: ifaceKeyLifecycle, retryable: false},
+
 		// connector/discovery, non-retryable: a lost checkpoint cannot be
 		// resumed, so the caller restarts the run rather than retrying.
 		"CHECKPOINT_LOST": {category: CategoryConnector, iface: ifaceDiscovery, retryable: false},
@@ -189,9 +199,9 @@ var (
 // letter.
 var problemCodeRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
-// problemIfaceRe matches a valid type-URI interface segment: a single
-// lowercase, kebab-case path segment (never a slash-separated path).
-var problemIfaceRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+// problemIfaceRe matches a type-URI interface segment: one path segment in
+// interface-code form, such as keyLifecycle or discovery.
+var problemIfaceRe = regexp.MustCompile(`^[a-z][a-zA-Z0-9-]*$`)
 
 // RegisterProblemCode adds or overrides the type-URI resolution and default
 // retryability for an application error code. Connectors call this during
@@ -200,9 +210,9 @@ var problemIfaceRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 // intended as a runtime toggle. Safe for concurrent use.
 //
 // code must be UPPER_SNAKE_CASE (^[A-Z][A-Z0-9_]*$); category must be
-// CategoryCommon or CategoryConnector; iface must be empty or a single
-// lowercase, kebab-case path segment (^[a-z][a-z0-9-]*$) — never a
-// slash-separated path. RegisterProblemCode validates all three and returns
+// CategoryCommon or CategoryConnector; iface must be empty or one path segment
+// in interface-code form (^[a-z][a-zA-Z0-9-]*$), never a slash-separated path.
+// RegisterProblemCode validates all three and returns
 // a descriptive error without registering anything if any check fails.
 func RegisterProblemCode(code string, category ProblemCategory, iface string, retryable bool) error {
 	if !problemCodeRe.MatchString(code) {
@@ -212,7 +222,7 @@ func RegisterProblemCode(code string, category ProblemCategory, iface string, re
 		return fmt.Errorf("shared: invalid problem category %q: must be %q or %q", category, CategoryCommon, CategoryConnector)
 	}
 	if iface != "" && !problemIfaceRe.MatchString(iface) {
-		return fmt.Errorf("shared: invalid problem iface %q: must be empty or match %s (single lowercase path segment)", iface, problemIfaceRe.String())
+		return fmt.Errorf("shared: invalid problem iface %q: must be empty or match %s (single path segment)", iface, problemIfaceRe.String())
 	}
 	problemCodeMu.Lock()
 	defer problemCodeMu.Unlock()
