@@ -27,7 +27,7 @@ const (
 
 func main() {
 	var level slog.Level
-	if e := level.UnmarshalText([]byte(envOr("LOG_LEVEL", "INFO"))); e != nil {
+	if level.UnmarshalText([]byte(envOr("LOG_LEVEL", "INFO"))) != nil {
 		level = slog.LevelInfo
 	}
 	logger := slog.New(shared.NewLogHandler(os.Stdout, &shared.LogHandlerOptions{Level: level, ServiceName: connectorID, ServiceVersion: connectorVersion}))
