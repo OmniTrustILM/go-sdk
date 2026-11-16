@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"syscall"
 
+	attributes "github.com/OmniTrustILM/go-sdk/connector/provider/attributes/v2"
 	discovery "github.com/OmniTrustILM/go-sdk/connector/provider/discovery/v2"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
@@ -36,12 +37,18 @@ func main() {
 		os.Exit(1)
 	}
 	strict, _ := strconv.ParseBool(os.Getenv("STRICT_DECODE"))
-	handler, e := discovery.NewHandler(store, discovery.Base(handlerbase.WithStrictDecode(strict), handlerbase.WithFeatures("discoveryStopResume")), discovery.WithAttributeDefinitions(store))
+	handler, e := discovery.NewHandler(store, discovery.Base(handlerbase.WithStrictDecode(strict), handlerbase.WithFeatures("discoveryStopResume")))
 	if e != nil {
 		logger.Error("build discovery handler", "err", e)
 		os.Exit(1)
 	}
-	c, e := shared.New(shared.WithLogger(logger), shared.WithAddr(envOr("ADDR", ":8080")), shared.WithInfo(shared.Info{ID: connectorID, Name: "Example Discovery Provider v2", Version: connectorVersion, Description: "Three in-memory certificate fixtures. Not for production."}), shared.WithMetrics(shared.DefaultPrometheus(shared.BuildInfo{Version: connectorVersion, Commit: "dev", Runtime: runtime.Version()})), shared.Register(handler))
+	// The example declares no attributes, so its registry is empty; Core still reads it.
+	attrs, e := attributes.NewHandler(connectorVersion, nil)
+	if e != nil {
+		logger.Error("build attributes handler", "err", e)
+		os.Exit(1)
+	}
+	c, e := shared.New(shared.WithLogger(logger), shared.WithAddr(envOr("ADDR", ":8080")), shared.WithInfo(shared.Info{ID: connectorID, Name: "Example Discovery Provider v2", Version: connectorVersion, Description: "Three in-memory certificate fixtures. Not for production."}), shared.WithMetrics(shared.DefaultPrometheus(shared.BuildInfo{Version: connectorVersion, Commit: "dev", Runtime: runtime.Version()})), shared.Register(handler), shared.Register(attrs))
 	if e != nil {
 		logger.Error("build connector", "err", e)
 		os.Exit(1)

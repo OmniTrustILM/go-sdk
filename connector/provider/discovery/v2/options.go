@@ -1,10 +1,6 @@
 package discovery
 
-import (
-	"errors"
-
-	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
-)
+import "github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 
 type Option func(*Handler) error
 
@@ -16,15 +12,6 @@ func Base(opts ...handlerbase.Option) Option {
 				return err
 			}
 		}
-		return nil
-	}
-}
-func WithAttributeDefinitions(p AttributeDefinitionsProvider) Option {
-	return func(h *Handler) error {
-		if p == nil {
-			return errors.New("discovery v2: attribute definitions provider must not be nil")
-		}
-		h.attributeDefs = p
 		return nil
 	}
 }

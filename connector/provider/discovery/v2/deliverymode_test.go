@@ -186,11 +186,8 @@ func TestNilProviderResponseIsAnInternalError(t *testing.T) {
 	}
 }
 
-func TestNewHandlerRejectsMissingParts(t *testing.T) {
+func TestNewHandlerRejectsNilProvider(t *testing.T) {
 	if _, e := NewHandler(nil); e == nil {
 		t.Fatal("nil provider accepted")
-	}
-	if _, e := NewHandler(&testProvider{}, WithAttributeDefinitions(nil)); e == nil {
-		t.Fatal("nil attribute definitions provider accepted")
 	}
 }

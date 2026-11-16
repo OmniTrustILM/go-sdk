@@ -1,7 +1,11 @@
 // Package discovery implements the Discovery Provider v2 connector interface:
 // the run lifecycle (initiate, status, results, stop, resume and cancel), the
-// supported resources and their attribute schemas and, optionally, the
-// connector-global Attributes v2 API.
+// supported resources and their attribute schemas.
+//
+// The connector-global Attributes v2 API (/v2/attributes) is not mounted here.
+// Register connector/provider/attributes/v2 beside this handler, unless another
+// handler on the connector already mounts it (authority/v3 can): duplicate
+// routes fail at mount time.
 //
 // Every lifecycle call replays the run's scope and its opaque checkpoint, so a
 // provider can serve a run from the request alone. A run travels in one of two
@@ -65,12 +69,4 @@ type Provider interface {
 	SupportedResources(context.Context) ([]mdl.DiscoverySupportedResourceDto, error)
 	RunAttributes(context.Context) ([]mdl.BaseAttributeDto, error)
 	ResourceAttributes(context.Context, mdl.Resource) ([]mdl.BaseAttributeDto, error)
-}
-
-// AttributeDefinitionsProvider optionally mounts the connector-global Attributes v2 API.
-// Wire it only when another provider (such as authority/v3) does not already mount that API.
-type AttributeDefinitionsProvider interface {
-	ListDefinitions(context.Context) (*mdl.AttributeDefinitionsDto, error)
-	GetDefinition(context.Context, string) (*mdl.BaseAttributeDto, error)
-	Callback(context.Context, *mdl.AttributeCallbackRequestDto) (*mdl.AttributeCallbackResponseDto, error)
 }

@@ -77,10 +77,7 @@ func NewStore() (*Store, error) {
 	return &Store{runs: map[string]*run{}, certificates: certs}, nil
 }
 
-var (
-	_ discovery.Provider                     = (*Store)(nil)
-	_ discovery.AttributeDefinitionsProvider = (*Store)(nil)
-)
+var _ discovery.Provider = (*Store)(nil)
 
 func runReplay(r *mdl.DiscoveryRunRequestDto) replay {
 	return replay{r.RunId, r.Resources, r.Attributes, r.ResourceAttributes, r.Checkpoint}
@@ -412,16 +409,4 @@ func (s *Store) ResourceAttributes(_ context.Context, r mdl.Resource) ([]mdl.Bas
 		return nil, discovery.ErrResourceNotSupported
 	}
 	return []mdl.BaseAttributeDto{}, nil
-}
-
-func (s *Store) ListDefinitions(context.Context) (*mdl.AttributeDefinitionsDto, error) {
-	return &mdl.AttributeDefinitionsDto{ConnectorVersion: connectorVersion, Definitions: []mdl.BaseAttributeDto{}}, nil
-}
-
-func (s *Store) GetDefinition(context.Context, string) (*mdl.BaseAttributeDto, error) {
-	return nil, discovery.ErrDefinitionNotFound
-}
-
-func (s *Store) Callback(context.Context, *mdl.AttributeCallbackRequestDto) (*mdl.AttributeCallbackResponseDto, error) {
-	return nil, discovery.ErrDefinitionNotFound
 }

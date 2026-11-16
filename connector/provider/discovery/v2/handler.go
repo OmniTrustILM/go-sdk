@@ -14,8 +14,7 @@ const InterfaceVersion = shared.VersionV2
 // Handler mounts Discovery v2 routes. Shared info, health and metrics come from shared.Connector.
 type Handler struct {
 	handlerbase.Config
-	provider      Provider
-	attributeDefs AttributeDefinitionsProvider
+	provider Provider
 }
 
 func NewHandler(p Provider, opts ...Option) (*Handler, error) {
@@ -42,9 +41,4 @@ func (h *Handler) Mount(r shared.Router) {
 	r.Handle(http.MethodGet, h.BasePath+"/resources", h.resources)
 	r.Handle(http.MethodGet, h.BasePath+"/attributes", h.runAttributes)
 	r.Handle(http.MethodGet, h.BasePath+"/{resource}/attributes", h.resourceAttributes)
-	if h.attributeDefs != nil {
-		r.Handle(http.MethodGet, "/v2/attributes", h.listDefinitions)
-		r.Handle(http.MethodGet, "/v2/attributes/{uuid}", h.getDefinition)
-		r.Handle(http.MethodPost, "/v2/attributes/callback", h.attributeCallback)
-	}
 }

@@ -26,7 +26,6 @@ var (
 	// checkpointed delivery Core calls again shortly without counting a
 	// failure, for a bounded time; in buffered delivery it counts as an
 	// unanswered drain.
-	ErrBusy               = shared.Unavailable("SERVICE_UNAVAILABLE", "connector too busy to take the call")
-	ErrDefinitionNotFound = shared.NotFound("ATTRIBUTE_DEFINITION_NOT_FOUND", "attribute definition not found")
-	ErrNilResponse        = shared.Internal("INTERNAL_SERVER_ERROR", "provider returned no response")
+	ErrBusy        = shared.Unavailable("SERVICE_UNAVAILABLE", "connector too busy to take the call")
+	ErrNilResponse = shared.Internal("INTERNAL_SERVER_ERROR", "provider returned no response")
 )

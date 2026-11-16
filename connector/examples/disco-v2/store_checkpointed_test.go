@@ -207,7 +207,7 @@ func TestBufferedRefusals(t *testing.T) {
 	assertCode(t, e, 410, "CHECKPOINT_LOST")
 }
 
-func TestNilRequestsAndMetadata(t *testing.T) {
+func TestNilRequestsAndResourceAttributes(t *testing.T) {
 	ctx := context.Background()
 	s := newStore(t)
 	if _, e := s.Initiate(ctx, nil); e == nil {
@@ -233,11 +233,4 @@ func TestNilRequestsAndMetadata(t *testing.T) {
 	if attrs, e := s.ResourceAttributes(ctx, mdl.RESOURCE_CERTIFICATES); e != nil || attrs == nil {
 		t.Fatalf("%v %v", attrs, e)
 	}
-	if defs, e := s.ListDefinitions(ctx); e != nil || defs.ConnectorVersion != connectorVersion {
-		t.Fatalf("%+v %v", defs, e)
-	}
-	_, e = s.GetDefinition(ctx, "any")
-	assertCode(t, e, 404, "ATTRIBUTE_DEFINITION_NOT_FOUND")
-	_, e = s.Callback(ctx, &mdl.AttributeCallbackRequestDto{})
-	assertCode(t, e, 404, "ATTRIBUTE_DEFINITION_NOT_FOUND")
 }
