@@ -1,8 +1,7 @@
 # Discovery Provider v2 example
 
-Run `go run ./connector/examples/disco-v2` from the SDK repository root.
-`ADDR` defaults to `:8080`; `LOG_LEVEL` and `STRICT_DECODE` follow the other
-reference examples.
+Run `go run ./connector/examples/disco-v2` from the SDK repository root;
+`main.go`'s package doc lists the environment variables.
 
 The connector advertises `discovery/v2` with `discoveryStopResume`, uses v2
 info/health and common attribute endpoints, and exposes the SDK metrics endpoint.
@@ -45,14 +44,6 @@ Run its Docker-backed HTTP integration tests with:
 go test -race -v ./connector/examples/disco-v2
 ```
 
-The shared harness skips container tests under `-short` or when Docker is
-unavailable. The store unit tests still run in short mode. If Docker uses a
-non-default socket, set `DOCKER_HOST` explicitly. Colima may also need
-`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`. Use a Docker runtime
-matching the host architecture, as required by the shared harness.
-To put an example binary in the ignored build output folder:
-
-```sh
-mkdir -p built-artifacts
-go build -o built-artifacts/disco-v2 ./connector/examples/disco-v2
-```
+Container tests use the shared harness; see
+[internal/itest](../internal/itest/README.md) for its Docker requirements. The
+store unit tests also run under `-short`.

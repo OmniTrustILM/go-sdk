@@ -109,4 +109,3 @@ To upgrade, re-run `go get …@vX.Y.Z` against the newer tag and commit the upda
 ## License
 
 [Apache License 2.0](LICENSE.md) — © Identity Lifecycle Management (ILM).
-

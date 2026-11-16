@@ -26,16 +26,9 @@ const (
 	checkpointed = mdl.DISCOVERYDELIVERYMODE_CHECKPOINTED
 )
 
-// Store is a reference implementation of both delivery modes over three fixed
-// certificate fixtures. Initiate takes the first mode Core offers; a Core
-// older than delivery modes offers buffered only.
-//
-// A checkpointed run is served from its checkpoint alone: each results call
-// discovers the next fixtures and returns the position after them, so the run
-// survives a restart and any instance can serve its next call. A buffered run
-// lives in memory: each status poll discovers one fixture into the run's
-// buffer, and a restart loses it. A run keeps the mode it started in; the
-// contract lets a connector switch on resume, but this example does not.
+// Store implements both delivery modes over three fixed certificate fixtures;
+// README.md describes how each behaves. A run keeps the mode it started in;
+// the contract lets a connector switch on resume, but this example does not.
 // Not a production store.
 type Store struct {
 	mu           sync.Mutex

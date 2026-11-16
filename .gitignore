@@ -16,9 +16,6 @@
 /secret-v1
 /fixoneof
 
-# Build output directory
-/built-artifacts/
-
 # Go build/test artifacts
 *.exe
 *.test
