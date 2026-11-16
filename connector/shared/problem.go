@@ -199,9 +199,10 @@ var (
 // letter.
 var problemCodeRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
-// problemIfaceRe matches a valid type-URI interface segment: a single
-// lowercase, kebab-case path segment (never a slash-separated path).
-var problemIfaceRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+// problemIfaceRe matches a valid type-URI interface segment: a single path
+// segment in the platform's interface-code form, lower camel case or
+// kebab-case (keyLifecycle, discovery), never a slash-separated path.
+var problemIfaceRe = regexp.MustCompile(`^[a-z][a-zA-Z0-9-]*$`)
 
 // RegisterProblemCode adds or overrides the type-URI resolution and default
 // retryability for an application error code. Connectors call this during
@@ -210,9 +211,9 @@ var problemIfaceRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 // intended as a runtime toggle. Safe for concurrent use.
 //
 // code must be UPPER_SNAKE_CASE (^[A-Z][A-Z0-9_]*$); category must be
-// CategoryCommon or CategoryConnector; iface must be empty or a single
-// lowercase, kebab-case path segment (^[a-z][a-z0-9-]*$) — never a
-// slash-separated path. RegisterProblemCode validates all three and returns
+// CategoryCommon or CategoryConnector; iface must be empty or a single path
+// segment starting with a lowercase letter (^[a-z][a-zA-Z0-9-]*$), as the
+// platform's interface codes are — never a slash-separated path. RegisterProblemCode validates all three and returns
 // a descriptive error without registering anything if any check fails.
 func RegisterProblemCode(code string, category ProblemCategory, iface string, retryable bool) error {
 	if !problemCodeRe.MatchString(code) {
@@ -222,7 +223,7 @@ func RegisterProblemCode(code string, category ProblemCategory, iface string, re
 		return fmt.Errorf("shared: invalid problem category %q: must be %q or %q", category, CategoryCommon, CategoryConnector)
 	}
 	if iface != "" && !problemIfaceRe.MatchString(iface) {
-		return fmt.Errorf("shared: invalid problem iface %q: must be empty or match %s (single lowercase path segment)", iface, problemIfaceRe.String())
+		return fmt.Errorf("shared: invalid problem iface %q: must be empty or match %s (single path segment)", iface, problemIfaceRe.String())
 	}
 	problemCodeMu.Lock()
 	defer problemCodeMu.Unlock()

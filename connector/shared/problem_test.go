@@ -462,6 +462,32 @@ func TestRegisterProblemCodeValidation(t *testing.T) {
 	}
 }
 
+func TestBuiltInInterfaceSegmentsAreRegistrable(t *testing.T) {
+	problemCodeMu.RLock()
+	defer problemCodeMu.RUnlock()
+	for code, meta := range problemCodeRegistry {
+		if meta.iface != "" && !problemIfaceRe.MatchString(meta.iface) {
+			t.Errorf("%s uses interface segment %q, which RegisterProblemCode would refuse", code, meta.iface)
+		}
+	}
+}
+
+func TestRegisterProblemCodeAcceptsCamelCaseInterface(t *testing.T) {
+	const code = "KEY_LIFECYCLE_TEST_CODE"
+	t.Cleanup(func() {
+		problemCodeMu.Lock()
+		delete(problemCodeRegistry, code)
+		problemCodeMu.Unlock()
+	})
+	if err := RegisterProblemCode(code, CategoryConnector, "keyLifecycle", false); err != nil {
+		t.Fatalf("RegisterProblemCode(keyLifecycle) = %v", err)
+	}
+	want := "https://docs.otilm.com/problems/connector/keyLifecycle/" + code
+	if got := resolveProblemTypeURI("about:blank", code); got != want {
+		t.Errorf("type URI = %q, want %q", got, want)
+	}
+}
+
 func TestWriteProblemNonSharedErrorStillCompliant(t *testing.T) {
 	body, rec := decodeProblem(t, errPlain("boom"), "")
 
