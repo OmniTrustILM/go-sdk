@@ -8006,7 +8006,7 @@
           "keyRequestType": {
             "$ref": "#/components/schemas/KeyRequestType"
           },
-          "label": {
+          "storageName": {
             "type": "string"
           }
         }
@@ -8016,9 +8016,9 @@
         "additionalProperties": false,
         "description": "A key pair the token holds. Any later request accepts its metadata exactly like metadata returned at\ncreation.\n",
         "properties": {
-          "label": {
+          "storageName": {
             "type": "string",
-            "description": "Label the token keeps for the key"
+            "description": "Name the token shows for the key, such as a PKCS#11 label, a keystore alias or a KMS key name; it may be absent or shared by several keys"
           },
           "keyPairMeta": {
             "type": "array",
@@ -8055,9 +8055,9 @@
         "additionalProperties": false,
         "description": "A secret key the token holds. Any later request accepts its metadata exactly like metadata returned at\ncreation.\n",
         "properties": {
-          "label": {
+          "storageName": {
             "type": "string",
-            "description": "Label the token keeps for the key"
+            "description": "Name the token shows for the key, such as a PKCS#11 label, a keystore alias or a KMS key name; it may be absent or shared by several keys"
           },
           "keyMeta": {
             "type": "array",
@@ -9111,9 +9111,9 @@
         "additionalProperties": false,
         "description": "A key the token holds that the platform cannot onboard, with the reason",
         "properties": {
-          "label": {
+          "storageName": {
             "type": "string",
-            "description": "Label the token keeps for the key"
+            "description": "Name the token shows for the key, such as a PKCS#11 label, a keystore alias or a KMS key name; it may be absent or shared by several keys"
           },
           "reason": {
             "$ref": "#/components/schemas/UnusableKeyReason",
