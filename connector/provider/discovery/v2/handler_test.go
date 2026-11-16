@@ -99,7 +99,7 @@ func TestLifecycleHTTP(t *testing.T) {
 }
 func TestInvalidEnvelope(t *testing.T) {
 	c := serve(t, &testProvider{})
-	for _, body := range []string{`{}`, `{"runId":"bad","resources":["certificates"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":[]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["invalid"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":10485761}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxItems":0}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"afterSequence":-1}`} {
+	for _, body := range []string{`{}`, `{"runId":"bad","resources":["certificates"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":[]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["invalid"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":10485761}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxItems":0}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"afterSequence":-1}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates","certificates"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":0}`} {
 		w := request(t, c, "/v2/discoveryProvider/discoveries/results", body)
 		if w.Code != 422 {
 			t.Fatalf("%s: %d %s", body, w.Code, w.Body)
@@ -157,5 +157,22 @@ func TestLostResultsAnswerOperationNotTracked(t *testing.T) {
 	w := request(t, c, "/v2/discoveryProvider/discoveries/results", validBody)
 	if w.Code != 404 || !bytes.Contains(w.Body.Bytes(), []byte(`"errorCode":"OPERATION_NOT_TRACKED"`)) {
 		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+}
+
+func TestValidationNamesTheBrokenRule(t *testing.T) {
+	c := serve(t, &testProvider{})
+	for _, tc := range []struct{ body, rule string }{
+		{`{"runId":"bad","resources":["certificates"]}`, "runId must be a UUID"},
+		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":[]}`, "resources must not be empty"},
+		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates","certificates"]}`, "more than once"},
+		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":0}`, "maxBytes must be between 1 and"},
+		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxItems":0}`, "maxItems must be at least 1"},
+		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"afterSequence":-1}`, "afterSequence must not be negative"},
+	} {
+		w := request(t, c, "/v2/discoveryProvider/discoveries/results", tc.body)
+		if w.Code != 422 || !bytes.Contains(w.Body.Bytes(), []byte(tc.rule)) {
+			t.Fatalf("%s: want 422 naming %q, got %d %s", tc.body, tc.rule, w.Code, w.Body)
+		}
 	}
 }

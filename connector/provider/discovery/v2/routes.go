@@ -77,8 +77,8 @@ func (h *Handler) results(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = validate(in.RunId, in.Resources, in.Checkpoint)
 	}
-	if err == nil && ((in.AfterSequence != nil && *in.AfterSequence < 0) || (in.MaxItems != nil && *in.MaxItems < 1) || (in.MaxBytes != nil && (*in.MaxBytes < 1 || *in.MaxBytes > MaxResultBytes))) {
-		err = ErrInvalidRequest
+	if err == nil {
+		err = validateDrainBounds(&in)
 	}
 	if err != nil {
 		h.reply(w, r, "discovery_results", 200, nil, err)
@@ -106,8 +106,7 @@ func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = h.provider.Cancel(r.Context(), &in)
-	var out any
-	h.reply(w, r, "discovery_cancel", 204, out, err)
+	h.reply(w, r, "discovery_cancel", 204, nil, err)
 }
 func (h *Handler) resources(w http.ResponseWriter, r *http.Request) {
 	out, err := h.provider.SupportedResources(r.Context())

@@ -15,8 +15,9 @@ var (
 	// available. Only resume declares it.
 	ErrCheckpointLost      = &shared.Error{Status: 410, ErrorCode: "CHECKPOINT_LOST", Title: "Gone", Detail: "discovery checkpoint unavailable"}
 	ErrPastPointOfNoReturn = shared.Invalid("OPERATION_PAST_POINT_OF_NO_RETURN", "discovery cannot be stopped or cancelled")
-	// ErrResourceNotSupported answers a resource type the connector does not
-	// discover.
+	// ErrResourceNotSupported answers GET /{resource}/attributes for a resource
+	// type the connector does not discover. In a lifecycle call an unsupported
+	// resource is ErrInvalidRequest: a 404 there ends the run.
 	ErrResourceNotSupported = shared.NotFound("RESOURCE_NOT_FOUND", "resource type not supported")
 	// ErrCheckpointedNotOffered answers a drain of a checkpointed run that
 	// does not offer checkpointed delivery, so that a Core which does can take
