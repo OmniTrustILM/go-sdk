@@ -273,9 +273,6 @@ func (s *Store) Resume(_ context.Context, req *mdl.DiscoveryRunRequestDto) (*mdl
 	if e != nil {
 		return nil, e
 	}
-	if cp.Sequence != r.produced {
-		return nil, discovery.ErrCheckpointLost
-	}
 	if r.state != mdl.DISCOVERYRUNSTATE_STOPPED && r.state != mdl.DISCOVERYRUNSTATE_RUNNING {
 		return nil, discovery.ErrInvalidRequest.WithProperty("reason", "the run has already ended")
 	}

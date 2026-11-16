@@ -73,6 +73,32 @@ func TestStoreDrainRetryStopResume(t *testing.T) {
 	}
 }
 
+// A resume whose reply was lost is retried with the stop checkpoint after the
+// run has moved on.
+func TestBufferedResumeRetryContinuesTheRun(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	started, e := s.Initiate(ctx, &mdl.DiscoveryInitiateRequestDto{RunId: runID, Resources: []mdl.Resource{mdl.RESOURCE_CERTIFICATES}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	r := &mdl.DiscoveryRunRequestDto{RunId: runID, Resources: []mdl.Resource{mdl.RESOURCE_CERTIFICATES}, Checkpoint: started.Checkpoint}
+	stop, e := s.Stop(ctx, r)
+	if e != nil {
+		t.Fatal(e)
+	}
+	r.Checkpoint = stop.Checkpoint
+	if _, e = s.Resume(ctx, r); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.Status(ctx, r); e != nil {
+		t.Fatal(e)
+	}
+	if out, e := s.Resume(ctx, r); e != nil || out.GetDeliveryMode() != buffered {
+		t.Fatalf("retried resume: %+v %v", out, e)
+	}
+}
+
 func TestStoreMoreReflectsBufferedItems(t *testing.T) {
 	s, e := NewStore()
 	if e != nil {
