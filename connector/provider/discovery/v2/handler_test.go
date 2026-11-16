@@ -98,8 +98,18 @@ func TestLifecycleHTTP(t *testing.T) {
 	}
 }
 func TestInvalidEnvelope(t *testing.T) {
-	c := serve(t, &testProvider{})
-	for _, body := range []string{`{}`, `{"runId":"bad","resources":["certificates"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":[]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["invalid"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":10485761}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxItems":0}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"afterSequence":-1}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates","certificates"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":0}`} {
+	// Any provider call panics, so a 422 proves the handler refused first.
+	c := serve(t, struct{ Provider }{})
+	envelope := []string{`{}`, `{"runId":"bad","resources":["certificates"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":[]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["invalid"]}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates","certificates"]}`}
+	for _, op := range []string{"initiate", "status", "results", "stop", "resume", "cancel"} {
+		for _, body := range envelope {
+			w := request(t, c, "/v2/discoveryProvider/discoveries/"+op, body)
+			if w.Code != 422 {
+				t.Fatalf("%s %s: %d %s", op, body, w.Code, w.Body)
+			}
+		}
+	}
+	for _, body := range []string{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":10485761}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxItems":0}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"afterSequence":-1}`, `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":0}`} {
 		w := request(t, c, "/v2/discoveryProvider/discoveries/results", body)
 		if w.Code != 422 {
 			t.Fatalf("%s: %d %s", body, w.Code, w.Body)
