@@ -11,9 +11,8 @@ import (
 	"time"
 )
 
-// fixtureSeed fixes the signing key, so every instance builds the same
-// certificates and a checkpointed position means the same item wherever the
-// next call lands. It signs demonstration certificates only.
+// fixtureSeed makes every instance build the same certificates, so a
+// checkpointed position means the same item wherever the next call lands.
 var fixtureSeed = [ed25519.SeedSize]byte{'d', 'i', 's', 'c', 'o', '-', 'v', '2', '-', 'e', 'x', 'a', 'm', 'p', 'l', 'e'}
 
 // certificateFixtures creates public, self-signed demonstration certificates.

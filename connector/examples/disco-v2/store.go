@@ -29,7 +29,6 @@ const (
 // Store implements both delivery modes over three fixed certificate fixtures;
 // README.md describes how each behaves. A run keeps the mode it started in;
 // the contract lets a connector switch on resume, but this example does not.
-// Not a production store.
 type Store struct {
 	mu           sync.Mutex
 	runs         map[string]*run // buffered runs only
@@ -106,11 +105,9 @@ func bufferedCheckpoint(id string, r *run) []mdl.MetadataAttribute {
 	return encode(checkpoint{Mode: buffered, RunID: id, Handle: r.handle, Sequence: r.produced})
 }
 
-// replayed validates the call's scope and decodes its checkpoint. A call
-// without one returns missing: resume passes ErrCheckpointLost (410, the
-// checkpoint is no longer available), the other calls ErrInvalidRequest. A
-// checkpoint this connector did not mint for the run is unreadable, which is
-// ErrInvalidRequest (422) on every call.
+// replayed validates the call's scope and decodes its checkpoint. With none it
+// returns missing (ErrCheckpointLost on resume, ErrInvalidRequest elsewhere);
+// one this connector did not mint for the run is ErrInvalidRequest.
 func (s *Store) replayed(req replay, missing error) (checkpoint, error) {
 	var cp checkpoint
 	if e := validate(req.runID, req.resources, req.attributes, req.resourceAttributes); e != nil {
@@ -362,10 +359,9 @@ func (s *Store) bufferedPage(req *mdl.DiscoveryDrainRequestDto, cp checkpoint) (
 	return &mdl.DiscoveryResultsResponseDto{Items: items, HighestSequence: r.produced, More: after+int64(len(items)) < r.produced}, nil
 }
 
-// page returns the fixtures after sequence after, up to upTo, within the
-// drain's bounds. budget is the most the items may take when the drain sets
-// no maxBytes, and caps one that does. A single item larger than the bound
-// cannot be sent on any page, so it is an error rather than an empty page.
+// page returns the fixtures in (after, upTo] within the drain's bounds. budget
+// is the byte bound when the drain sets no maxBytes and caps one that does; an
+// item larger than the bound is an error, since no page could carry it.
 func (s *Store) page(after, upTo int64, maxItems *int32, maxBytes *int64, budget int64) ([]mdl.DiscoveredItemDto, error) {
 	limit := defaultMaxItems
 	if maxItems != nil {

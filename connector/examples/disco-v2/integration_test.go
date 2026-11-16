@@ -68,8 +68,6 @@ func TestDiscoV2InfoHealthAndMetadata(t *testing.T) {
 	h.AssertLogsConform(t)
 }
 
-// A checkpointed run travels over HTTP with its checkpoint replayed on every
-// call; nothing about it is held between calls.
 func TestDiscoV2CheckpointedLifecycle(t *testing.T) {
 	h := startDisco(t)
 	modes := []string{"checkpointed", "buffered"}

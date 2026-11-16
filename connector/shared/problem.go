@@ -199,9 +199,8 @@ var (
 // letter.
 var problemCodeRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
-// problemIfaceRe matches a valid type-URI interface segment: a single path
-// segment in the platform's interface-code form, lower camel case or
-// kebab-case (keyLifecycle, discovery), never a slash-separated path.
+// problemIfaceRe matches a type-URI interface segment: one path segment in
+// interface-code form, such as keyLifecycle or discovery.
 var problemIfaceRe = regexp.MustCompile(`^[a-z][a-zA-Z0-9-]*$`)
 
 // RegisterProblemCode adds or overrides the type-URI resolution and default
@@ -211,9 +210,9 @@ var problemIfaceRe = regexp.MustCompile(`^[a-z][a-zA-Z0-9-]*$`)
 // intended as a runtime toggle. Safe for concurrent use.
 //
 // code must be UPPER_SNAKE_CASE (^[A-Z][A-Z0-9_]*$); category must be
-// CategoryCommon or CategoryConnector; iface must be empty or a single path
-// segment starting with a lowercase letter (^[a-z][a-zA-Z0-9-]*$), as the
-// platform's interface codes are — never a slash-separated path. RegisterProblemCode validates all three and returns
+// CategoryCommon or CategoryConnector; iface must be empty or one path segment
+// in interface-code form (^[a-z][a-zA-Z0-9-]*$), never a slash-separated path.
+// RegisterProblemCode validates all three and returns
 // a descriptive error without registering anything if any check fails.
 func RegisterProblemCode(code string, category ProblemCategory, iface string, retryable bool) error {
 	if !problemCodeRe.MatchString(code) {

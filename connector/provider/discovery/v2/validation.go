@@ -14,9 +14,8 @@ import (
 // a drain may ask for.
 const MaxResultBytes int64 = 10 * 1024 * 1024
 
-// invalid is a 422 VALIDATION_FAILED naming the rule a request broke. In
-// checkpointed delivery a 422 on results ends the run, so the operator needs
-// the reason.
+// invalid is a 422 VALIDATION_FAILED naming the broken rule; a checkpointed
+// run ends on one, so the reason must reach the operator.
 func invalid(format string, args ...any) *shared.Error {
 	return shared.Invalid("VALIDATION_FAILED", format, args...)
 }

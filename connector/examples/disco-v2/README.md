@@ -15,14 +15,12 @@ Initiate takes the first delivery mode Core offers in `deliveryModes`. A Core
 that sends no `deliveryModes` predates delivery modes and gets buffered
 delivery. A run keeps the mode it started in.
 
-**Checkpointed.** The connector holds nothing between calls, so a run survives
-a restart and any instance can serve its next call. Each results call discovers
-the fixtures after `afterSequence`, numbers them from `afterSequence + 1` and
-returns the position after them in `checkpoint`, which Core replays on the next
-call. Status reports the run from that checkpoint. Stop and resume answer
-without a checkpoint, because Core keeps the one it holds. A drain that does not
-offer `checkpointed` gets a 503, and one whose `afterSequence` disagrees with
-its checkpoint gets a 404.
+**Checkpointed.** Nothing is held between calls, so a run survives a restart
+and any instance serves its next call. Each results call returns the fixtures
+after `afterSequence` with the position after them in `checkpoint`, which Core
+replays; status reads the same checkpoint, and stop and resume answer without
+one. A drain that does not offer `checkpointed` gets a 503; one whose
+`afterSequence` disagrees with its checkpoint gets a 404.
 
 **Buffered.** Each status poll discovers one certificate into the run's
 in-memory buffer; results drains return the buffered items in contiguous

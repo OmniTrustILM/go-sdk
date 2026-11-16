@@ -7,17 +7,14 @@
 // handler on the connector already mounts it (authority/v3 can): duplicate
 // routes fail at mount time.
 //
-// Every lifecycle call replays the run's scope and its opaque checkpoint, so a
-// provider can serve a run from the request alone. A run travels in one of two
-// delivery modes, agreed on initiate and again on resume (see
-// ChooseDeliveryMode):
+// Every lifecycle call replays the run's scope and checkpoint. A run uses one
+// of two delivery modes, agreed on initiate and resume (see ChooseDeliveryMode):
 //
-//   - buffered: the connector holds the items it has not handed over between
-//     calls, and the checkpoint changes only on initiate, stop and resume.
-//   - checkpointed: the connector holds nothing between calls. Each results
-//     call does a bounded amount of work from the replayed checkpoint and
-//     returns the run's new checkpoint with its page, so any instance of the
-//     connector can serve the next call.
+//   - buffered: the connector holds undrained items between calls; only
+//     initiate, stop and resume change the checkpoint.
+//   - checkpointed: the connector holds nothing; each results call works from
+//     the replayed checkpoint and returns the next one with its page, so any
+//     instance can serve the next call.
 package discovery
 
 import (
@@ -47,9 +44,8 @@ import (
 //   - Results numbers its items densely from afterSequence + 1, returns the
 //     checkpoint after those items on every page (an empty one included),
 //     never splits one unit of work across pages and answers within 20
-//     seconds. A drain that does not offer checkpointed comes from a Core that
-//     would not store the page's checkpoint: answer ErrCheckpointedNotOffered.
-//     When the connector is too busy, answer ErrBusy.
+//     seconds. Answer ErrCheckpointedNotOffered to a drain that does not offer
+//     checkpointed, and ErrBusy when too busy.
 //   - Status reports the run from the replayed checkpoint.
 //   - Stop and Resume answer without a checkpoint: Core keeps the one it holds.
 //   - A checkpoint the provider cannot read is ErrInvalidRequest, and one that
