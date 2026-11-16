@@ -165,6 +165,7 @@ func TestValidationNamesTheBrokenRule(t *testing.T) {
 	for _, tc := range []struct{ body, rule string }{
 		{`{"runId":"bad","resources":["certificates"]}`, "runId must be a UUID"},
 		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":[]}`, "resources must not be empty"},
+		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["widgets"]}`, `unknown Resource \"widgets\"`},
 		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates","certificates"]}`, "more than once"},
 		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxBytes":0}`, "maxBytes must be between 1 and"},
 		{`{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"maxItems":0}`, "maxItems must be at least 1"},

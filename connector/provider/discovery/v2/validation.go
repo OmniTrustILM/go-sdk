@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/discovery/v2"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
@@ -60,13 +61,22 @@ func validateDrainBounds(in *mdl.DiscoveryDrainRequestDto) error {
 	return nil
 }
 
+// enumRejection matches the error a generated enum decoder returns for a value
+// it does not know, such as a resource type only a newer Core has.
+var enumRejection = regexp.MustCompile(`(\S+) is not a valid ([A-Za-z]+)$`)
+
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) error {
 	e := shared.DecodeJSON(w, r, v, h.MaxBytes, h.Strict)
 	var se *shared.Error
-	if errors.As(e, &se) && se.Status == 400 {
-		return invalid("%s", se.Detail).WithCause(e)
+	if !errors.As(e, &se) || se.Status != 400 {
+		return e
 	}
-	return e
+	if se.Cause != nil {
+		if m := enumRejection.FindStringSubmatch(se.Cause.Error()); m != nil {
+			return invalid("unknown %s %q", m[2], m[1]).WithCause(e)
+		}
+	}
+	return invalid("%s", se.Detail).WithCause(e)
 }
 func (h *Handler) reply(w http.ResponseWriter, r *http.Request, event string, status int, out any, err error) {
 	shared.EmitEvent(r.Context(), event, err)
