@@ -3,6 +3,7 @@ package discovery
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"regexp"
 
@@ -62,8 +63,10 @@ func validateDrainBounds(in *mdl.DiscoveryDrainRequestDto) error {
 }
 
 // enumRejection matches the error a generated enum decoder returns for a value
-// it does not know, such as a resource type only a newer Core has.
-var enumRejection = regexp.MustCompile(`(\S+) is not a valid ([A-Za-z]+)$`)
+// it does not know, such as a resource type only a newer Core has. Only an
+// unwrapped error matches, so a nested decoder's "Type: decode ...:" prefix
+// never ends up in the reported value.
+var enumRejection = regexp.MustCompile(`^([^:]+) is not a valid ([A-Za-z]+)$`)
 
 func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) error {
 	e := shared.DecodeJSON(w, r, v, h.MaxBytes, h.Strict)
@@ -71,12 +74,22 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) error {
 	if !errors.As(e, &se) || se.Status != 400 {
 		return e
 	}
-	if se.Cause != nil {
+	if se.ErrorCode == "INVALID_JSON" && se.Cause != nil {
 		if m := enumRejection.FindStringSubmatch(se.Cause.Error()); m != nil {
 			return invalid("unknown %s %q", m[2], m[1]).WithCause(e)
 		}
+		if !isSyntaxError(se.Cause) {
+			return invalid("request body does not match the Discovery v2 schema").WithCause(e)
+		}
 	}
 	return invalid("%s", se.Detail).WithCause(e)
+}
+
+// isSyntaxError reports whether a decode failed on the JSON itself rather
+// than on a generated decoder rejecting a well-formed value.
+func isSyntaxError(err error) bool {
+	var syntaxErr *json.SyntaxError
+	return errors.As(err, &syntaxErr) || errors.Is(err, io.ErrUnexpectedEOF)
 }
 func (h *Handler) reply(w http.ResponseWriter, r *http.Request, event string, status int, out any, err error) {
 	shared.EmitEvent(r.Context(), event, err)
