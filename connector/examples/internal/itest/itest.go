@@ -49,6 +49,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/moby/moby/client"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -126,6 +127,11 @@ func Start(t *testing.T, ex Example) *Harness {
 			Dockerfile:    "Dockerfile",
 			PrintBuildLog: false,
 			KeepImage:     false,
+			// Skip the daemon's build cache. Its lookup scans every
+			// scratch-based image, and example packages running in
+			// parallel delete theirs on cleanup, so a scan can hit a
+			// just-deleted image and fail with "unable to find image".
+			BuildOptionsModifier: func(o *client.ImageBuildOptions) { o.NoCache = true },
 		}),
 		testcontainers.WithEnv(ex.Env),
 		testcontainers.WithExposedPorts(containerPort+"/tcp"),
