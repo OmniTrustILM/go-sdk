@@ -325,6 +325,7 @@ func TestResolveProblemTypeURI(t *testing.T) {
 		{name: "registered authority code", errorCode: "CSR_MALFORMED", want: "https://docs.otilm.com/problems/connector/authority/CSR_MALFORMED"},
 		{name: "registered discovery code", errorCode: "CHECKPOINT_LOST", want: "https://docs.otilm.com/problems/connector/discovery/CHECKPOINT_LOST"},
 		{name: "registered cryptography code", errorCode: "KEY_TYPE_NOT_IMPORTABLE", want: "https://docs.otilm.com/problems/connector/cryptography/KEY_TYPE_NOT_IMPORTABLE"},
+		{name: "registered key lifecycle code", errorCode: "SIGNER_MISMATCH", want: "https://docs.otilm.com/problems/connector/keyLifecycle/SIGNER_MISMATCH"},
 		{name: "registered replay-context code with no interface", errorCode: "CONTEXT_MISMATCH", want: "https://docs.otilm.com/problems/connector/CONTEXT_MISMATCH"},
 		{name: "registered connector code with no interface", errorCode: "DOCUMENT_TOO_LARGE", want: "https://docs.otilm.com/problems/connector/DOCUMENT_TOO_LARGE"},
 		{name: "unregistered code falls back to common", errorCode: "WIDGET_EXPLODED", want: "https://docs.otilm.com/problems/common/WIDGET_EXPLODED"},
@@ -458,6 +459,32 @@ func TestRegisterProblemCodeValidation(t *testing.T) {
 				t.Errorf("resolveProblemTypeURI(%q) = %q after rejected registration, want fallback %q", tc.code, got, want)
 			}
 		})
+	}
+}
+
+func TestBuiltInInterfaceSegmentsAreRegistrable(t *testing.T) {
+	problemCodeMu.RLock()
+	defer problemCodeMu.RUnlock()
+	for code, meta := range problemCodeRegistry {
+		if meta.iface != "" && !problemIfaceRe.MatchString(meta.iface) {
+			t.Errorf("%s uses interface segment %q, which RegisterProblemCode would refuse", code, meta.iface)
+		}
+	}
+}
+
+func TestRegisterProblemCodeAcceptsCamelCaseInterface(t *testing.T) {
+	const code = "KEY_LIFECYCLE_TEST_CODE"
+	t.Cleanup(func() {
+		problemCodeMu.Lock()
+		delete(problemCodeRegistry, code)
+		problemCodeMu.Unlock()
+	})
+	if err := RegisterProblemCode(code, CategoryConnector, "keyLifecycle", false); err != nil {
+		t.Fatalf("RegisterProblemCode(keyLifecycle) = %v", err)
+	}
+	want := "https://docs.otilm.com/problems/connector/keyLifecycle/" + code
+	if got := resolveProblemTypeURI("about:blank", code); got != want {
+		t.Errorf("type URI = %q, want %q", got, want)
 	}
 }
 
