@@ -625,15 +625,18 @@ const (
 	keyTypePrivate = "Private"
 )
 
-// keyDataMetadataField names the key descriptor's metadata in guard messages.
-const keyDataMetadataField = "keyData.metadata"
+// keyDataMetadataField and privateKeyDataField name key descriptor fields in guard messages.
+const (
+	keyDataMetadataField = "keyData.metadata"
+	privateKeyDataField  = "privateKeyData.keyData"
+)
 
 func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) error {
 	if len(v.PublicKeyData.KeyMeta) == 0 || len(v.PrivateKeyData.KeyMeta) == 0 {
 		return errIncompleteKeyPayload(subject)
 	}
 	priv := &v.PrivateKeyData.KeyData
-	if err := validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"); err != nil {
+	if err := validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, privateKeyDataField); err != nil {
 		return err
 	}
 	return validatePublicHalf(&v.PublicKeyData.KeyData, priv.Algorithm)
@@ -1256,8 +1259,8 @@ func validateListedKeyPair(pair *mdl.ListedKeyPairV2Dto) error {
 	}
 	priv := &pair.PrivateKeyData.KeyData
 	if err := firstError(
-		validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"),
-		validateAlgorithmFamily(keyTypePrivate, priv.Algorithm, "privateKeyData.keyData"),
+		validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, privateKeyDataField),
+		validateAlgorithmFamily(keyTypePrivate, priv.Algorithm, privateKeyDataField),
 	); err != nil {
 		return err
 	}
