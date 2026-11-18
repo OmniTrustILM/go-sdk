@@ -37,6 +37,10 @@ const maxKeyPage = 1000
 // maxResolvedKeys mirrors the spec's maximum on ResolveKeysRequestV2Dto.keys.
 const maxResolvedKeys = 1000
 
+// maxDiagnosticCodePoints mirrors the spec's maxLength on a key entry's
+// diagnostic.
+const maxDiagnosticCodePoints = 1000
+
 // errValidationFailed renders 422 VALIDATION_FAILED. msg must be a %-free
 // literal naming the violated rule: shared.Invalid is printf-style, and echoing
 // request content into an error body discloses information.
@@ -1080,27 +1084,22 @@ func validateListKeysRequest(in *mdl.ListKeysRequestV2Dto) error {
 }
 
 // validateListKeysResponse holds a provider to a full page of the requested
-// type: every key the page counts, each an entry or an unusable key. A page
+// type: every key the page counts, each as an entry. A page
 // past the total is empty, since the token can lose keys between two pages.
 func validateListKeysResponse(in *mdl.ListKeysRequestV2Dto, out *mdl.ListKeysResponseV2Dto) error {
 	if out.TotalItems < 0 {
 		return errResponseShape("totalItems must not be negative")
 	}
 	remaining := max(0, out.TotalItems-int64(in.Offset))
-	if int64(len(out.Items)+len(out.UnusableKeys)) != min(int64(in.Limit), remaining) {
+	if int64(len(out.Items)) != min(int64(in.Limit), remaining) {
 		return errResponseShape("key listing must hold every key its page counts")
 	}
 	for i := range out.Items {
-		handle, err := validateListedKey(in.KeyRequestType, &out.Items[i])
-		if err != nil {
-			return err
+		item := &out.Items[i]
+		if item.Status == mdl.KEYENTRYSTATUS_INVALID_HANDLE {
+			return errResponseShape("a key listing entry must not have the status invalidHandle, which only a resolution reports")
 		}
-		if !unambiguousHandle(handle) {
-			return errResponseShape("a listed key's metadata must be an unambiguous handle")
-		}
-	}
-	for i := range out.UnusableKeys {
-		if err := validateUnusableKey(in.KeyRequestType, &out.UnusableKeys[i]); err != nil {
+		if err := validateKeyEntry(in.KeyRequestType, keyEntry{item.Status, item.Diagnostic, item.Key, item.KeyData}); err != nil {
 			return err
 		}
 	}
@@ -1127,8 +1126,8 @@ func validateResolveKeysRequest(in *mdl.ResolveKeysRequestV2Dto) error {
 	return validateUniqueIdentifiers(ids, "keys")
 }
 
-// validateResolveKeysResponse holds a provider to one result per handle, with
-// a key exactly for a found one, in the shape a listing returns.
+// validateResolveKeysResponse holds a provider to one result per handle, each
+// held to its status as a listing entry is.
 func validateResolveKeysResponse(in *mdl.ResolveKeysRequestV2Dto, out *mdl.ResolveKeysResponseV2Dto) error {
 	requested := make([]string, len(in.Keys))
 	for i, key := range in.Keys {
@@ -1143,24 +1142,60 @@ func validateResolveKeysResponse(in *mdl.ResolveKeysRequestV2Dto, out *mdl.Resol
 	}
 	for i := range out.Results {
 		result := &out.Results[i]
-		if !result.Outcome.IsValid() {
-			return errResponseShape("outcome must be a KeyResolutionOutcome")
-		}
-		if (result.Key != nil) != (result.Outcome == mdl.KEYRESOLUTIONOUTCOME_FOUND) {
-			return errResponseShape("a key resolution must carry a key exactly when its outcome is found")
-		}
-		if result.Key == nil {
-			continue
-		}
-		handle, err := validateListedKey(in.KeyRequestType, result.Key)
-		if err != nil {
+		if err := validateKeyEntry(in.KeyRequestType, keyEntry{result.Status, result.Diagnostic, result.Key, result.KeyData}); err != nil {
 			return err
-		}
-		if !unambiguousHandle(handle) {
-			return errResponseShape("a listed key's metadata must be an unambiguous handle")
 		}
 	}
 	return nil
+}
+
+// keyEntry holds the fields of a listing entry or a resolution result that
+// validateKeyEntry checks. Their shared StorageName is free display text.
+type keyEntry struct {
+	status     mdl.KeyEntryStatus
+	diagnostic *string
+	key        *mdl.ListedKeyV2
+	keyData    *mdl.KeyDataV2
+}
+
+// validateKeyEntry holds an entry to its status: an available or refused key
+// is carried whole and addressable. A matched key the entry cannot carry may
+// be described by an optional descriptor.
+func validateKeyEntry(requested mdl.KeyRequestType, entry keyEntry) error {
+	if !entry.status.IsValid() {
+		return errResponseShape("status must be a KeyEntryStatus")
+	}
+	if entry.diagnostic != nil && utf8.RuneCountInString(*entry.diagnostic) > maxDiagnosticCodePoints {
+		return errResponseShape("diagnostic must not exceed " + strconv.Itoa(maxDiagnosticCodePoints) + " code points")
+	}
+	if (entry.key != nil) != carriesListedKey(entry.status) {
+		return errResponseShape("a key entry must carry a key exactly when its status is available or refused")
+	}
+	if entry.key == nil {
+		if entry.keyData != nil && !matchesKey(entry.status) {
+			return errResponseShape("keyData must be absent when status is notFound or invalidHandle")
+		}
+		return validateEntryKeyData(requested, entry.keyData)
+	}
+	if entry.keyData != nil {
+		return errResponseShape("keyData must be absent when key is present")
+	}
+	handle, err := validateListedKey(requested, entry.key)
+	if err != nil {
+		return err
+	}
+	if !unambiguousHandle(handle) {
+		return errResponseShape("a listed key's metadata must be an unambiguous handle")
+	}
+	return nil
+}
+
+func carriesListedKey(status mdl.KeyEntryStatus) bool {
+	return status == mdl.KEYENTRYSTATUS_AVAILABLE || status == mdl.KEYENTRYSTATUS_REFUSED
+}
+
+func matchesKey(status mdl.KeyEntryStatus) bool {
+	return status != mdl.KEYENTRYSTATUS_NOT_FOUND && status != mdl.KEYENTRYSTATUS_INVALID_HANDLE
 }
 
 // validateListedKey holds an entry to one variant of the requested type and
@@ -1179,35 +1214,33 @@ func validateListedKey(requested mdl.KeyRequestType, key *mdl.ListedKeyV2) ([]md
 	}
 }
 
-// validateUnusableKey holds an unusable key to a known reason and, when it
-// describes the key, to the requested type. A key pair listing reports such a
-// pair by its private key.
-func validateUnusableKey(requested mdl.KeyRequestType, key *mdl.UnusableKeyV2Dto) error {
-	if !key.Reason.IsValid() {
-		return errResponseShape("unusableKeys.reason must be an UnusableKeyReason")
-	}
-	if key.KeyData == nil {
+// validateEntryKeyData holds the descriptor of a key an entry cannot carry
+// whole to the requested type. A key pair listing describes such a pair by
+// its private key.
+func validateEntryKeyData(requested mdl.KeyRequestType, data *mdl.KeyDataV2) error {
+	if data == nil {
 		return nil
 	}
-	data := key.KeyData
 	if keyDataArms(data) != 1 {
-		return errResponseShape("unusableKeys.keyData must describe the key once")
+		return errResponseShape("keyData must describe the key once")
 	}
 	switch {
 	case requested == mdl.KEYREQUESTTYPE_KEY_PAIR && data.PrivateKeyDataV2Dto != nil:
 		private := data.PrivateKeyDataV2Dto
 		return firstError(
-			validateKeyDescriptor(private.Type, keyTypePrivate, private.Algorithm, private.Length, "unusableKeys.keyData"),
-			validateMetadataElements(private.Metadata, "unusableKeys.keyData.metadata"),
+			validateKeyDescriptor(private.Type, keyTypePrivate, private.Algorithm, private.Length, "keyData"),
+			validateAlgorithmFamily(keyTypePrivate, private.Algorithm, "keyData"),
+			validateMetadataElements(private.Metadata, keyDataMetadataField),
 		)
 	case requested == mdl.KEYREQUESTTYPE_SECRET && data.SecretKeyDataV2Dto != nil:
 		secret := data.SecretKeyDataV2Dto
 		return firstError(
-			validateKeyDescriptor(secret.Type, keyTypeSecret, secret.Algorithm, secret.Length, "unusableKeys.keyData"),
-			validateMetadataElements(secret.Metadata, "unusableKeys.keyData.metadata"),
+			validateKeyDescriptor(secret.Type, keyTypeSecret, secret.Algorithm, secret.Length, "keyData"),
+			validateAlgorithmFamily(keyTypeSecret, secret.Algorithm, "keyData"),
+			validateMetadataElements(secret.Metadata, keyDataMetadataField),
 		)
 	default:
-		return errResponseShape("unusableKeys must describe keys of the requested key request type")
+		return errResponseShape("keyData must describe a key of the requested key request type")
 	}
 }
 
@@ -1222,7 +1255,10 @@ func validateListedKeyPair(pair *mdl.ListedKeyPairV2Dto) error {
 		return errResponseShape("privateKeyData.keyMeta must not be empty")
 	}
 	priv := &pair.PrivateKeyData.KeyData
-	if err := validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"); err != nil {
+	if err := firstError(
+		validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, "privateKeyData.keyData"),
+		validateAlgorithmFamily(keyTypePrivate, priv.Algorithm, "privateKeyData.keyData"),
+	); err != nil {
 		return err
 	}
 	if pair.PublicKeyData != nil {
@@ -1247,9 +1283,27 @@ func validateListedSecretKey(key *mdl.ListedSecretKeyV2Dto) error {
 	return firstError(
 		validateKeyRequestType(key.KeyRequestType, mdl.KEYREQUESTTYPE_SECRET),
 		validateKeyDescriptor(data.Type, keyTypeSecret, data.Algorithm, data.Length, "keyData"),
+		validateAlgorithmFamily(keyTypeSecret, data.Algorithm, "keyData"),
 		validateMetadataElements(key.KeyMeta, "keyMeta"),
-		validateMetadataElements(data.Metadata, "keyData.metadata"),
+		validateMetadataElements(data.Metadata, keyDataMetadataField),
 	)
+}
+
+// validateAlgorithmFamily mirrors Core's KeyDataV2Dto.isAlgorithmMatchingType,
+// whose failure rejects the whole listing or resolution. An Unknown algorithm
+// fits either key type.
+func validateAlgorithmFamily(keyType string, algorithm mdl.KeyAlgorithm, field string) error {
+	if algorithm == mdl.KEYALGORITHM_UNKNOWN || secretKeyAlgorithms[algorithm] == (keyType == keyTypeSecret) {
+		return nil
+	}
+	return errResponseShape(field + " must carry an algorithm of key type " + keyType)
+}
+
+// secretKeyAlgorithms lists the symmetric key algorithms. Every other known
+// algorithm belongs to a key pair, as Core's KeyAlgorithm.isKeyPairAlgorithm
+// marks it.
+var secretKeyAlgorithms = map[mdl.KeyAlgorithm]bool{
+	mdl.KEYALGORITHM_AES: true,
 }
 
 // unambiguousHandle reports whether a handle can name one key: a repeated

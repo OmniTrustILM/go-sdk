@@ -1073,9 +1073,5 @@ func (h *Handler) resolveKeys(w http.ResponseWriter, r *http.Request) {
 func wirePage(out *mdl.ListKeysResponseV2Dto) *mdl.ListKeysResponseV2Dto {
 	page := *out
 	page.Items = shared.EnsureSlice(out.Items)
-	// The generated encoder omits only a nil list.
-	if len(out.UnusableKeys) == 0 {
-		page.UnusableKeys = nil
-	}
 	return &page
 }

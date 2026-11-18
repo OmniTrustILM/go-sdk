@@ -22,12 +22,10 @@ var _ MappedNullable = &ListKeysResponseV2Dto{}
 
 // ListKeysResponseV2Dto struct for ListKeysResponseV2Dto
 type ListKeysResponseV2Dto struct {
-	// Keys of the requested page, each of the requested key request type
-	Items []ListedKeyV2 `json:"items"`
-	// Number of keys in the whole listing. Each appears once on its page, as a listed or an unusable key.
+	// Entries of the requested page, one per key, in the token's order; the status `invalidHandle` is reserved for resolutions
+	Items []ListedKeyEntryV2Dto `json:"items"`
+	// Number of keys in the whole listing; each appears once, on its page
 	TotalItems int64 `json:"totalItems"`
-	// Keys on this page that cannot be offered for onboarding, each with its reason
-	UnusableKeys []UnusableKeyV2Dto `json:"unusableKeys,omitempty"`
 }
 
 type _ListKeysResponseV2Dto ListKeysResponseV2Dto
@@ -36,7 +34,7 @@ type _ListKeysResponseV2Dto ListKeysResponseV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewListKeysResponseV2Dto(items []ListedKeyV2, totalItems int64) *ListKeysResponseV2Dto {
+func NewListKeysResponseV2Dto(items []ListedKeyEntryV2Dto, totalItems int64) *ListKeysResponseV2Dto {
 	this := ListKeysResponseV2Dto{}
 	this.Items = items
 	this.TotalItems = totalItems
@@ -52,9 +50,9 @@ func NewListKeysResponseV2DtoWithDefaults() *ListKeysResponseV2Dto {
 }
 
 // GetItems returns the Items field value
-func (o *ListKeysResponseV2Dto) GetItems() []ListedKeyV2 {
+func (o *ListKeysResponseV2Dto) GetItems() []ListedKeyEntryV2Dto {
 	if o == nil {
-		var ret []ListedKeyV2
+		var ret []ListedKeyEntryV2Dto
 		return ret
 	}
 
@@ -63,7 +61,7 @@ func (o *ListKeysResponseV2Dto) GetItems() []ListedKeyV2 {
 
 // GetItemsOk returns a tuple with the Items field value
 // and a boolean to check if the value has been set.
-func (o *ListKeysResponseV2Dto) GetItemsOk() ([]ListedKeyV2, bool) {
+func (o *ListKeysResponseV2Dto) GetItemsOk() ([]ListedKeyEntryV2Dto, bool) {
 	if o == nil {
 		return nil, false
 	}
@@ -71,7 +69,7 @@ func (o *ListKeysResponseV2Dto) GetItemsOk() ([]ListedKeyV2, bool) {
 }
 
 // SetItems sets field value
-func (o *ListKeysResponseV2Dto) SetItems(v []ListedKeyV2) {
+func (o *ListKeysResponseV2Dto) SetItems(v []ListedKeyEntryV2Dto) {
 	o.Items = v
 }
 
@@ -99,38 +97,6 @@ func (o *ListKeysResponseV2Dto) SetTotalItems(v int64) {
 	o.TotalItems = v
 }
 
-// GetUnusableKeys returns the UnusableKeys field value if set, zero value otherwise.
-func (o *ListKeysResponseV2Dto) GetUnusableKeys() []UnusableKeyV2Dto {
-	if o == nil || IsNil(o.UnusableKeys) {
-		var ret []UnusableKeyV2Dto
-		return ret
-	}
-	return o.UnusableKeys
-}
-
-// GetUnusableKeysOk returns a tuple with the UnusableKeys field value if set, nil otherwise
-// and a boolean to check if the value has been set.
-func (o *ListKeysResponseV2Dto) GetUnusableKeysOk() ([]UnusableKeyV2Dto, bool) {
-	if o == nil || IsNil(o.UnusableKeys) {
-		return nil, false
-	}
-	return o.UnusableKeys, true
-}
-
-// HasUnusableKeys returns a boolean if a field has been set.
-func (o *ListKeysResponseV2Dto) HasUnusableKeys() bool {
-	if o != nil && !IsNil(o.UnusableKeys) {
-		return true
-	}
-
-	return false
-}
-
-// SetUnusableKeys gets a reference to the given []UnusableKeyV2Dto and assigns it to the UnusableKeys field.
-func (o *ListKeysResponseV2Dto) SetUnusableKeys(v []UnusableKeyV2Dto) {
-	o.UnusableKeys = v
-}
-
 func (o ListKeysResponseV2Dto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -143,9 +109,6 @@ func (o ListKeysResponseV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["items"] = o.Items
 	toSerialize["totalItems"] = o.TotalItems
-	if !IsNil(o.UnusableKeys) {
-		toSerialize["unusableKeys"] = o.UnusableKeys
-	}
 	return toSerialize, nil
 }
 
