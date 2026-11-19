@@ -2,7 +2,7 @@ module github.com/OmniTrustILM/go-sdk
 
 go 1.26.5
 
-toolchain go1.26.11
+toolchain go1.27.4
 
 require (
 	github.com/google/uuid v1.6.0
