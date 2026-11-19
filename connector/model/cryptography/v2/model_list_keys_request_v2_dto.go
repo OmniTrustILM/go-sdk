@@ -30,7 +30,7 @@ type ListKeysRequestV2Dto struct {
 	KeyRequestType KeyRequestType `json:"keyRequestType"`
 	// Number of keys to skip
 	Offset int32 `json:"offset"`
-	// Number of keys to return. The page holds exactly this many entries, `items` and `unusableKeys` together, unless the listing ends first.
+	// Number of keys to return; the page holds exactly this many entries unless the listing ends first
 	Limit int32 `json:"limit"`
 }
 

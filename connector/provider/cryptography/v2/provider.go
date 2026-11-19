@@ -248,12 +248,14 @@ type KeyListProvider interface {
 	// at most req.Limit of them after skipping req.Offset. Implementers must:
 	//   - return ErrKeyTypeNotListable for a key request type they cannot
 	//     list, since an empty page would claim the token holds none
-	//   - count every key of the type in TotalItems, and put each counted key
-	//     on its page: in Items when the platform can onboard it, else in
-	//     UnusableKeys with its reason
-	//   - report a counted key that is gone before it is read in UnusableKeys
-	//     with UNUSABLEKEYREASON_NOT_FOUND
-	//   - keep the order stable while the token is unchanged
+	//   - count every key of the type in TotalItems, and give each counted key
+	//     one entry in Items, in a stable order while the token is unchanged
+	//   - set each entry's Status, and set Key exactly when the status is
+	//     KEYENTRYSTATUS_AVAILABLE or KEYENTRYSTATUS_REFUSED; a counted key
+	//     gone before it is read is KEYENTRYSTATUS_NOT_FOUND
+	//   - keep secrets such as the PIN out of Diagnostic, the optional
+	//     operator text naming the cause behind a status, such as the token's
+	//     return code or the attribute a key lacks
 	//   - leave PublicKeyData nil for a private key whose public object is
 	//     missing
 	//   - return metadata that every later request accepts, as CreateKey
@@ -265,8 +267,10 @@ type KeyListProvider interface {
 
 	// ResolveKeys answers each of req.Keys once, under its Identifier.
 	// Implementers must:
-	//   - give each handle a KeyResolutionOutcome, and set Key for FOUND only,
-	//     in the shape ListKeys returns
+	//   - give each handle the entry ListKeys would give its key, and report
+	//     a handle matching no key as KEYENTRYSTATUS_NOT_FOUND, one matching
+	//     several keys as KEYENTRYSTATUS_UNADDRESSABLE, and one they do not
+	//     issue as KEYENTRYSTATUS_INVALID_HANDLE
 	//   - return ErrKeyTypeNotListable for a key request type they cannot
 	//     list
 	//   - fail only for a fault of the whole token, and report an error about

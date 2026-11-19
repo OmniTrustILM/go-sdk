@@ -24,8 +24,8 @@ func createKeyPair(t *testing.T, s *Store, creationID string) string {
 
 func listedPairIDs(page *mdl.ListKeysResponseV2Dto) []string {
 	ids := make([]string, 0, len(page.Items))
-	for _, key := range page.Items {
-		id, _ := pairIDOf(key.ListedKeyPairV2Dto.KeyPairMeta)
+	for _, entry := range page.Items {
+		id, _ := pairIDOf(entry.Key.ListedKeyPairV2Dto.KeyPairMeta)
 		ids = append(ids, id)
 	}
 	return ids
@@ -55,7 +55,7 @@ func TestListKeysPagesTheStoredKeyPairs(t *testing.T) {
 	if got := append(listedPairIDs(first), listedPairIDs(second)...); !slices.Equal(got, want) {
 		t.Errorf("pages list %v, want %v", got, want)
 	}
-	if first.Items[0].ListedKeyPairV2Dto.PublicKeyData == nil {
+	if first.Items[0].Key.ListedKeyPairV2Dto.PublicKeyData == nil {
 		t.Errorf("listed key pair PublicKeyData = nil, want the public key")
 	}
 }
@@ -84,8 +84,8 @@ func TestListKeysGivesEachPairDistinctHandleData(t *testing.T) {
 		t.Fatalf("ListKeys: %v", err)
 	}
 
-	first, _ := pairIDOf(page.Items[0].ListedKeyPairV2Dto.KeyPairMeta)
-	second, _ := pairIDOf(page.Items[1].ListedKeyPairV2Dto.KeyPairMeta)
+	first, _ := pairIDOf(page.Items[0].Key.ListedKeyPairV2Dto.KeyPairMeta)
+	second, _ := pairIDOf(page.Items[1].Key.ListedKeyPairV2Dto.KeyPairMeta)
 	if first == "" || first == second {
 		t.Errorf("listed pairs carry data %q and %q, want two distinct pair IDs", first, second)
 	}
@@ -100,7 +100,7 @@ func TestListKeysCarriesThePairIDAsContentInEveryHandle(t *testing.T) {
 		t.Fatalf("ListKeys: %v", err)
 	}
 
-	pair := page.Items[0].ListedKeyPairV2Dto
+	pair := page.Items[0].Key.ListedKeyPairV2Dto
 	handles := map[string][]mdl.MetadataAttribute{
 		"keyPairMeta":            pair.KeyPairMeta,
 		"privateKeyData.keyMeta": pair.PrivateKeyData.KeyMeta,
@@ -221,11 +221,11 @@ func TestResolveKeysFindsAStoredKeyPair(t *testing.T) {
 		t.Fatalf("ResolveKeys: %v", err)
 	}
 
-	if len(out.Results) != 1 || out.Results[0].Outcome != mdl.KEYRESOLUTIONOUTCOME_FOUND || out.Results[0].Key == nil {
+	if len(out.Results) != 1 || out.Results[0].Status != mdl.KEYENTRYSTATUS_AVAILABLE || out.Results[0].Key == nil {
 		t.Fatalf("results = %+v, want one found key pair", out.Results)
 	}
-	if !reflect.DeepEqual(*out.Results[0].Key, page.Items[0]) {
-		t.Errorf("resolved key = %+v, want the listed pair %+v", *out.Results[0].Key, page.Items[0])
+	if !reflect.DeepEqual(out.Results[0].Key, page.Items[0].Key) {
+		t.Errorf("resolved key = %+v, want the listed pair %+v", out.Results[0].Key, page.Items[0].Key)
 	}
 }
 
@@ -242,7 +242,7 @@ func TestResolveKeysFindsAKeyPairByTheHandleCreateKeyReturned(t *testing.T) {
 		t.Fatalf("ResolveKeys: %v", err)
 	}
 
-	if len(out.Results) != 1 || out.Results[0].Outcome != mdl.KEYRESOLUTIONOUTCOME_FOUND {
+	if len(out.Results) != 1 || out.Results[0].Status != mdl.KEYENTRYSTATUS_AVAILABLE {
 		t.Errorf("results = %+v, want one found key pair", out.Results)
 	}
 }
@@ -283,7 +283,7 @@ func TestResolveKeysAnswersNotFoundForADestroyedKeyPair(t *testing.T) {
 		t.Fatalf("ResolveKeys: %v", err)
 	}
 
-	if got := out.Results[0]; got.Outcome != mdl.KEYRESOLUTIONOUTCOME_NOT_FOUND || got.Key != nil {
+	if got := out.Results[0]; got.Status != mdl.KEYENTRYSTATUS_NOT_FOUND || got.Key != nil {
 		t.Errorf("result = %+v, want not found without a key", got)
 	}
 }
@@ -305,7 +305,7 @@ func TestResolveKeysAnswersNotFoundForAPendingCreation(t *testing.T) {
 		t.Fatalf("ResolveKeys: %v", err)
 	}
 
-	if got := out.Results[0]; got.Outcome != mdl.KEYRESOLUTIONOUTCOME_NOT_FOUND || got.Key != nil {
+	if got := out.Results[0]; got.Status != mdl.KEYENTRYSTATUS_NOT_FOUND || got.Key != nil {
 		t.Errorf("result = %+v, want not found without a key", got)
 	}
 }
@@ -321,7 +321,7 @@ func TestResolveKeysAnswersInvalidHandleForAForeignHandle(t *testing.T) {
 		t.Fatalf("ResolveKeys: %v", err)
 	}
 
-	if got := out.Results[0]; got.Outcome != mdl.KEYRESOLUTIONOUTCOME_INVALID_HANDLE || got.Key != nil {
+	if got := out.Results[0]; got.Status != mdl.KEYENTRYSTATUS_INVALID_HANDLE || got.Key != nil {
 		t.Errorf("result = %+v, want an invalid handle without a key", got)
 	}
 }

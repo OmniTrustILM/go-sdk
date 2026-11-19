@@ -22,14 +22,14 @@ func (s *Store) ListKeys(ctx context.Context, req *mdl.ListKeysRequestV2Dto) (*m
 
 	pairIDs := s.liveKeyPairIDs()
 	page := pageOf(pairIDs, req.Offset, req.Limit)
-	items := make([]mdl.ListedKeyV2, 0, len(page))
+	items := make([]mdl.ListedKeyEntryV2Dto, 0, len(page))
 	for _, pairID := range page {
 		items = append(items, s.listedPair(pairID))
 	}
 	return &mdl.ListKeysResponseV2Dto{Items: items, TotalItems: int64(len(pairIDs))}, nil
 }
 
-// ResolveKeys answers each handle with the key pair ListKeys would list for it.
+// ResolveKeys answers each handle with the entry ListKeys would list for it.
 func (s *Store) ResolveKeys(ctx context.Context, req *mdl.ResolveKeysRequestV2Dto) (*mdl.ResolveKeysResponseV2Dto, error) {
 	if req.KeyRequestType != mdl.KEYREQUESTTYPE_KEY_PAIR {
 		return nil, cryptography.ErrKeyTypeNotListable
@@ -46,13 +46,13 @@ func (s *Store) ResolveKeys(ctx context.Context, req *mdl.ResolveKeysRequestV2Dt
 		pairID, ok := pairIDOf(handle.KeyMeta)
 		switch {
 		case !ok:
-			results = append(results, *mdl.NewKeyResolutionV2Dto(handle.Identifier, mdl.KEYRESOLUTIONOUTCOME_INVALID_HANDLE))
+			results = append(results, *mdl.NewKeyResolutionV2Dto(mdl.KEYENTRYSTATUS_INVALID_HANDLE, handle.Identifier))
 		case !live[pairID]:
-			results = append(results, *mdl.NewKeyResolutionV2Dto(handle.Identifier, mdl.KEYRESOLUTIONOUTCOME_NOT_FOUND))
+			results = append(results, *mdl.NewKeyResolutionV2Dto(mdl.KEYENTRYSTATUS_NOT_FOUND, handle.Identifier))
 		default:
-			found := mdl.NewKeyResolutionV2Dto(handle.Identifier, mdl.KEYRESOLUTIONOUTCOME_FOUND)
 			listed := s.listedPair(pairID)
-			found.Key = &listed
+			found := mdl.NewKeyResolutionV2Dto(listed.Status, handle.Identifier)
+			found.Key = listed.Key
 			results = append(results, *found)
 		}
 	}
@@ -60,12 +60,15 @@ func (s *Store) ResolveKeys(ctx context.Context, req *mdl.ResolveKeysRequestV2Dt
 }
 
 // listedPair is the entry of a live key pair, as ListKeys and ResolveKeys list it.
-func (s *Store) listedPair(pairID string) mdl.ListedKeyV2 {
+func (s *Store) listedPair(pairID string) mdl.ListedKeyEntryV2Dto {
 	rec := s.keys[pairID]
 	pair := buildKeyPairPayload(pairID, rec.algorithm, rec.length, rec.spki)
 	listed := mdl.NewListedKeyPairV2Dto(pair.KeyPairMeta, *pair.PrivateKeyData)
 	listed.PublicKeyData = pair.PublicKeyData
-	return mdl.ListedKeyPairV2DtoAsListedKeyV2(listed)
+	key := mdl.ListedKeyPairV2DtoAsListedKeyV2(listed)
+	entry := mdl.NewListedKeyEntryV2Dto(mdl.KEYENTRYSTATUS_AVAILABLE)
+	entry.Key = &key
+	return *entry
 }
 
 // liveKeyPairIDs returns the sorted IDs of the live key pairs.

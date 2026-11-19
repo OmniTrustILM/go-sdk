@@ -22,12 +22,18 @@ var _ MappedNullable = &KeyResolutionV2Dto{}
 
 // KeyResolutionV2Dto struct for KeyResolutionV2Dto
 type KeyResolutionV2Dto struct {
+	// Connector's report on the key
+	Status KeyEntryStatus `json:"status"`
+	// Operator text naming the cause behind the status and how to fix it, such as a PKCS#11 return code. Clients display it and never parse it, and the connector must keep secrets such as a PIN out of it.
+	Diagnostic *string `json:"diagnostic,omitempty"`
+	// Name the token shows for the key, such as a PKCS#11 label, a keystore alias or a KMS key name; it may be absent or shared by several keys
+	StorageName *string `json:"storageName,omitempty"`
+	// Key of the requested key request type; present exactly when `status` is `available` or `refused`
+	Key *ListedKeyV2 `json:"key,omitempty"`
+	// Descriptor of a key the entry carries without `key`: a private key for a key pair request, a secret key for a secret key request; absent when the connector cannot read it or the token holds no matching key
+	KeyData *KeyDataV2 `json:"keyData,omitempty"`
 	// Identifier of the handle this result answers
 	Identifier string `json:"identifier"`
-	// Outcome of the resolution
-	Outcome KeyResolutionOutcome `json:"outcome"`
-	// Key the token holds under the handle, in the listing's shape. Present only when `outcome` is `found`.
-	Key *ListedKeyV2 `json:"key,omitempty"`
 }
 
 type _KeyResolutionV2Dto KeyResolutionV2Dto
@@ -36,10 +42,10 @@ type _KeyResolutionV2Dto KeyResolutionV2Dto
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewKeyResolutionV2Dto(identifier string, outcome KeyResolutionOutcome) *KeyResolutionV2Dto {
+func NewKeyResolutionV2Dto(status KeyEntryStatus, identifier string) *KeyResolutionV2Dto {
 	this := KeyResolutionV2Dto{}
+	this.Status = status
 	this.Identifier = identifier
-	this.Outcome = outcome
 	return &this
 }
 
@@ -51,52 +57,92 @@ func NewKeyResolutionV2DtoWithDefaults() *KeyResolutionV2Dto {
 	return &this
 }
 
-// GetIdentifier returns the Identifier field value
-func (o *KeyResolutionV2Dto) GetIdentifier() string {
+// GetStatus returns the Status field value
+func (o *KeyResolutionV2Dto) GetStatus() KeyEntryStatus {
 	if o == nil {
+		var ret KeyEntryStatus
+		return ret
+	}
+
+	return o.Status
+}
+
+// GetStatusOk returns a tuple with the Status field value
+// and a boolean to check if the value has been set.
+func (o *KeyResolutionV2Dto) GetStatusOk() (*KeyEntryStatus, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.Status, true
+}
+
+// SetStatus sets field value
+func (o *KeyResolutionV2Dto) SetStatus(v KeyEntryStatus) {
+	o.Status = v
+}
+
+// GetDiagnostic returns the Diagnostic field value if set, zero value otherwise.
+func (o *KeyResolutionV2Dto) GetDiagnostic() string {
+	if o == nil || IsNil(o.Diagnostic) {
 		var ret string
 		return ret
 	}
-
-	return o.Identifier
+	return *o.Diagnostic
 }
 
-// GetIdentifierOk returns a tuple with the Identifier field value
+// GetDiagnosticOk returns a tuple with the Diagnostic field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *KeyResolutionV2Dto) GetIdentifierOk() (*string, bool) {
-	if o == nil {
+func (o *KeyResolutionV2Dto) GetDiagnosticOk() (*string, bool) {
+	if o == nil || IsNil(o.Diagnostic) {
 		return nil, false
 	}
-	return &o.Identifier, true
+	return o.Diagnostic, true
 }
 
-// SetIdentifier sets field value
-func (o *KeyResolutionV2Dto) SetIdentifier(v string) {
-	o.Identifier = v
+// HasDiagnostic returns a boolean if a field has been set.
+func (o *KeyResolutionV2Dto) HasDiagnostic() bool {
+	if o != nil && !IsNil(o.Diagnostic) {
+		return true
+	}
+
+	return false
 }
 
-// GetOutcome returns the Outcome field value
-func (o *KeyResolutionV2Dto) GetOutcome() KeyResolutionOutcome {
-	if o == nil {
-		var ret KeyResolutionOutcome
+// SetDiagnostic gets a reference to the given string and assigns it to the Diagnostic field.
+func (o *KeyResolutionV2Dto) SetDiagnostic(v string) {
+	o.Diagnostic = &v
+}
+
+// GetStorageName returns the StorageName field value if set, zero value otherwise.
+func (o *KeyResolutionV2Dto) GetStorageName() string {
+	if o == nil || IsNil(o.StorageName) {
+		var ret string
 		return ret
 	}
-
-	return o.Outcome
+	return *o.StorageName
 }
 
-// GetOutcomeOk returns a tuple with the Outcome field value
+// GetStorageNameOk returns a tuple with the StorageName field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *KeyResolutionV2Dto) GetOutcomeOk() (*KeyResolutionOutcome, bool) {
-	if o == nil {
+func (o *KeyResolutionV2Dto) GetStorageNameOk() (*string, bool) {
+	if o == nil || IsNil(o.StorageName) {
 		return nil, false
 	}
-	return &o.Outcome, true
+	return o.StorageName, true
 }
 
-// SetOutcome sets field value
-func (o *KeyResolutionV2Dto) SetOutcome(v KeyResolutionOutcome) {
-	o.Outcome = v
+// HasStorageName returns a boolean if a field has been set.
+func (o *KeyResolutionV2Dto) HasStorageName() bool {
+	if o != nil && !IsNil(o.StorageName) {
+		return true
+	}
+
+	return false
+}
+
+// SetStorageName gets a reference to the given string and assigns it to the StorageName field.
+func (o *KeyResolutionV2Dto) SetStorageName(v string) {
+	o.StorageName = &v
 }
 
 // GetKey returns the Key field value if set, zero value otherwise.
@@ -131,6 +177,62 @@ func (o *KeyResolutionV2Dto) SetKey(v ListedKeyV2) {
 	o.Key = &v
 }
 
+// GetKeyData returns the KeyData field value if set, zero value otherwise.
+func (o *KeyResolutionV2Dto) GetKeyData() KeyDataV2 {
+	if o == nil || IsNil(o.KeyData) {
+		var ret KeyDataV2
+		return ret
+	}
+	return *o.KeyData
+}
+
+// GetKeyDataOk returns a tuple with the KeyData field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *KeyResolutionV2Dto) GetKeyDataOk() (*KeyDataV2, bool) {
+	if o == nil || IsNil(o.KeyData) {
+		return nil, false
+	}
+	return o.KeyData, true
+}
+
+// HasKeyData returns a boolean if a field has been set.
+func (o *KeyResolutionV2Dto) HasKeyData() bool {
+	if o != nil && !IsNil(o.KeyData) {
+		return true
+	}
+
+	return false
+}
+
+// SetKeyData gets a reference to the given KeyDataV2 and assigns it to the KeyData field.
+func (o *KeyResolutionV2Dto) SetKeyData(v KeyDataV2) {
+	o.KeyData = &v
+}
+
+// GetIdentifier returns the Identifier field value
+func (o *KeyResolutionV2Dto) GetIdentifier() string {
+	if o == nil {
+		var ret string
+		return ret
+	}
+
+	return o.Identifier
+}
+
+// GetIdentifierOk returns a tuple with the Identifier field value
+// and a boolean to check if the value has been set.
+func (o *KeyResolutionV2Dto) GetIdentifierOk() (*string, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.Identifier, true
+}
+
+// SetIdentifier sets field value
+func (o *KeyResolutionV2Dto) SetIdentifier(v string) {
+	o.Identifier = v
+}
+
 func (o KeyResolutionV2Dto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -141,11 +243,20 @@ func (o KeyResolutionV2Dto) MarshalJSON() ([]byte, error) {
 
 func (o KeyResolutionV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
-	toSerialize["identifier"] = o.Identifier
-	toSerialize["outcome"] = o.Outcome
+	toSerialize["status"] = o.Status
+	if !IsNil(o.Diagnostic) {
+		toSerialize["diagnostic"] = o.Diagnostic
+	}
+	if !IsNil(o.StorageName) {
+		toSerialize["storageName"] = o.StorageName
+	}
 	if !IsNil(o.Key) {
 		toSerialize["key"] = o.Key
 	}
+	if !IsNil(o.KeyData) {
+		toSerialize["keyData"] = o.KeyData
+	}
+	toSerialize["identifier"] = o.Identifier
 	return toSerialize, nil
 }
 
@@ -154,8 +265,8 @@ func (o *KeyResolutionV2Dto) UnmarshalJSON(data []byte) (err error) {
 	// by unmarshalling the object into a generic map with string keys and checking
 	// that every required field exists as a key in the generic map.
 	requiredProperties := []string{
+		"status",
 		"identifier",
-		"outcome",
 	}
 
 	allProperties := make(map[string]interface{})

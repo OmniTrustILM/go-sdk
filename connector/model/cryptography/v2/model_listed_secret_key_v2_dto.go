@@ -22,9 +22,7 @@ var _ MappedNullable = &ListedSecretKeyV2Dto{}
 
 // ListedSecretKeyV2Dto A secret key the token holds. Any later request accepts its metadata exactly like metadata returned at creation. 
 type ListedSecretKeyV2Dto struct {
-	// Name the token shows for the key, such as a PKCS#11 label, a keystore alias or a KMS key name; it may be absent or shared by several keys
-	StorageName *string `json:"storageName,omitempty"`
-	// Connector-defined metadata of the key. It must identify the key durably, and for a key the platform created it equals the metadata creation returned: a secret key has no public key, so the platform recognises one it already holds by this metadata alone. The key resolution takes it back as the key's handle. Each metadata name appears once, and every content item carries data. A key that cannot meet this is reported in `unusableKeys`.
+	// Connector-defined metadata of the key. It must identify the key durably, and for a key the platform created it equals the metadata creation returned: a secret key has no public key, so the platform recognises one it already holds by this metadata alone. The key resolution takes it back as the key's handle. Each metadata name appears once, and every content item carries data. A key that cannot meet this is listed as `unaddressable`.
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
 	// Descriptor of the secret key
 	KeyData SecretKeyDataV2Dto `json:"keyData"`
@@ -53,38 +51,6 @@ func NewListedSecretKeyV2DtoWithDefaults() *ListedSecretKeyV2Dto {
 	this := ListedSecretKeyV2Dto{}
 	this.KeyRequestType = KEYREQUESTTYPE_SECRET
 	return &this
-}
-
-// GetStorageName returns the StorageName field value if set, zero value otherwise.
-func (o *ListedSecretKeyV2Dto) GetStorageName() string {
-	if o == nil || IsNil(o.StorageName) {
-		var ret string
-		return ret
-	}
-	return *o.StorageName
-}
-
-// GetStorageNameOk returns a tuple with the StorageName field value if set, nil otherwise
-// and a boolean to check if the value has been set.
-func (o *ListedSecretKeyV2Dto) GetStorageNameOk() (*string, bool) {
-	if o == nil || IsNil(o.StorageName) {
-		return nil, false
-	}
-	return o.StorageName, true
-}
-
-// HasStorageName returns a boolean if a field has been set.
-func (o *ListedSecretKeyV2Dto) HasStorageName() bool {
-	if o != nil && !IsNil(o.StorageName) {
-		return true
-	}
-
-	return false
-}
-
-// SetStorageName gets a reference to the given string and assigns it to the StorageName field.
-func (o *ListedSecretKeyV2Dto) SetStorageName(v string) {
-	o.StorageName = &v
 }
 
 // GetKeyMeta returns the KeyMeta field value
@@ -173,9 +139,6 @@ func (o ListedSecretKeyV2Dto) ToMap() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("keyRequestType must be %q for ListedSecretKeyV2Dto, got %q", KEYREQUESTTYPE_SECRET, o.KeyRequestType)
 	}
 	toSerialize := map[string]interface{}{}
-	if !IsNil(o.StorageName) {
-		toSerialize["storageName"] = o.StorageName
-	}
 	toSerialize["keyMeta"] = o.KeyMeta
 	toSerialize["keyData"] = o.KeyData
 	toSerialize["keyRequestType"] = o.KeyRequestType
