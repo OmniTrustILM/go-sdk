@@ -42,11 +42,11 @@ func TestDiscoV2InfoHealthAndMetadata(t *testing.T) {
 	found := false
 	for _, i := range info.Interfaces {
 		if string(i.Code) == "discovery" && i.Version == "v2" {
-			found = slices.Contains(i.Features, mdl.FEATUREFLAG_DISCOVERY_STOP_RESUME)
+			found = slices.Contains(i.Features, mdl.FEATUREFLAG_DISCOVERY_STOP_RESUME) && slices.Contains(i.Features, mdl.FEATUREFLAG_DISCOVERY_INCREMENTAL)
 		}
 	}
 	if !found {
-		t.Fatalf("discovery v2 stop/resume absent: %+v", info)
+		t.Fatalf("discovery v2 stop/resume or incremental absent: %+v", info)
 	}
 	var resources []mdl.DiscoverySupportedResourceDto
 	if status := h.GetJSON(t, "GET", base+"/resources", nil, &resources); status != 200 || len(resources) != 1 || resources[0].Resource != mdl.RESOURCE_CERTIFICATES {

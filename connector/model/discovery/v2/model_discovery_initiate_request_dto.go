@@ -13,6 +13,7 @@ package v2
 
 import (
 	"encoding/json"
+	"time"
 	"fmt"
 )
 
@@ -33,6 +34,8 @@ type DiscoveryInitiateRequestDto struct {
 	ResourceAttributes map[string][]RequestAttribute `json:"resourceAttributes,omitempty"`
 	// Delivery modes Core can drive for this run, most preferred first; the connector chooses one on initiate and resume. Core sends it on every request, so a call without it comes from a Core that predates delivery modes and offers buffered only. An empty list offers no mode. Unknown values are ignored.
 	DeliveryModes []string `json:"deliveryModes,omitempty"`
+	// Discover only items created or changed at or after this instant, as far as the technology can tell; absent means a full discovery. Sent only to a connector whose discovery interface advertises discoveryIncremental.
+	DiscoverSince *time.Time `json:"discoverSince,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -233,6 +236,38 @@ func (o *DiscoveryInitiateRequestDto) SetDeliveryModes(v []string) {
 	o.DeliveryModes = v
 }
 
+// GetDiscoverSince returns the DiscoverSince field value if set, zero value otherwise.
+func (o *DiscoveryInitiateRequestDto) GetDiscoverSince() time.Time {
+	if o == nil || IsNil(o.DiscoverSince) {
+		var ret time.Time
+		return ret
+	}
+	return *o.DiscoverSince
+}
+
+// GetDiscoverSinceOk returns a tuple with the DiscoverSince field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DiscoveryInitiateRequestDto) GetDiscoverSinceOk() (*time.Time, bool) {
+	if o == nil || IsNil(o.DiscoverSince) {
+		return nil, false
+	}
+	return o.DiscoverSince, true
+}
+
+// HasDiscoverSince returns a boolean if a field has been set.
+func (o *DiscoveryInitiateRequestDto) HasDiscoverSince() bool {
+	if o != nil && !IsNil(o.DiscoverSince) {
+		return true
+	}
+
+	return false
+}
+
+// SetDiscoverSince gets a reference to the given time.Time and assigns it to the DiscoverSince field.
+func (o *DiscoveryInitiateRequestDto) SetDiscoverSince(v time.Time) {
+	o.DiscoverSince = &v
+}
+
 func (o DiscoveryInitiateRequestDto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -256,6 +291,9 @@ func (o DiscoveryInitiateRequestDto) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.DeliveryModes) {
 		toSerialize["deliveryModes"] = o.DeliveryModes
+	}
+	if !IsNil(o.DiscoverSince) {
+		toSerialize["discoverSince"] = o.DiscoverSince
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -307,6 +345,7 @@ func (o *DiscoveryInitiateRequestDto) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "attributes")
 		delete(additionalProperties, "resourceAttributes")
 		delete(additionalProperties, "deliveryModes")
+		delete(additionalProperties, "discoverSince")
 		o.AdditionalProperties = additionalProperties
 	}
 

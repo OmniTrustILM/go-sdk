@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 	"sync"
 	"time"
 
@@ -30,18 +29,19 @@ const (
 // README.md describes how each behaves. A run keeps the mode it started in;
 // the contract lets a connector switch on resume, but this example does not.
 type Store struct {
-	mu           sync.Mutex
-	runs         map[string]*run // buffered runs only
-	certificates []string
+	mu       sync.Mutex
+	runs     map[string]*run // buffered runs only
+	fixtures []fixture
 }
 
 // run is a buffered run's in-memory state.
 type run struct {
-	handle   string
-	state    mdl.DiscoveryRunState
-	produced int64
-	ack      int64
-	ended    time.Time
+	handle       string
+	certificates []fixture // the fixtures this run discovers
+	state        mdl.DiscoveryRunState
+	produced     int64
+	ack          int64
+	ended        time.Time
 }
 
 // checkpoint is a run's position, carried as a schema v3 metadata attribute.
@@ -50,6 +50,7 @@ type checkpoint struct {
 	RunID    string                    `json:"runId"`
 	Handle   string                    `json:"handle,omitempty"` // buffered: the in-memory run it belongs to
 	Sequence int64                     `json:"sequence"`
+	Since    *time.Time                `json:"since,omitempty"` // checkpointed: the run's discoverSince
 }
 
 // replay is the scope every lifecycle call carries.
@@ -66,10 +67,25 @@ func NewStore() (*Store, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &Store{runs: map[string]*run{}, certificates: certs}, nil
+	return &Store{runs: map[string]*run{}, fixtures: certs}, nil
 }
 
 var _ discovery.Provider = (*Store)(nil)
+
+// discoverable returns the fixtures created at or after since, or all of them
+// when since is absent.
+func (s *Store) discoverable(since *time.Time) []fixture {
+	if since == nil {
+		return s.fixtures
+	}
+	var out []fixture
+	for _, f := range s.fixtures {
+		if !f.created.Before(*since) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
 
 func runReplay(r *mdl.DiscoveryRunRequestDto) replay {
 	return replay{r.RunId, r.Resources, r.Attributes, r.ResourceAttributes, r.Checkpoint}
@@ -125,7 +141,7 @@ func (s *Store) replayed(req replay, missing error) (checkpoint, error) {
 		return cp, unreadable
 	}
 	e := json.Unmarshal([]byte(v.Content[0].StringAttributeContentV3.Data), &cp)
-	if e != nil || !cp.Mode.IsValid() || cp.RunID != req.runID || cp.Sequence < 0 || cp.Sequence > int64(len(s.certificates)) {
+	if e != nil || !cp.Mode.IsValid() || cp.RunID != req.runID || cp.Sequence < 0 || cp.Sequence > int64(len(s.discoverable(cp.Since))) {
 		return cp, unreadable
 	}
 	return cp, nil
@@ -170,7 +186,7 @@ func (s *Store) Initiate(_ context.Context, req *mdl.DiscoveryInitiateRequestDto
 	if mode == checkpointed {
 		// Nothing to hold: the run starts from an empty position, and a
 		// repeated initiate answers the same one.
-		return accepted(mode, encode(checkpoint{Mode: mode, RunID: req.RunId})), nil
+		return accepted(mode, encode(checkpoint{Mode: mode, RunID: req.RunId, Since: req.DiscoverSince})), nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -184,7 +200,7 @@ func (s *Store) Initiate(_ context.Context, req *mdl.DiscoveryInitiateRequestDto
 		if len(s.runs) >= maxRuns {
 			return nil, shared.Unavailable("SERVICE_UNAVAILABLE", "example discovery capacity exhausted")
 		}
-		r = &run{handle: uuid.NewString(), state: mdl.DISCOVERYRUNSTATE_RUNNING}
+		r = &run{handle: uuid.NewString(), certificates: s.discoverable(req.DiscoverSince), state: mdl.DISCOVERYRUNSTATE_RUNNING}
 		s.runs[req.RunId] = r
 	}
 	return accepted(mode, bufferedCheckpoint(req.RunId, r)), nil
@@ -200,7 +216,7 @@ func (s *Store) Status(_ context.Context, req *mdl.DiscoveryRunRequestDto) (*mdl
 	}
 	if cp.Mode == checkpointed {
 		state := mdl.DISCOVERYRUNSTATE_RUNNING
-		if cp.Sequence == int64(len(s.certificates)) {
+		if cp.Sequence == int64(len(s.discoverable(cp.Since))) {
 			state = mdl.DISCOVERYRUNSTATE_COMPLETED
 		}
 		return status(state, cp.Sequence), nil
@@ -212,8 +228,11 @@ func (s *Store) Status(_ context.Context, req *mdl.DiscoveryRunRequestDto) (*mdl
 		return nil, e
 	}
 	if r.state == mdl.DISCOVERYRUNSTATE_RUNNING {
-		r.produced++
-		if r.produced == int64(len(s.certificates)) {
+		total := int64(len(r.certificates))
+		if r.produced < total {
+			r.produced++
+		}
+		if r.produced == total {
 			r.state = mdl.DISCOVERYRUNSTATE_COMPLETED
 			r.ended = time.Now()
 		}
@@ -230,7 +249,7 @@ func (s *Store) Stop(_ context.Context, req *mdl.DiscoveryRunRequestDto) (*mdl.D
 		return nil, e
 	}
 	if cp.Mode == checkpointed {
-		if cp.Sequence == int64(len(s.certificates)) {
+		if cp.Sequence == int64(len(s.discoverable(cp.Since))) {
 			return nil, discovery.ErrPastPointOfNoReturn
 		}
 		// Nothing runs between calls, and Core keeps the checkpoint it holds.
@@ -262,7 +281,7 @@ func (s *Store) Resume(_ context.Context, req *mdl.DiscoveryRunRequestDto) (*mdl
 		return nil, e
 	}
 	if mode == checkpointed {
-		if cp.Sequence == int64(len(s.certificates)) {
+		if cp.Sequence == int64(len(s.discoverable(cp.Since))) {
 			return nil, discovery.ErrInvalidRequest.WithProperty("reason", "the run has already completed")
 		}
 		return accepted(mode, nil), nil
@@ -322,8 +341,9 @@ func (s *Store) checkpointedPage(req *mdl.DiscoveryDrainRequestDto, cp checkpoin
 	if after != cp.Sequence {
 		return nil, discovery.ErrDiscoveryNotFound
 	}
-	total := int64(len(s.certificates))
-	items, e := s.page(after, total, req.MaxItems, req.MaxBytes, discovery.MaxResultBytes-discovery.CheckpointedResponseReserve)
+	certs := s.discoverable(cp.Since)
+	total := int64(len(certs))
+	items, e := page(certs, after, total, req.MaxItems, req.MaxBytes, discovery.MaxResultBytes-discovery.CheckpointedResponseReserve)
 	if e != nil {
 		return nil, e
 	}
@@ -348,7 +368,7 @@ func (s *Store) bufferedPage(req *mdl.DiscoveryDrainRequestDto, cp checkpoint) (
 		return nil, discovery.ErrInvalidRequest
 	}
 	envelope, _ := json.Marshal(&mdl.DiscoveryResultsResponseDto{Items: []mdl.DiscoveredItemDto{}, HighestSequence: r.produced})
-	items, e := s.page(after, r.produced, req.MaxItems, req.MaxBytes, discovery.MaxResultBytes-int64(len(envelope)))
+	items, e := page(r.certificates, after, r.produced, req.MaxItems, req.MaxBytes, discovery.MaxResultBytes-int64(len(envelope)))
 	if e != nil {
 		return nil, e
 	}
@@ -356,10 +376,10 @@ func (s *Store) bufferedPage(req *mdl.DiscoveryDrainRequestDto, cp checkpoint) (
 	return &mdl.DiscoveryResultsResponseDto{Items: items, HighestSequence: r.produced, More: after+int64(len(items)) < r.produced}, nil
 }
 
-// page returns the fixtures in (after, upTo] within the drain's bounds. budget
+// page returns the certificates in (after, upTo] within the drain's bounds. budget
 // is the byte bound when the drain sets no maxBytes and caps one that does; an
 // item larger than the bound is an error, since no page could carry it.
-func (s *Store) page(after, upTo int64, maxItems *int32, maxBytes *int64, budget int64) ([]mdl.DiscoveredItemDto, error) {
+func page(certs []fixture, after, upTo int64, maxItems *int32, maxBytes *int64, budget int64) ([]mdl.DiscoveredItemDto, error) {
 	limit := defaultMaxItems
 	if maxItems != nil {
 		limit = *maxItems
@@ -370,7 +390,8 @@ func (s *Store) page(after, upTo int64, maxItems *int32, maxBytes *int64, budget
 	items := []mdl.DiscoveredItemDto{}
 	size := int64(2)
 	for seq := after + 1; seq <= upTo && len(items) < int(limit); seq++ {
-		item := mdl.DiscoveredItemDto{Sequence: seq, UniqueRef: "example-certificate-" + strconv.FormatInt(seq, 10), Payload: mdl.DiscoveredCertificateDtoAsDiscoveredItemPayload(mdl.NewDiscoveredCertificateDto(mdl.RESOURCE_CERTIFICATES, s.certificates[seq-1]))}
+		f := certs[seq-1]
+		item := mdl.DiscoveredItemDto{Sequence: seq, UniqueRef: f.ref, Payload: mdl.DiscoveredCertificateDtoAsDiscoveredItemPayload(mdl.NewDiscoveredCertificateDto(mdl.RESOURCE_CERTIFICATES, f.der))}
 		b, _ := json.Marshal(item)
 		extra := int64(len(b))
 		if len(items) > 0 {

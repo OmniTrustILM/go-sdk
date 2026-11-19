@@ -40,6 +40,7 @@ const (
 	FEATUREFLAG_CERTIFICATE_REQUEST_STRUCTURED FeatureFlag = "certificateRequestStructured"
 	FEATUREFLAG_CERTIFICATE_IDENTITY_OVERRIDE FeatureFlag = "certificateIdentityOverride"
 	FEATUREFLAG_DISCOVERY_STOP_RESUME FeatureFlag = "discoveryStopResume"
+	FEATUREFLAG_DISCOVERY_INCREMENTAL FeatureFlag = "discoveryIncremental"
 )
 
 // All allowed values of FeatureFlag enum
@@ -63,6 +64,7 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"certificateRequestStructured",
 	"certificateIdentityOverride",
 	"discoveryStopResume",
+	"discoveryIncremental",
 }
 
 func (v *FeatureFlag) UnmarshalJSON(src []byte) error {
