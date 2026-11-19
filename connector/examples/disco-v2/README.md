@@ -3,9 +3,12 @@
 Run `go run ./connector/examples/disco-v2` from the SDK repository root;
 `main.go`'s package doc lists the environment variables.
 
-The connector advertises `discovery/v2` with `discoveryStopResume`, uses v2
-info/health and common attribute endpoints, and exposes the SDK metrics endpoint.
-It discovers three self-signed X.509 certificate fixtures. Requests must replay
+The connector advertises `discovery/v2` with `discoveryStopResume` and
+`discoveryIncremental`, uses v2 info/health and common attribute endpoints, and
+exposes the SDK metrics endpoint. It discovers three self-signed X.509
+certificate fixtures, created on 1 January, 1 February and 1 March 2026. An
+initiate carrying `discoverSince` discovers only the fixtures created at or
+after it; without it the run discovers all three. Requests must replay
 the run ID, `resources: ["certificates"]` and the run's checkpoint. This example
 defines no run or resource attributes and rejects unsupported ones.
 

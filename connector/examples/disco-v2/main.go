@@ -37,7 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 	strict, _ := strconv.ParseBool(os.Getenv("STRICT_DECODE"))
-	handler, e := discovery.NewHandler(store, discovery.Base(handlerbase.WithStrictDecode(strict), handlerbase.WithFeatures("discoveryStopResume")))
+	handler, e := discovery.NewHandler(store, discovery.Base(handlerbase.WithStrictDecode(strict), handlerbase.WithFeatures("discoveryStopResume", "discoveryIncremental")))
 	if e != nil {
 		logger.Error("build discovery handler", "err", e)
 		os.Exit(1)

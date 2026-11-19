@@ -6,20 +6,24 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/discovery/v2"
 	authority "github.com/OmniTrustILM/go-sdk/connector/provider/authority/v3"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
+	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
 
 type testProvider struct {
 	Provider
-	got string
-	err error
+	got   string
+	since *time.Time
+	err   error
 }
 
 func (p *testProvider) Initiate(_ context.Context, r *mdl.DiscoveryInitiateRequestDto) (*mdl.DiscoveryInitiateResponseDto, error) {
 	p.got = r.RunId
+	p.since = r.DiscoverSince
 	return &mdl.DiscoveryInitiateResponseDto{}, p.err
 }
 func (p *testProvider) Resume(_ context.Context, r *mdl.DiscoveryRunRequestDto) (*mdl.DiscoveryInitiateResponseDto, error) {
@@ -95,6 +99,24 @@ func TestLifecycleHTTP(t *testing.T) {
 	}
 	if p.got != "b11c9be1-b619-4ef5-be1b-a1cd9ef265b7" {
 		t.Fatal("run identity was not forwarded")
+	}
+}
+func TestInitiateAcceptsDiscoverSince(t *testing.T) {
+	p := &testProvider{}
+	h, e := NewHandler(p, Base(handlerbase.WithStrictDecode(true)))
+	if e != nil {
+		t.Fatal(e)
+	}
+	c, e := shared.New(shared.Register(h))
+	if e != nil {
+		t.Fatal(e)
+	}
+	body := `{"runId":"b11c9be1-b619-4ef5-be1b-a1cd9ef265b7","resources":["certificates"],"discoverSince":"2026-11-01T00:00:00Z"}`
+	if w := request(t, c, "/v2/discoveryProvider/discoveries/initiate", body); w.Code != 202 {
+		t.Fatalf("%d: %s", w.Code, w.Body)
+	}
+	if want := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC); p.since == nil || !p.since.Equal(want) {
+		t.Fatalf("discoverSince did not reach the provider: %v", p.since)
 	}
 }
 func TestInvalidEnvelope(t *testing.T) {
