@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -104,13 +105,14 @@ var (
 // created ECDSA pair's private key is derived from its handle, and a created
 // RSA pair keeps only its public key.
 type keyRecord struct {
-	algorithm      mdl.KeyAlgorithm
-	length         int32
-	spki           string
-	exportable     bool
-	keyReference   string
-	privateKeyInfo []byte
-	destroyed      bool
+	algorithm         mdl.KeyAlgorithm
+	secretLengthBits  int32
+	privateLengthBits *int32
+	spki              string
+	exportable        bool
+	keyReference      string
+	privateKeyInfo    []byte
+	destroyed         bool
 }
 
 // isKeyPair holds because only a key pair stores an SPKI.
@@ -133,8 +135,6 @@ type creationRecord struct {
 type asyncCreateOp struct {
 	keyID          string
 	keyRequestType mdl.KeyRequestType
-	algorithm      mdl.KeyAlgorithm
-	length         int32
 	startedAt      time.Time
 	cancelled      bool
 }
@@ -412,13 +412,31 @@ func keyPairFor(keyID string) *ecdh.PrivateKey {
 
 // spkiFor encodes the public key of keyPairFor(keyID) as a base64 DER
 // SubjectPublicKeyInfo. Core parses this field and checks it against the
-// declared algorithm and length, so it must be real DER.
+// declared algorithm, so it must be real DER.
 func spkiFor(keyID string) string {
 	der, err := x509.MarshalPKIXPublicKey(keyPairFor(keyID).PublicKey())
 	if err != nil {
 		panic(fmt.Sprintf("spkiFor: marshal P-256 public key: %v", err))
 	}
 	return base64.StdEncoding.EncodeToString(der)
+}
+
+// algorithmIdentifierOf returns the AlgorithmIdentifier of a base64 DER
+// SubjectPublicKeyInfo. The identifier names the parameters of both halves of
+// a pair.
+func algorithmIdentifierOf(spki string) string {
+	der, err := base64.StdEncoding.DecodeString(spki)
+	if err != nil {
+		panic(fmt.Sprintf("algorithmIdentifierOf: decode SPKI: %v", err))
+	}
+	var info struct {
+		Algorithm asn1.RawValue
+		PublicKey asn1.BitString
+	}
+	if _, err := asn1.Unmarshal(der, &info); err != nil {
+		panic(fmt.Sprintf("algorithmIdentifierOf: parse SPKI: %v", err))
+	}
+	return base64.StdEncoding.EncodeToString(info.Algorithm.FullBytes)
 }
 
 const rsaKeyBits = 2048
@@ -440,14 +458,11 @@ func newRSASPKI() string {
 func newKeyRecord(keyID string, kind mdl.KeyRequestType, algorithm mdl.KeyAlgorithm, exportable bool) *keyRecord {
 	switch {
 	case kind != mdl.KEYREQUESTTYPE_KEY_PAIR:
-		// KeyAlgorithm covers only asymmetric algorithms, so a secret key
-		// reports Unknown.
-		return &keyRecord{algorithm: mdl.KEYALGORITHM_UNKNOWN, length: 256}
+		return &keyRecord{algorithm: mdl.KEYALGORITHM_UNKNOWN, secretLengthBits: 256}
 	case algorithm == mdl.KEYALGORITHM_RSA:
-		return &keyRecord{algorithm: algorithm, length: rsaKeyBits, spki: newRSASPKI()}
+		return &keyRecord{algorithm: algorithm, privateLengthBits: new(int32(rsaKeyBits)), spki: newRSASPKI()}
 	default:
-		// 256 bits matches the P-256 key spkiFor encodes.
-		return &keyRecord{algorithm: algorithm, length: 256, spki: spkiFor(keyID), exportable: exportable}
+		return &keyRecord{algorithm: algorithm, spki: spkiFor(keyID), exportable: exportable}
 	}
 }
 
@@ -466,11 +481,9 @@ func randomBytes(n int) []byte {
 // buildSecretKeyPayload builds the complete secret-key result for keyID, as
 // required on a synchronous 200 and inside a completed status result.
 func buildSecretKeyPayload(keyID string, algorithm mdl.KeyAlgorithm, length int32) *mdl.SecretKeyDataResponseV2Dto {
-	keyData := mdl.NewSecretKeyDataV2Dto(algorithm)
-	keyData.SetLength(length) // every algorithm this example creates requires one
 	return &mdl.SecretKeyDataResponseV2Dto{
 		KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-		KeyData:        keyData,
+		KeyData:        mdl.NewSecretKeyDataV2Dto(algorithm, length),
 		KeyMeta:        []mdl.MetadataAttribute{metaAttr(keyID, "secretKeyHandle", "Secret key handle")},
 	}
 }
@@ -479,12 +492,13 @@ func buildSecretKeyPayload(keyID string, algorithm mdl.KeyAlgorithm, length int3
 // required on a synchronous 200 and inside a completed status result. Both
 // halves carry pairID as their handle, so later calls resolve to the one
 // keyRecord tracking the pair.
-func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length int32, spki string) *mdl.KeyPairDataResponseV2Dto {
-	// Every algorithm this example creates requires a length.
+func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length *int32, spki string) *mdl.KeyPairDataResponseV2Dto {
 	publicKey := mdl.NewPublicKeyDataV2Dto(algorithm, spki)
-	publicKey.SetLength(length)
 	privateKey := mdl.NewPrivateKeyDataV2Dto(algorithm)
-	privateKey.SetLength(length)
+	privateKey.SetAlgorithmIdentifier(algorithmIdentifierOf(spki))
+	if length != nil {
+		privateKey.SetLength(*length)
+	}
 	return &mdl.KeyPairDataResponseV2Dto{
 		KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR,
 		PublicKeyData: &mdl.PublicKeyDataResponseV2Dto{
@@ -502,11 +516,10 @@ func buildKeyPairPayload(pairID string, algorithm mdl.KeyAlgorithm, length int32
 // syncKeyCreationResponse wraps the appropriate builder in the
 // KeyCreationResponse oneOf, selecting the variant by kind.
 func syncKeyCreationResponse(kind mdl.KeyRequestType, keyID string, rec *keyRecord) *mdl.KeyCreationResponse {
-	algorithm, length := rec.algorithm, rec.length
 	if kind == mdl.KEYREQUESTTYPE_KEY_PAIR {
-		return &mdl.KeyCreationResponse{KeyPairDataResponseV2Dto: buildKeyPairPayload(keyID, algorithm, length, rec.spki)}
+		return &mdl.KeyCreationResponse{KeyPairDataResponseV2Dto: buildKeyPairPayload(keyID, rec.algorithm, rec.privateLengthBits, rec.spki)}
 	}
-	return &mdl.KeyCreationResponse{SecretKeyDataResponseV2Dto: buildSecretKeyPayload(keyID, algorithm, length)}
+	return &mdl.KeyCreationResponse{SecretKeyDataResponseV2Dto: buildSecretKeyPayload(keyID, rec.algorithm, rec.secretLengthBits)}
 }
 
 // acceptedKeyCreationResponse builds the 202 shape for kind: operationMeta
@@ -608,8 +621,6 @@ func (s *Store) CreateKey(ctx context.Context, req *mdl.CreateKeyRequestV2Dto) (
 		s.asyncCreates[handle] = &asyncCreateOp{
 			keyID:          keyID,
 			keyRequestType: req.KeyRequestType,
-			algorithm:      record.algorithm,
-			length:         record.length,
 			startedAt:      time.Now(),
 		}
 		return acceptedKeyCreationResponse(req.KeyRequestType, handle), true, nil
@@ -833,16 +844,17 @@ func (s *Store) CreateKeyStatus(ctx context.Context, req *mdl.OperationTrackingR
 		reason = &r
 	}
 
+	record := s.keys[op.keyID]
 	if op.keyRequestType == mdl.KEYREQUESTTYPE_KEY_PAIR {
 		resp := &mdl.KeyPairOperationStatusResponseV2Dto{Status: status, Reason: reason, KeyRequestType: op.keyRequestType}
 		if status == mdl.OPERATIONSTATUS_COMPLETED {
-			resp.Result = buildKeyPairPayload(op.keyID, op.algorithm, op.length, s.keys[op.keyID].spki)
+			resp.Result = buildKeyPairPayload(op.keyID, record.algorithm, record.privateLengthBits, record.spki)
 		}
 		return &mdl.KeyCreationStatusResponse{KeyPairOperationStatusResponseV2Dto: resp}, nil
 	}
 	resp := &mdl.SecretKeyOperationStatusResponseV2Dto{Status: status, Reason: reason, KeyRequestType: op.keyRequestType}
 	if status == mdl.OPERATIONSTATUS_COMPLETED {
-		resp.Result = buildSecretKeyPayload(op.keyID, op.algorithm, op.length)
+		resp.Result = buildSecretKeyPayload(op.keyID, record.algorithm, record.secretLengthBits)
 	}
 	return &mdl.KeyCreationStatusResponse{SecretKeyOperationStatusResponseV2Dto: resp}, nil
 }

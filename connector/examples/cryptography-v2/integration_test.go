@@ -15,6 +15,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"net/http"
 	"slices"
@@ -279,7 +280,7 @@ func createKeyStatusOf(t *testing.T, reqType mdl.KeyRequestType, st *mdl.KeyCrea
 			if res == nil || res.PublicKeyData == nil || res.PrivateKeyData == nil || len(res.KeyPairMeta) == 0 {
 				t.Fatalf("completed keyPair createKey status carries no key-pair result: %+v", v)
 			}
-			assertPublicKeySpki(t, res.PublicKeyData.KeyData)
+			assertKeyPairDescriptors(t, res)
 			if res.PrivateKeyData.KeyData.Type != "Private" {
 				t.Errorf("completed keyPair status private keyData.type = %q, want %q", res.PrivateKeyData.KeyData.Type, "Private")
 			}
@@ -299,11 +300,13 @@ func createKeyStatusOf(t *testing.T, reqType mdl.KeyRequestType, st *mdl.KeyCrea
 	return v.Status
 }
 
-// assertPublicKeySpki decodes publicKeySpki as a DER SubjectPublicKeyInfo and
-// checks it against the declared algorithm and length.
-func assertPublicKeySpki(t *testing.T, kd mdl.PublicKeyDataV2Dto) {
+// assertKeyPairDescriptors checks a key pair's SPKI against its declared
+// algorithm. The private half must carry the SPKI's AlgorithmIdentifier and,
+// for RSA alone, the modulus size.
+func assertKeyPairDescriptors(t *testing.T, pair *mdl.KeyPairDataResponseV2Dto) {
 	t.Helper()
-	der, err := base64.StdEncoding.DecodeString(kd.PublicKeySpki)
+	public, private := pair.PublicKeyData.KeyData, pair.PrivateKeyData.KeyData
+	der, err := base64.StdEncoding.DecodeString(public.PublicKeySpki)
 	if err != nil {
 		t.Fatalf("publicKeySpki is not standard base64: %v", err)
 	}
@@ -311,28 +314,38 @@ func assertPublicKeySpki(t *testing.T, kd mdl.PublicKeyDataV2Dto) {
 	if err != nil {
 		t.Fatalf("publicKeySpki is not a DER SubjectPublicKeyInfo: %v", err)
 	}
-	switch kd.Algorithm {
+	var spki struct {
+		Algorithm asn1.RawValue
+		PublicKey asn1.BitString
+	}
+	if _, err := asn1.Unmarshal(der, &spki); err != nil {
+		t.Fatalf("publicKeySpki AlgorithmIdentifier: %v", err)
+	}
+	if got, want := private.GetAlgorithmIdentifier(), base64.StdEncoding.EncodeToString(spki.Algorithm.FullBytes); got != want {
+		t.Errorf("private algorithmIdentifier = %q, want the SPKI's %q", got, want)
+	}
+	switch public.Algorithm {
 	case mdl.KEYALGORITHM_ECDSA:
 		ec, ok := pub.(*ecdsa.PublicKey)
 		if !ok {
-			t.Fatalf("publicKeySpki decodes to %T, want *ecdsa.PublicKey for algorithm %q", pub, kd.Algorithm)
+			t.Fatalf("publicKeySpki decodes to %T, want *ecdsa.PublicKey for algorithm %q", pub, public.Algorithm)
 		}
 		if ec.Curve != elliptic.P256() {
 			t.Errorf("publicKeySpki curve = %v, want P-256", ec.Curve.Params().Name)
 		}
-		if got := int32(ec.Curve.Params().BitSize); got != kd.GetLength() {
-			t.Errorf("publicKeySpki curve size = %d bits, but keyData.length = %d", got, kd.GetLength())
+		if private.HasLength() {
+			t.Errorf("private keyData.length = %d, want it absent for ECDSA", private.GetLength())
 		}
 	case mdl.KEYALGORITHM_RSA:
 		key, ok := pub.(*rsa.PublicKey)
 		if !ok {
-			t.Fatalf("publicKeySpki decodes to %T, want *rsa.PublicKey for algorithm %q", pub, kd.Algorithm)
+			t.Fatalf("publicKeySpki decodes to %T, want *rsa.PublicKey for algorithm %q", pub, public.Algorithm)
 		}
-		if got := int32(key.N.BitLen()); got != kd.GetLength() {
-			t.Errorf("publicKeySpki modulus = %d bits, but keyData.length = %d", got, kd.GetLength())
+		if got := int32(key.N.BitLen()); private.GetLength() != got {
+			t.Errorf("private keyData.length = %d, want the SPKI's modulus size %d", private.GetLength(), got)
 		}
 	default:
-		t.Fatalf("public keyData.algorithm = %q, want %q or %q", kd.Algorithm, mdl.KEYALGORITHM_ECDSA, mdl.KEYALGORITHM_RSA)
+		t.Fatalf("public keyData.algorithm = %q, want %q or %q", public.Algorithm, mdl.KEYALGORITHM_ECDSA, mdl.KEYALGORITHM_RSA)
 	}
 }
 
@@ -423,7 +436,7 @@ func TestCryptographyV2KeyLifecycle(t *testing.T) {
 				if kp.PublicKeyData == nil || kp.PrivateKeyData == nil {
 					t.Fatalf("keyPair createKey response missing public/private key data: %+v", kp)
 				}
-				assertPublicKeySpki(t, kp.PublicKeyData.KeyData)
+				assertKeyPairDescriptors(t, kp)
 				if kp.PublicKeyData.KeyData.Type != "Public" {
 					t.Errorf("public keyData.type = %q, want %q", kp.PublicKeyData.KeyData.Type, "Public")
 				}
@@ -813,11 +826,11 @@ func TestCryptographyV2KeyAlgorithm(t *testing.T) {
 
 	t.Run("an RSA pair carries a 2048-bit RSA public key", func(t *testing.T) {
 		_, out := createKeySyncWith(t, h, rsaPairRequest())
-		keyData := out.KeyPairDataResponseV2Dto.PublicKeyData.KeyData
-		if keyData.Algorithm != mdl.KEYALGORITHM_RSA || keyData.GetLength() != 2048 {
-			t.Errorf("public keyData = %s/%d, want RSA/2048", keyData.Algorithm, keyData.GetLength())
+		pair := out.KeyPairDataResponseV2Dto
+		if private := pair.PrivateKeyData.KeyData; private.Algorithm != mdl.KEYALGORITHM_RSA || private.GetLength() != 2048 {
+			t.Errorf("private keyData = %s/%d, want RSA/2048", private.Algorithm, private.GetLength())
 		}
-		assertPublicKeySpki(t, keyData)
+		assertKeyPairDescriptors(t, pair)
 	})
 
 	refusals := map[string][]mdl.RequestAttribute{

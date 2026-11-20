@@ -20,17 +20,15 @@ import (
 // checks if the PublicKeyDataV2Dto type satisfies the MappedNullable interface at compile time
 var _ MappedNullable = &PublicKeyDataV2Dto{}
 
-// PublicKeyDataV2Dto Public-key descriptor with an SPKI representation. Algorithm Unknown accepts any parseable public SPKI and skips algorithm-family matching.
+// PublicKeyDataV2Dto Public-key descriptor carrying the public key as DER SubjectPublicKeyInfo
 type PublicKeyDataV2Dto struct {
 	// Role of the key
 	Type string `json:"type"`
 	// Cryptographic algorithm of the key
 	Algorithm KeyAlgorithm `json:"algorithm"`
-	// Key length in bits. Required for RSA, ECDSA and AES; optional otherwise.
-	Length *int32 `json:"length,omitempty"`
 	// Non-sensitive, provider-specific descriptive metadata
 	Metadata []MetadataAttribute `json:"metadata,omitempty"`
-	// Base64-encoded DER SubjectPublicKeyInfo.
+	// Public key of `algorithm` as base64-encoded DER SubjectPublicKeyInfo
 	PublicKeySpki string `json:"publicKeySpki"`
 }
 
@@ -105,38 +103,6 @@ func (o *PublicKeyDataV2Dto) SetAlgorithm(v KeyAlgorithm) {
 	o.Algorithm = v
 }
 
-// GetLength returns the Length field value if set, zero value otherwise.
-func (o *PublicKeyDataV2Dto) GetLength() int32 {
-	if o == nil || IsNil(o.Length) {
-		var ret int32
-		return ret
-	}
-	return *o.Length
-}
-
-// GetLengthOk returns a tuple with the Length field value if set, nil otherwise
-// and a boolean to check if the value has been set.
-func (o *PublicKeyDataV2Dto) GetLengthOk() (*int32, bool) {
-	if o == nil || IsNil(o.Length) {
-		return nil, false
-	}
-	return o.Length, true
-}
-
-// HasLength returns a boolean if a field has been set.
-func (o *PublicKeyDataV2Dto) HasLength() bool {
-	if o != nil && !IsNil(o.Length) {
-		return true
-	}
-
-	return false
-}
-
-// SetLength gets a reference to the given int32 and assigns it to the Length field.
-func (o *PublicKeyDataV2Dto) SetLength(v int32) {
-	o.Length = &v
-}
-
 // GetMetadata returns the Metadata field value if set, zero value otherwise.
 func (o *PublicKeyDataV2Dto) GetMetadata() []MetadataAttribute {
 	if o == nil || IsNil(o.Metadata) {
@@ -209,9 +175,6 @@ func (o PublicKeyDataV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["type"] = o.Type
 	toSerialize["algorithm"] = o.Algorithm
-	if !IsNil(o.Length) {
-		toSerialize["length"] = o.Length
-	}
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata
 	}

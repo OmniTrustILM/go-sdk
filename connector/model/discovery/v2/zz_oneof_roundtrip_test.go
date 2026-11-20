@@ -46,6 +46,26 @@ func TestDiscoveredItemPayloadRoundTrip(t *testing.T) {
 	}
 }
 
+// p256Identifier is the DER AlgorithmIdentifier {id-ecPublicKey, prime256v1}, in base64.
+const p256Identifier = "MBMGByqGSM49AgEGCCqGSM49AwEH"
+
+func TestDiscoveredItemPayloadCarriesAPrivateKeysAlgorithmIdentifier(t *testing.T) {
+	key := NewDiscoveredKeyDto(RESOURCE_KEYS, KEYTYPE_PRIVATE, KEYALGORITHM_ECDSA)
+	key.SetAlgorithmIdentifier(p256Identifier)
+	payload := DiscoveredKeyDtoAsDiscoveredItemPayload(key)
+
+	wire, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(wire), `"algorithmIdentifier":"`+p256Identifier+`"`) {
+		t.Fatalf("wire form lacks algorithmIdentifier: %s", wire)
+	}
+	if got := roundTrip(t, payload).DiscoveredKeyDto; got == nil || got.GetAlgorithmIdentifier() != p256Identifier {
+		t.Fatalf("decoded key: %+v", got)
+	}
+}
+
 func TestDiscoveredItemPayloadRefusesUnknownResource(t *testing.T) {
 	for _, raw := range []string{`{"resource":"widgets","certificateData":"YWJj"}`, `{"certificateData":"YWJj"}`} {
 		var p DiscoveredItemPayload

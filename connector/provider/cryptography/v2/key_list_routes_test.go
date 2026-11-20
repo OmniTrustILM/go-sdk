@@ -27,7 +27,7 @@ func keyHandle(keyID string) string {
 
 func listedKeyPair(keyID string) string {
 	return `{` + privateKeyPairFields(keyID) + `,"publicKeyData":{"keyMeta":` + keyHandle(keyID) + `,` +
-		`"keyData":{"type":"Public","algorithm":"RSA","length":2048,"publicKeySpki":"AA=="}}}`
+		`"keyData":{"type":"Public","algorithm":"RSA","publicKeySpki":"AA=="}}}`
 }
 
 func privateOnlyPair(keyID string) string {
@@ -198,6 +198,14 @@ func TestListKeysRejectsAResponseOutsideTheContract(t *testing.T) {
 				return page
 			},
 		},
+		"a key pair with a private algorithmIdentifier that is not base64": {
+			fields: listKeyPairs,
+			page: func(t *testing.T) *mdl.ListKeysResponseV2Dto {
+				page := keyPage(t, available(listedKeyPair("0a")))
+				page.Items[0].Key.ListedKeyPairV2Dto.PrivateKeyData.KeyData.SetAlgorithmIdentifier("not base64!")
+				return page
+			},
+		},
 		"a secret key in a key pair listing": {
 			fields: listKeyPairs,
 			page: func(t *testing.T) *mdl.ListKeysResponseV2Dto {
@@ -333,7 +341,7 @@ func unaddressablePrivateKey() mdl.ListedKeyEntryV2Dto {
 
 func unaddressableSecretKey() mdl.ListedKeyEntryV2Dto {
 	entry := unaddressableEntry()
-	entry.SetKeyData(mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256)))
+	entry.SetKeyData(mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256)))
 	return *entry
 }
 
@@ -505,7 +513,7 @@ func TestResolveKeysRejectsAResponseOutsideTheContract(t *testing.T) {
 		"a nil resolution": func(*testing.T) *mdl.ResolveKeysResponseV2Dto { return nil },
 		"an unaddressable secret key in a key pair resolution": func(t *testing.T) *mdl.ResolveKeysResponseV2Dto {
 			out := resolution(t, bareResult("a", mdl.KEYENTRYSTATUS_UNADDRESSABLE), bareResult("b", mdl.KEYENTRYSTATUS_NOT_FOUND))
-			out.Results[0].SetKeyData(mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256)))
+			out.Results[0].SetKeyData(mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256)))
 			return out
 		},
 		"a diagnostic over the cap": func(t *testing.T) *mdl.ResolveKeysResponseV2Dto {

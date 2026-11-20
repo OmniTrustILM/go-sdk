@@ -65,7 +65,7 @@ func secretKeyCreationResponse() *mdl.KeyCreationResponse {
 	return &mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 			KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-			KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
+			KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256),
 			KeyMeta:        []mdl.MetadataAttribute{metadataAttributeFixture()},
 		},
 	}

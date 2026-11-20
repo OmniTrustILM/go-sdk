@@ -20,14 +20,16 @@ import (
 // checks if the PrivateKeyDataV2Dto type satisfies the MappedNullable interface at compile time
 var _ MappedNullable = &PrivateKeyDataV2Dto{}
 
-// PrivateKeyDataV2Dto Private-key descriptor without key material
+// PrivateKeyDataV2Dto Private-key descriptor without key material, which names the key's parameters by their AlgorithmIdentifier when the connector can read them
 type PrivateKeyDataV2Dto struct {
 	// Role of the key
 	Type string `json:"type"`
 	// Cryptographic algorithm of the key
 	Algorithm KeyAlgorithm `json:"algorithm"`
-	// Key length in bits. Required for RSA, ECDSA and AES; optional otherwise.
+	// Key length in bits. The connector must state it when `algorithmIdentifier` carries no size, as for RSA. The platform reads the size from the public key or from `algorithmIdentifier` first.
 	Length *int32 `json:"length,omitempty"`
+	// Base64-encoded DER AlgorithmIdentifier naming the key's parameters, as SubjectPublicKeyInfo and PKCS#8 carry it. The connector must send it when it can read the parameters, and in a key pair it must equal the AlgorithmIdentifier of `publicKeySpki` byte for byte.
+	AlgorithmIdentifier *string `json:"algorithmIdentifier,omitempty"`
 	// Non-sensitive, provider-specific descriptive metadata
 	Metadata []MetadataAttribute `json:"metadata,omitempty"`
 }
@@ -134,6 +136,38 @@ func (o *PrivateKeyDataV2Dto) SetLength(v int32) {
 	o.Length = &v
 }
 
+// GetAlgorithmIdentifier returns the AlgorithmIdentifier field value if set, zero value otherwise.
+func (o *PrivateKeyDataV2Dto) GetAlgorithmIdentifier() string {
+	if o == nil || IsNil(o.AlgorithmIdentifier) {
+		var ret string
+		return ret
+	}
+	return *o.AlgorithmIdentifier
+}
+
+// GetAlgorithmIdentifierOk returns a tuple with the AlgorithmIdentifier field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *PrivateKeyDataV2Dto) GetAlgorithmIdentifierOk() (*string, bool) {
+	if o == nil || IsNil(o.AlgorithmIdentifier) {
+		return nil, false
+	}
+	return o.AlgorithmIdentifier, true
+}
+
+// HasAlgorithmIdentifier returns a boolean if a field has been set.
+func (o *PrivateKeyDataV2Dto) HasAlgorithmIdentifier() bool {
+	if o != nil && !IsNil(o.AlgorithmIdentifier) {
+		return true
+	}
+
+	return false
+}
+
+// SetAlgorithmIdentifier gets a reference to the given string and assigns it to the AlgorithmIdentifier field.
+func (o *PrivateKeyDataV2Dto) SetAlgorithmIdentifier(v string) {
+	o.AlgorithmIdentifier = &v
+}
+
 // GetMetadata returns the Metadata field value if set, zero value otherwise.
 func (o *PrivateKeyDataV2Dto) GetMetadata() []MetadataAttribute {
 	if o == nil || IsNil(o.Metadata) {
@@ -184,6 +218,9 @@ func (o PrivateKeyDataV2Dto) ToMap() (map[string]interface{}, error) {
 	toSerialize["algorithm"] = o.Algorithm
 	if !IsNil(o.Length) {
 		toSerialize["length"] = o.Length
+	}
+	if !IsNil(o.AlgorithmIdentifier) {
+		toSerialize["algorithmIdentifier"] = o.AlgorithmIdentifier
 	}
 	if !IsNil(o.Metadata) {
 		toSerialize["metadata"] = o.Metadata

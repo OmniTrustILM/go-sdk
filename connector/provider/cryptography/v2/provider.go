@@ -52,8 +52,7 @@ type Provider interface {
 	//     ExecutionMode, TokenAttributes, TokenProfileAttributes and
 	//     CreateKeyAttributes. Non-equivalent reuse returns
 	//     ErrKeyCreationConflict.
-	//   - validate publicKeySpki's DER encoding and algorithm, plus RSA public
-	//     length against its modulus
+	//   - validate publicKeySpki's DER encoding and algorithm
 	//   - validate MetadataAttribute
 	//
 	// A connector that cannot execute asynchronously must leave

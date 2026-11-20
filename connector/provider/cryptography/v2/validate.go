@@ -602,7 +602,7 @@ func validateKeyCreationPayload(out *mdl.KeyCreationResponse, subject string) er
 		if v.KeyData == nil || len(v.KeyMeta) == 0 {
 			return errIncompleteKeyPayload(subject)
 		}
-		return validateKeyDescriptor(v.KeyData.Type, keyTypeSecret, v.KeyData.Algorithm, v.KeyData.Length, "keyData")
+		return validateSecretDescriptor(v.KeyData, "keyData")
 	}
 	if v := out.KeyPairDataResponseV2Dto; v != nil {
 		if v.PublicKeyData == nil || v.PrivateKeyData == nil || len(v.KeyPairMeta) == 0 {
@@ -636,7 +636,7 @@ func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) err
 		return errIncompleteKeyPayload(subject)
 	}
 	priv := &v.PrivateKeyData.KeyData
-	if err := validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, privateKeyDataField); err != nil {
+	if err := validatePrivateDescriptor(priv, privateKeyDataField); err != nil {
 		return err
 	}
 	return validatePublicHalf(&v.PublicKeyData.KeyData, priv.Algorithm)
@@ -645,7 +645,7 @@ func validateKeyPairPayload(v *mdl.KeyPairDataResponseV2Dto, subject string) err
 // validatePublicHalf holds a public key descriptor to its SPKI and to its
 // private key's algorithm.
 func validatePublicHalf(pub *mdl.PublicKeyDataV2Dto, privateAlgorithm mdl.KeyAlgorithm) error {
-	if err := validateKeyDescriptor(pub.Type, keyTypePublic, pub.Algorithm, pub.Length, "publicKeyData.keyData"); err != nil {
+	if err := validateKeyDescriptor(pub.Type, keyTypePublic, pub.Algorithm, "publicKeyData.keyData"); err != nil {
 		return err
 	}
 	if pub.PublicKeySpki == "" {
@@ -657,35 +657,14 @@ func validatePublicHalf(pub *mdl.PublicKeyDataV2Dto, privateAlgorithm mdl.KeyAlg
 	return nil
 }
 
-// validateKeyDescriptor enforces the descriptor's required fields. An unset
-// type reaches Core as an unresolvable discriminator; a wrong one fails the
-// pinned MarshalJSON (see keyTypeSecret). The spec requires a length only for
-// the algorithms in lengthRequired; when present it must be positive.
-func validateKeyDescriptor(keyType, wantType string, algorithm mdl.KeyAlgorithm, length *int32, field string) error {
+func validateKeyDescriptor(keyType, wantType string, algorithm mdl.KeyAlgorithm, field string) error {
 	if keyType != wantType {
 		return errResponseShape(field + " must carry key type " + wantType)
 	}
 	if !algorithm.IsValid() {
 		return errResponseShape(field + " must carry a known key algorithm")
 	}
-	if length == nil {
-		if lengthRequired[algorithm] {
-			return errResponseShape(field + " must carry a key length for " + string(algorithm) + " keys")
-		}
-		return nil
-	}
-	if *length <= 0 {
-		return errResponseShape(field + " must carry a positive key length")
-	}
-	return nil
-}
-
-// lengthRequired lists the key algorithms whose descriptors must carry a
-// length ("Required for RSA, ECDSA and AES; optional otherwise").
-var lengthRequired = map[mdl.KeyAlgorithm]bool{
-	mdl.KEYALGORITHM_RSA:   true,
-	mdl.KEYALGORITHM_ECDSA: true,
-	mdl.KEYALGORITHM_AES:   true,
+	return validateAlgorithmFamily(wantType, algorithm, field)
 }
 
 // keyCreationHasMeta reports whether the populated arm carries an operationMeta
@@ -1025,7 +1004,7 @@ func validateExportedPublicKey(publicKey *mdl.PublicKeyDataV2Dto) error {
 		return errResponseShape("keyData must describe a key pair by its public key")
 	}
 	if err := firstError(
-		validateKeyDescriptor(publicKey.Type, keyTypePublic, publicKey.Algorithm, publicKey.Length, "keyData"),
+		validateKeyDescriptor(publicKey.Type, keyTypePublic, publicKey.Algorithm, "keyData"),
 		validateMetadataElements(publicKey.Metadata, keyDataMetadataField),
 	); err != nil {
 		return err
@@ -1041,7 +1020,7 @@ func validateExportedSecretKey(secretKey *mdl.SecretKeyDataV2Dto) error {
 		return errResponseShape("keyData must describe a secret key")
 	}
 	return firstError(
-		validateKeyDescriptor(secretKey.Type, keyTypeSecret, secretKey.Algorithm, secretKey.Length, "keyData"),
+		validateSecretDescriptor(secretKey, "keyData"),
 		validateMetadataElements(secretKey.Metadata, keyDataMetadataField),
 	)
 }
@@ -1231,15 +1210,13 @@ func validateEntryKeyData(requested mdl.KeyRequestType, data *mdl.KeyDataV2) err
 	case requested == mdl.KEYREQUESTTYPE_KEY_PAIR && data.PrivateKeyDataV2Dto != nil:
 		private := data.PrivateKeyDataV2Dto
 		return firstError(
-			validateKeyDescriptor(private.Type, keyTypePrivate, private.Algorithm, private.Length, "keyData"),
-			validateAlgorithmFamily(keyTypePrivate, private.Algorithm, "keyData"),
+			validatePrivateDescriptor(private, "keyData"),
 			validateMetadataElements(private.Metadata, keyDataMetadataField),
 		)
 	case requested == mdl.KEYREQUESTTYPE_SECRET && data.SecretKeyDataV2Dto != nil:
 		secret := data.SecretKeyDataV2Dto
 		return firstError(
-			validateKeyDescriptor(secret.Type, keyTypeSecret, secret.Algorithm, secret.Length, "keyData"),
-			validateAlgorithmFamily(keyTypeSecret, secret.Algorithm, "keyData"),
+			validateSecretDescriptor(secret, "keyData"),
 			validateMetadataElements(secret.Metadata, keyDataMetadataField),
 		)
 	default:
@@ -1258,10 +1235,7 @@ func validateListedKeyPair(pair *mdl.ListedKeyPairV2Dto) error {
 		return errResponseShape("privateKeyData.keyMeta must not be empty")
 	}
 	priv := &pair.PrivateKeyData.KeyData
-	if err := firstError(
-		validateKeyDescriptor(priv.Type, keyTypePrivate, priv.Algorithm, priv.Length, privateKeyDataField),
-		validateAlgorithmFamily(keyTypePrivate, priv.Algorithm, privateKeyDataField),
-	); err != nil {
+	if err := validatePrivateDescriptor(priv, privateKeyDataField); err != nil {
 		return err
 	}
 	if pair.PublicKeyData != nil {
@@ -1285,16 +1259,14 @@ func validateListedSecretKey(key *mdl.ListedSecretKeyV2Dto) error {
 	data := &key.KeyData
 	return firstError(
 		validateKeyRequestType(key.KeyRequestType, mdl.KEYREQUESTTYPE_SECRET),
-		validateKeyDescriptor(data.Type, keyTypeSecret, data.Algorithm, data.Length, "keyData"),
-		validateAlgorithmFamily(keyTypeSecret, data.Algorithm, "keyData"),
+		validateSecretDescriptor(data, "keyData"),
 		validateMetadataElements(key.KeyMeta, "keyMeta"),
 		validateMetadataElements(data.Metadata, keyDataMetadataField),
 	)
 }
 
-// validateAlgorithmFamily mirrors Core's KeyDataV2Dto.isAlgorithmMatchingType,
-// whose failure rejects the whole listing or resolution. An Unknown algorithm
-// fits either key type.
+// validateAlgorithmFamily mirrors Core's KeyDataV2Dto.isAlgorithmMatchingType.
+// An Unknown algorithm fits either key type.
 func validateAlgorithmFamily(keyType string, algorithm mdl.KeyAlgorithm, field string) error {
 	if algorithm == mdl.KEYALGORITHM_UNKNOWN || secretKeyAlgorithms[algorithm] == (keyType == keyTypeSecret) {
 		return nil

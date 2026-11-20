@@ -162,6 +162,7 @@ func TestCryptographyV2KeyImport(t *testing.T) {
 		if pair.PublicKeyData.KeyData.PublicKeySpki != key.spki {
 			t.Errorf("publicKeySpki = %s, want the imported key's", pair.PublicKeyData.KeyData.PublicKeySpki)
 		}
+		assertKeyPairDescriptors(t, pair)
 		sign := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: signRequest(
 			mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pair.PrivateKeyData.KeyMeta, []mdl.SignatureDataV2Dto{{Identifier: "d-1", Data: b64("data")}},
 		)})

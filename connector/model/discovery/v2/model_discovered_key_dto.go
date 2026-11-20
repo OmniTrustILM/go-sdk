@@ -30,10 +30,12 @@ type DiscoveredKeyDto struct {
 	Length *int32 `json:"length,omitempty"`
 	// Intrinsic fingerprint identifying the same key across runs, connectors and certificates, without exposing key material
 	Fingerprint *string `json:"fingerprint,omitempty"`
-	// Format of publicKey, typically SubjectPublicKeyInfo. Present only with publicKey.
+	// Format of `publicKey`, one of `Raw`, `SubjectPublicKeyInfo` or `Custom`; present only with `publicKey`, and taken as SubjectPublicKeyInfo when absent.
 	PublicKeyFormat *KeyFormat `json:"publicKeyFormat,omitempty"`
 	// Base64-encoded public key. Absent for a PRIVATE_KEY, SECRET_KEY or SPLIT_KEY key.
 	PublicKey *string `json:"publicKey,omitempty"`
+	// Base64-encoded DER AlgorithmIdentifier naming the key's parameters, as SubjectPublicKeyInfo and PKCS#8 carry it. The provider must send it, when it can read the parameters, for a private or split key and for a public key without a SubjectPublicKeyInfo `publicKey`, and must omit it for a secret key and beside a SubjectPublicKeyInfo `publicKey`.
+	AlgorithmIdentifier *string `json:"algorithmIdentifier,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -259,6 +261,38 @@ func (o *DiscoveredKeyDto) SetPublicKey(v string) {
 	o.PublicKey = &v
 }
 
+// GetAlgorithmIdentifier returns the AlgorithmIdentifier field value if set, zero value otherwise.
+func (o *DiscoveredKeyDto) GetAlgorithmIdentifier() string {
+	if o == nil || IsNil(o.AlgorithmIdentifier) {
+		var ret string
+		return ret
+	}
+	return *o.AlgorithmIdentifier
+}
+
+// GetAlgorithmIdentifierOk returns a tuple with the AlgorithmIdentifier field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DiscoveredKeyDto) GetAlgorithmIdentifierOk() (*string, bool) {
+	if o == nil || IsNil(o.AlgorithmIdentifier) {
+		return nil, false
+	}
+	return o.AlgorithmIdentifier, true
+}
+
+// HasAlgorithmIdentifier returns a boolean if a field has been set.
+func (o *DiscoveredKeyDto) HasAlgorithmIdentifier() bool {
+	if o != nil && !IsNil(o.AlgorithmIdentifier) {
+		return true
+	}
+
+	return false
+}
+
+// SetAlgorithmIdentifier gets a reference to the given string and assigns it to the AlgorithmIdentifier field.
+func (o *DiscoveredKeyDto) SetAlgorithmIdentifier(v string) {
+	o.AlgorithmIdentifier = &v
+}
+
 func (o DiscoveredKeyDto) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -283,6 +317,9 @@ func (o DiscoveredKeyDto) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.PublicKey) {
 		toSerialize["publicKey"] = o.PublicKey
+	}
+	if !IsNil(o.AlgorithmIdentifier) {
+		toSerialize["algorithmIdentifier"] = o.AlgorithmIdentifier
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -336,6 +373,7 @@ func (o *DiscoveredKeyDto) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "fingerprint")
 		delete(additionalProperties, "publicKeyFormat")
 		delete(additionalProperties, "publicKey")
+		delete(additionalProperties, "algorithmIdentifier")
 		o.AdditionalProperties = additionalProperties
 	}
 

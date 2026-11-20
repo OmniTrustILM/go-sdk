@@ -36,7 +36,7 @@ func keyPairCreationResponse(mutate func(*mdl.KeyPairDataResponseV2Dto)) *mdl.Ke
 		KeyPairMeta:    []mdl.MetadataAttribute{metadataAttributeFixture()},
 		PublicKeyData: &mdl.PublicKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metadataAttributeFixture()},
-			KeyData: *newPublicKeyData(mdl.KEYALGORITHM_RSA, 2048, "AA=="),
+			KeyData: *mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_RSA, "AA=="),
 		},
 		PrivateKeyData: &mdl.PrivateKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metadataAttributeFixture()},
@@ -153,7 +153,7 @@ func TestUnencodableResponseIsRejectedBeforeCommit(t *testing.T) {
 		{"createKey 200 keyMeta content", &stubProvider{createKeyResp: &mdl.KeyCreationResponse{
 			SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 				KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-				KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
+				KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256),
 				KeyMeta:        []mdl.MetadataAttribute{unencodableMetadata()},
 			},
 		}}, "/v2/cryptographyProvider/keys", createKeyBody("synchronous"), "create_key"},
@@ -177,7 +177,7 @@ func TestUnencodableResponseIsRejectedBeforeCommit(t *testing.T) {
 // The key descriptors' own metadata lists are enumerated too, with the precise
 // message rather than the probe's generic one.
 func TestCreateKeyKeyDataMetadataElementsMustPopulateOneVariant(t *testing.T) {
-	keyData := newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048)
+	keyData := mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256)
 	keyData.Metadata = []mdl.MetadataAttribute{{}}
 	p := &stubProvider{createKeyResp: &mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
@@ -236,12 +236,15 @@ func TestCreateKeyResponseMustAnswerTheRequestedKeyRequestType(t *testing.T) {
 	assertShapeViolation(t, rec, "keyRequestType must match the requested key request type")
 }
 
+// p256AlgorithmIdentifier is the DER AlgorithmIdentifier {id-ecPublicKey, prime256v1}, in base64.
+const p256AlgorithmIdentifier = "MBMGByqGSM49AgEGCCqGSM49AwEH"
+
 func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
 	p := &stubProvider{createKeyResp: keyPairCreationResponse(func(v *mdl.KeyPairDataResponseV2Dto) {
 		v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
 		v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
-		v.PublicKeyData.KeyData.Length = new(int32(512))
-		v.PrivateKeyData.KeyData.Length = new(int32(256))
+		v.PrivateKeyData.KeyData.Length = nil
+		v.PrivateKeyData.KeyData.SetAlgorithmIdentifier(p256AlgorithmIdentifier)
 	})}
 	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/keys", keyPairCreateKeyBody("synchronous"))
 
@@ -253,11 +256,12 @@ func TestCreateKeyRendersCompleteKeyPairAs200(t *testing.T) {
 		t.Fatalf("decode body: %v; body %s", err, rec.Body.String())
 	}
 	if got.PublicKeyData == nil || got.PublicKeyData.KeyData.PublicKeySpki != "AA==" ||
-		got.PublicKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA || got.PublicKeyData.KeyData.GetLength() != 512 {
+		got.PublicKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA {
 		t.Errorf("publicKeyData not round-tripped; body %s", rec.Body.String())
 	}
 	if got.PrivateKeyData == nil || got.PrivateKeyData.KeyData.Algorithm != mdl.KEYALGORITHM_ECDSA ||
-		got.PrivateKeyData.KeyData.GetLength() != 256 {
+		got.PrivateKeyData.KeyData.HasLength() ||
+		got.PrivateKeyData.KeyData.GetAlgorithmIdentifier() != p256AlgorithmIdentifier {
 		t.Errorf("privateKeyData not round-tripped; body %s", rec.Body.String())
 	}
 }
@@ -276,6 +280,9 @@ func TestCreateKeyKeyPairResponseGuards(t *testing.T) {
 			"publicKeyData.keyData must carry key type Public"},
 		{"zero-value keyPairMeta element", func(v *mdl.KeyPairDataResponseV2Dto) { v.KeyPairMeta = []mdl.MetadataAttribute{{}} },
 			"keyPairMeta entries must populate exactly one metadata attribute variant"},
+		{"private algorithmIdentifier not base64", func(v *mdl.KeyPairDataResponseV2Dto) {
+			v.PrivateKeyData.KeyData.SetAlgorithmIdentifier("MBMGByqGSM49AgEGCCqGSM49AwE")
+		}, "privateKeyData.keyData must carry a base64-encoded algorithmIdentifier"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -286,12 +293,25 @@ func TestCreateKeyKeyPairResponseGuards(t *testing.T) {
 	}
 }
 
-func TestCreateKeySecretDescriptorMustCarryThePinnedType(t *testing.T) {
-	resp := secretKeyCreationResponse()
-	resp.SecretKeyDataResponseV2Dto.KeyData.Type = "Public"
-	p := &stubProvider{createKeyResp: resp}
-	rec := post(t, newTestServer(t, p), "/v2/cryptographyProvider/keys", createKeyBody("synchronous"))
-	assertShapeViolation(t, rec, "keyData must carry key type Secret")
+func TestCreateKeySecretResponseGuards(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(*mdl.SecretKeyDataV2Dto)
+		want   string
+	}{
+		{"another key type", func(d *mdl.SecretKeyDataV2Dto) { d.Type = "Public" }, "keyData must carry key type Secret"},
+		{"a key pair algorithm", func(d *mdl.SecretKeyDataV2Dto) { d.Algorithm = mdl.KEYALGORITHM_ECDSA },
+			"keyData must carry an algorithm of key type Secret"},
+		{"a zero length", func(d *mdl.SecretKeyDataV2Dto) { d.Length = 0 }, "keyData must carry a positive key length"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := secretKeyCreationResponse()
+			tc.mutate(resp.SecretKeyDataResponseV2Dto.KeyData)
+			rec := post(t, newTestServer(t, &stubProvider{createKeyResp: resp}), "/v2/cryptographyProvider/keys", createKeyBody("synchronous"))
+			assertShapeViolation(t, rec, tc.want)
+		})
+	}
 }
 
 func TestCreateKeyStatusCompletedKeyPairResultIsChecked(t *testing.T) {

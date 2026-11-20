@@ -131,7 +131,7 @@ func (s *Store) ImportKey(ctx context.Context, req *mdl.ImportKeyRequestV2Dto) (
 	}
 
 	keyID := uuid.NewString()
-	record := &keyRecord{algorithm: mdl.KEYALGORITHM_ECDSA, length: 256, spki: key.spki, exportable: req.Exportable, keyReference: req.KeyReference}
+	record := &keyRecord{algorithm: mdl.KEYALGORITHM_ECDSA, spki: key.spki, exportable: req.Exportable, keyReference: req.KeyReference}
 	if req.Exportable {
 		record.privateKeyInfo = key.privateKeyInfo
 	} else {
@@ -171,7 +171,7 @@ func (s *Store) importStatus(rec *importRecord) *mdl.KeyCreationStatusResponse {
 		resp.Reason = &reason
 	case mdl.OPERATIONSTATUS_COMPLETED:
 		record := s.keys[rec.keyID]
-		resp.Result = buildKeyPairPayload(rec.keyID, record.algorithm, record.length, record.spki)
+		resp.Result = buildKeyPairPayload(rec.keyID, record.algorithm, record.privateLengthBits, record.spki)
 	}
 	return &mdl.KeyCreationStatusResponse{KeyPairOperationStatusResponseV2Dto: resp}
 }
@@ -254,9 +254,7 @@ func (s *Store) ExportKey(ctx context.Context, req *mdl.ExportKeyRequestV2Dto) (
 	if !ok {
 		return nil, cryptography.ErrKeyTypeNotExportable
 	}
-	publicKey := mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_ECDSA, spki)
-	publicKey.SetLength(256)
-	resp.KeyData = mdl.PublicKeyDataV2DtoAsKeyDataV2(publicKey)
+	resp.KeyData = mdl.PublicKeyDataV2DtoAsKeyDataV2(mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_ECDSA, spki))
 	material, err := cryptography.ProtectKeyMaterial(privateKeyInfo, req.Passphrase)
 	if err != nil {
 		return nil, err
