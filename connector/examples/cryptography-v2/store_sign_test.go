@@ -68,7 +68,7 @@ func TestDataDigestSignatureVerifiesAgainstTheMessage(t *testing.T) {
 	}
 }
 
-func TestALineWrappedDataDigestDigestVerifiesAgainstTheMessage(t *testing.T) {
+func TestALineWrappedDataDigestVerifiesAgainstTheMessage(t *testing.T) {
 	store := NewStore(defaultAsyncOperationDelay)
 	ctx := context.Background()
 	keyMeta := rsaKeyMeta(t, store)
