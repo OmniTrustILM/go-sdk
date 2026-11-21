@@ -60,9 +60,9 @@ var errKeyExportNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key e
 
 var errKeyListNotSupported = shared.NotFound("OPERATION_NOT_SUPPORTED", "key listing is not implemented by this connector")
 
-// errPrehashedSigningNotSupported is the sign route's answer to a prehashed
-// request without WithPrehashedSigning; the contract forbids ignoring the mode.
-var errPrehashedSigningNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "prehashed signing is not implemented by this connector")
+// errDataDigestSigningNotSupported is the sign route's answer to a dataDigest
+// request without WithDataDigestSigning; the contract forbids ignoring the mode.
+var errDataDigestSigningNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "data digest signing is not implemented by this connector")
 
 var errInputModeNotSupported = shared.Invalid("PARAMETER_UNSUPPORTED", "this signature input mode is not implemented by this connector")
 
@@ -76,14 +76,14 @@ func (h *Handler) signerFor(req *mdl.SignDataRequestV2Dto) (signFunc, error) {
 	switch InputMode(req) {
 	case mdl.SIGNATUREINPUTMODE_DATA:
 		return h.provider.SignData, nil
-	case mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST:
-		if h.prehashed == nil {
-			return nil, errPrehashedSigningNotSupported
+	case mdl.SIGNATUREINPUTMODE_DATA_DIGEST:
+		if h.dataDigest == nil {
+			return nil, errDataDigestSigningNotSupported
 		}
-		if err := validatePrehashedRequest(req); err != nil {
+		if err := validateDataDigestRequest(req); err != nil {
 			return nil, err
 		}
-		return h.prehashed.SignPrehashed, nil
+		return h.dataDigest.SignDataDigest, nil
 	default:
 		return nil, errInputModeNotSupported
 	}

@@ -19,22 +19,22 @@ func signedBatch() *mdl.SignDataResponseV2Dto {
 	return &mdl.SignDataResponseV2Dto{Signatures: []mdl.SignatureDataV2Dto{{Identifier: "d-1", Data: "AA=="}}}
 }
 
-// prehashedSignBody is a prehashed sign request selecting algorithm, whose one
+// dataDigestSignBody is a data digest sign request selecting algorithm, whose one
 // item is digest.
-func prehashedSignBody(t *testing.T, executionMode string, algorithm cryptography.SignatureAlgorithm, digest []byte) string {
+func dataDigestSignBody(t *testing.T, executionMode string, algorithm cryptography.SignatureAlgorithm, digest []byte) string {
 	t.Helper()
 	selection, err := json.Marshal([]mdl.RequestAttribute{cryptography.SignatureAlgorithmSelection(algorithm)})
 	if err != nil {
 		t.Fatalf("marshal selection: %v", err)
 	}
-	body := strings.Replace(signDataBodyWithMode(executionMode, "prehashedDigest"),
+	body := strings.Replace(signDataBodyWithMode(executionMode, "dataDigest"),
 		`"signatureAttributes":[]`, `"signatureAttributes":`+string(selection), 1)
 	return strings.Replace(body, `"data":"AA=="`, `"data":"`+base64.StdEncoding.EncodeToString(digest)+`"`, 1)
 }
 
-// validPrehashedSignBody selects SHA256withECDSA and carries a 32-byte digest.
-func validPrehashedSignBody(t *testing.T, executionMode string) string {
-	return prehashedSignBody(t, executionMode, cryptography.SignatureAlgorithmSHA256WithECDSA, make([]byte, 32))
+// validDataDigestSignBody selects SHA256withECDSA and carries a 32-byte digest.
+func validDataDigestSignBody(t *testing.T, executionMode string) string {
+	return dataDigestSignBody(t, executionMode, cryptography.SignatureAlgorithmSHA256WithECDSA, make([]byte, 32))
 }
 
 // countingProvider counts the SignData calls that reach the base provider.
@@ -48,85 +48,85 @@ func (c *countingProvider) SignData(ctx context.Context, req *mdl.SignDataReques
 	return c.stubProvider.SignData(ctx, req)
 }
 
-func TestPrehashedSignAnswers422WithoutItsProvider(t *testing.T) {
+func TestDataDigestSignAnswers422WithoutItsProvider(t *testing.T) {
 	p := &countingProvider{}
 
-	rec := post(t, newTestServer(t, p), signPath, signDataBodyWithMode("synchronous", "prehashedDigest"))
+	rec := post(t, newTestServer(t, p), signPath, signDataBodyWithMode("synchronous", "dataDigest"))
 
 	assertProblem(t, rec, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
 	if p.signCalls != 0 {
-		t.Fatalf("SignData called %d times for a prehashed request", p.signCalls)
+		t.Fatalf("SignData called %d times for a dataDigest request", p.signCalls)
 	}
 }
 
-func TestPrehashedSignReachesThePrehashedProvider(t *testing.T) {
+func TestDataDigestSignReachesTheDataDigestProvider(t *testing.T) {
 	p := &countingProvider{}
-	stub := &stubPrehashed{resp: signedBatch()}
-	srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+	stub := &stubDataDigest{resp: signedBatch()}
+	srv := newTestServer(t, p, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
-	rec := post(t, srv, signPath, validPrehashedSignBody(t, "synchronous"))
+	rec := post(t, srv, signPath, validDataDigestSignBody(t, "synchronous"))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
 	}
 	if stub.got == nil {
-		t.Fatal("prehashed provider was not called")
+		t.Fatal("dataDigest provider was not called")
 	}
 	if p.signCalls != 0 {
-		t.Fatalf("SignData called %d times for a prehashed request", p.signCalls)
+		t.Fatalf("SignData called %d times for a dataDigest request", p.signCalls)
 	}
 }
 
-func TestPrehashedSignRendersAcceptedAs202(t *testing.T) {
-	stub := &stubPrehashed{accepted: true, resp: &mdl.SignDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{metadataAttributeFixture()}}}
-	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+func TestDataDigestSignRendersAcceptedAs202(t *testing.T) {
+	stub := &stubDataDigest{accepted: true, resp: &mdl.SignDataResponseV2Dto{OperationMeta: []mdl.MetadataAttribute{metadataAttributeFixture()}}}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
-	rec := post(t, srv, signPath, validPrehashedSignBody(t, "asynchronous"))
+	rec := post(t, srv, signPath, validDataDigestSignBody(t, "asynchronous"))
 
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("status = %d, want 202; body %s", rec.Code, rec.Body)
 	}
 }
 
-func TestPrehashedSignIsHeldToTheCallersExecutionMode(t *testing.T) {
-	stub := &stubPrehashed{accepted: true, resp: signedBatch()}
-	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+func TestDataDigestSignIsHeldToTheCallersExecutionMode(t *testing.T) {
+	stub := &stubDataDigest{accepted: true, resp: signedBatch()}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
-	rec := post(t, srv, signPath, validPrehashedSignBody(t, "synchronous"))
+	rec := post(t, srv, signPath, validDataDigestSignBody(t, "synchronous"))
 
 	problem := assertProblem(t, rec, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR")
 	assertDetail(t, problem, "provider response violates the contract: sign data requested synchronously must not be accepted for asynchronous execution")
 }
 
-func TestPrehashedSignMapsProviderErrorToProblem(t *testing.T) {
-	stub := &stubPrehashed{err: cryptography.ErrSignatureAlgorithmUnsupported}
-	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+func TestDataDigestSignMapsProviderErrorToProblem(t *testing.T) {
+	stub := &stubDataDigest{err: cryptography.ErrSignatureAlgorithmUnsupported}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
-	rec := post(t, srv, signPath, validPrehashedSignBody(t, "synchronous"))
+	rec := post(t, srv, signPath, validDataDigestSignBody(t, "synchronous"))
 
 	assertProblem(t, rec, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
 }
 
-func TestPrehashedSignRefusesAnAlgorithmItIsNotDefinedFor(t *testing.T) {
+func TestDataDigestSignRefusesAnAlgorithmItIsNotDefinedFor(t *testing.T) {
 	for _, algorithm := range []cryptography.SignatureAlgorithm{
 		cryptography.SignatureAlgorithmEd25519, cryptography.SignatureAlgorithmMLDSA65, cryptography.SignatureAlgorithmSLHDSASHA2128S,
 	} {
 		t.Run(string(algorithm), func(t *testing.T) {
-			stub := &stubPrehashed{resp: signedBatch()}
-			srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+			stub := &stubDataDigest{resp: signedBatch()}
+			srv := newTestServer(t, &countingProvider{}, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
-			rec := post(t, srv, signPath, prehashedSignBody(t, "synchronous", algorithm, make([]byte, 64)))
+			rec := post(t, srv, signPath, dataDigestSignBody(t, "synchronous", algorithm, make([]byte, 64)))
 
 			problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "PARAMETER_UNSUPPORTED")
-			assertDetail(t, problem, "prehashed signing is not defined for the selected signature algorithm")
+			assertDetail(t, problem, "data digest signing is not defined for the selected signature algorithm")
 			if stub.got != nil {
-				t.Fatal("prehashed provider was called for an algorithm prehashed signing does not cover")
+				t.Fatal("dataDigest provider was called for an algorithm data digest signing does not cover")
 			}
 		})
 	}
 }
 
-func TestPrehashedSignRefusesAnItemOfTheWrongLength(t *testing.T) {
+func TestDataDigestSignRefusesAnItemOfTheWrongLength(t *testing.T) {
 	cases := map[string]struct {
 		algorithm cryptography.SignatureAlgorithm
 		digest    []byte
@@ -137,20 +137,20 @@ func TestPrehashedSignRefusesAnItemOfTheWrongLength(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			stub := &stubPrehashed{resp: signedBatch()}
-			srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+			stub := &stubDataDigest{resp: signedBatch()}
+			srv := newTestServer(t, &countingProvider{}, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
-			rec := post(t, srv, signPath, prehashedSignBody(t, "synchronous", c.algorithm, c.digest))
+			rec := post(t, srv, signPath, dataDigestSignBody(t, "synchronous", c.algorithm, c.digest))
 
 			assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 			if stub.got != nil {
-				t.Fatal("prehashed provider was called for an item of the wrong length")
+				t.Fatal("dataDigest provider was called for an item of the wrong length")
 			}
 		})
 	}
 }
 
-func TestPrehashedSignAcceptsEachDigestLength(t *testing.T) {
+func TestDataDigestSignAcceptsEachDigestLength(t *testing.T) {
 	cases := map[cryptography.SignatureAlgorithm]int{
 		cryptography.SignatureAlgorithmSHA256WithRSA:    32,
 		cryptography.SignatureAlgorithmSHA384WithECDSA:  48,
@@ -158,10 +158,10 @@ func TestPrehashedSignAcceptsEachDigestLength(t *testing.T) {
 	}
 	for algorithm, size := range cases {
 		t.Run(string(algorithm), func(t *testing.T) {
-			stub := &stubPrehashed{resp: signedBatch()}
-			srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+			stub := &stubDataDigest{resp: signedBatch()}
+			srv := newTestServer(t, &countingProvider{}, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
-			rec := post(t, srv, signPath, prehashedSignBody(t, "synchronous", algorithm, make([]byte, size)))
+			rec := post(t, srv, signPath, dataDigestSignBody(t, "synchronous", algorithm, make([]byte, size)))
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
@@ -179,8 +179,8 @@ func TestDataAndAbsentModeReachSignData(t *testing.T) {
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
 			p := &countingProvider{stubProvider: stubProvider{signDataResp: signedBatch()}}
-			stub := &stubPrehashed{resp: signedBatch()}
-			srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+			stub := &stubDataDigest{resp: signedBatch()}
+			srv := newTestServer(t, p, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
 			rec := post(t, srv, signPath, body)
 
@@ -191,35 +191,35 @@ func TestDataAndAbsentModeReachSignData(t *testing.T) {
 				t.Fatalf("SignData called %d times, want 1", p.signCalls)
 			}
 			if stub.got != nil {
-				t.Fatal("prehashed provider received a data request")
+				t.Fatal("dataDigest provider received a data request")
 			}
 		})
 	}
 }
 
-func TestPrehashedSigningFeatureRequiresTheProvider(t *testing.T) {
+func TestDataDigestSigningFeatureRequiresTheProvider(t *testing.T) {
 	_, err := cryptography.NewHandler(&stubProvider{},
-		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_PREHASHED_SIGNING))))
+		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))))
 
-	if err == nil || !strings.Contains(err.Error(), "WithPrehashedSigning") {
-		t.Fatalf("NewHandler error = %v, want one naming WithPrehashedSigning", err)
+	if err == nil || !strings.Contains(err.Error(), "WithDataDigestSigning") {
+		t.Fatalf("NewHandler error = %v, want one naming WithDataDigestSigning", err)
 	}
 }
 
-func TestWithPrehashedSigningRejectsNil(t *testing.T) {
-	_, err := cryptography.NewHandler(&stubProvider{}, cryptography.WithPrehashedSigning(nil))
+func TestWithDataDigestSigningRejectsNil(t *testing.T) {
+	_, err := cryptography.NewHandler(&stubProvider{}, cryptography.WithDataDigestSigning(nil))
 
-	if err == nil || !strings.Contains(err.Error(), "prehashed sign provider must not be nil") {
+	if err == nil || !strings.Contains(err.Error(), "dataDigest sign provider must not be nil") {
 		t.Fatalf("NewHandler error = %v, want the nil refusal", err)
 	}
 }
 
 func TestUnknownInputModeIsRejectedWhileDecoding(t *testing.T) {
 	p := &countingProvider{}
-	stub := &stubPrehashed{}
-	srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub))
+	stub := &stubDataDigest{}
+	srv := newTestServer(t, p, cryptography.WithDataDigestSigning(stub))
 
-	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "prehashed"))
+	rec := post(t, srv, signPath, signDataBodyWithMode("synchronous", "digest"))
 
 	assertProblem(t, rec, http.StatusBadRequest, "INVALID_JSON")
 	if p.signCalls != 0 || stub.got != nil {
@@ -227,8 +227,8 @@ func TestUnknownInputModeIsRejectedWhileDecoding(t *testing.T) {
 	}
 }
 
-func TestPrehashedRequestIsGuardedBeforeRouting(t *testing.T) {
-	valid := validPrehashedSignBody(t, "synchronous")
+func TestDataDigestRequestIsGuardedBeforeRouting(t *testing.T) {
+	valid := validDataDigestSignBody(t, "synchronous")
 	item := `"data":[{"identifier":"d-1","data":"` + base64.StdEncoding.EncodeToString(make([]byte, 32)) + `"}]`
 	cases := map[string]struct{ body, detail string }{
 		"empty payload": {strings.Replace(valid, item, `"data":[{"identifier":"d-1","data":""}]`, 1), "data entries must not carry empty data"},
@@ -237,8 +237,8 @@ func TestPrehashedRequestIsGuardedBeforeRouting(t *testing.T) {
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			p := &countingProvider{}
-			stub := &stubPrehashed{}
-			srv := newTestServer(t, p, cryptography.WithPrehashedSigning(stub))
+			stub := &stubDataDigest{}
+			srv := newTestServer(t, p, cryptography.WithDataDigestSigning(stub))
 
 			rec := post(t, srv, signPath, c.body)
 
@@ -251,38 +251,38 @@ func TestPrehashedRequestIsGuardedBeforeRouting(t *testing.T) {
 	}
 }
 
-func TestPrehashedSignChecksEveryItem(t *testing.T) {
+func TestDataDigestSignChecksEveryItem(t *testing.T) {
 	digest := base64.StdEncoding.EncodeToString(make([]byte, 48))
 	short := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	body := strings.Replace(
-		prehashedSignBody(t, "synchronous", cryptography.SignatureAlgorithmSHA384WithECDSA, make([]byte, 48)),
+		dataDigestSignBody(t, "synchronous", cryptography.SignatureAlgorithmSHA384WithECDSA, make([]byte, 48)),
 		`"data":"`+digest+`"}]`, `"data":"`+digest+`"},{"identifier":"d-2","data":"`+short+`"}]`, 1)
 
-	assertPrehashedItemRefused(t, body, "data entries must be 48-byte digests for SHA384withECDSA")
+	assertDataDigestItemRefused(t, body, "data entries must be 48-byte digests for SHA384withECDSA")
 }
 
-func TestPrehashedSignRefusesAnItemThatIsNotBase64(t *testing.T) {
+func TestDataDigestSignRefusesAnItemThatIsNotBase64(t *testing.T) {
 	digest := base64.StdEncoding.EncodeToString(make([]byte, 48))
 	// The 48 bytes before the invalid character still decode, so only the
 	// decoding error tells this item apart from a valid SHA-384 digest.
 	body := strings.Replace(
-		prehashedSignBody(t, "synchronous", cryptography.SignatureAlgorithmSHA384WithECDSA, make([]byte, 48)),
+		dataDigestSignBody(t, "synchronous", cryptography.SignatureAlgorithmSHA384WithECDSA, make([]byte, 48)),
 		`"data":"`+digest+`"`, `"data":"`+digest+`!"`, 1)
 
-	assertPrehashedItemRefused(t, body, "data entries must be 48-byte digests for SHA384withECDSA")
+	assertDataDigestItemRefused(t, body, "data entries must be 48-byte digests for SHA384withECDSA")
 }
 
-func assertPrehashedItemRefused(t *testing.T, body, detail string) {
+func assertDataDigestItemRefused(t *testing.T, body, detail string) {
 	t.Helper()
-	stub := &stubPrehashed{resp: signedBatch()}
-	srv := newTestServer(t, &countingProvider{}, cryptography.WithPrehashedSigning(stub), features(mdl.FEATUREFLAG_PREHASHED_SIGNING))
+	stub := &stubDataDigest{resp: signedBatch()}
+	srv := newTestServer(t, &countingProvider{}, cryptography.WithDataDigestSigning(stub), features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))
 
 	rec := post(t, srv, signPath, body)
 
 	problem := assertProblem(t, rec, http.StatusUnprocessableEntity, "VALIDATION_FAILED")
 	assertDetail(t, problem, detail)
 	if stub.got != nil {
-		t.Fatal("prehashed provider was called for an invalid item")
+		t.Fatal("dataDigest provider was called for an invalid item")
 	}
 }
 
@@ -291,9 +291,9 @@ func TestInputModeTreatsAbsentAsData(t *testing.T) {
 	if got := cryptography.InputMode(absent); got != mdl.SIGNATUREINPUTMODE_DATA {
 		t.Errorf("InputMode(absent) = %q, want data", got)
 	}
-	prehashed := &mdl.SignDataRequestV2Dto{}
-	prehashed.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST)
-	if got := cryptography.InputMode(prehashed); got != mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST {
-		t.Errorf("InputMode(prehashed) = %q, want prehashedDigest", got)
+	dataDigest := &mdl.SignDataRequestV2Dto{}
+	dataDigest.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_DATA_DIGEST)
+	if got := cryptography.InputMode(dataDigest); got != mdl.SIGNATUREINPUTMODE_DATA_DIGEST {
+		t.Errorf("InputMode(dataDigest) = %q, want dataDigest", got)
 	}
 }
