@@ -44,14 +44,14 @@ func onlySignature(t *testing.T, resp *mdl.SignDataResponseV2Dto, err error) str
 	return resp.Signatures[0].Data
 }
 
-func TestPrehashedSignatureVerifiesAgainstTheMessage(t *testing.T) {
+func TestDataDigestSignatureVerifiesAgainstTheMessage(t *testing.T) {
 	store := NewStore(defaultAsyncOperationDelay)
 	ctx := context.Background()
 	keyMeta := rsaKeyMeta(t, store)
 	message := []byte("sign-me")
 	digest := sha512.Sum384(message)
 
-	resp, _, err := store.SignPrehashed(ctx, signRequestFor(keyMeta, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, digest[:]))
+	resp, _, err := store.SignDataDigest(ctx, signRequestFor(keyMeta, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, digest[:]))
 	signature := onlySignature(t, resp, err)
 
 	verified, err := store.VerifyData(ctx, &mdl.VerifyDataRequestV2Dto{
@@ -68,7 +68,7 @@ func TestPrehashedSignatureVerifiesAgainstTheMessage(t *testing.T) {
 	}
 }
 
-func TestALineWrappedPrehashedDigestVerifiesAgainstTheMessage(t *testing.T) {
+func TestALineWrappedDataDigestDigestVerifiesAgainstTheMessage(t *testing.T) {
 	store := NewStore(defaultAsyncOperationDelay)
 	ctx := context.Background()
 	keyMeta := rsaKeyMeta(t, store)
@@ -78,7 +78,7 @@ func TestALineWrappedPrehashedDigestVerifiesAgainstTheMessage(t *testing.T) {
 	encoded := req.Data[0].Data
 	req.Data[0].Data = encoded[:32] + "\r\n" + encoded[32:]
 
-	resp, _, err := store.SignPrehashed(ctx, req)
+	resp, _, err := store.SignDataDigest(ctx, req)
 	signature := onlySignature(t, resp, err)
 
 	verified, err := store.VerifyData(ctx, &mdl.VerifyDataRequestV2Dto{
@@ -121,8 +121,8 @@ func TestEveryModeSignsTheMessagesDigest(t *testing.T) {
 	message := []byte("sign-me")
 	digest := sha512.Sum384(message)
 
-	resp, _, err := store.SignPrehashed(ctx, signRequestFor(keyMeta, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, digest[:]))
-	prehashed := onlySignature(t, resp, err)
+	resp, _, err := store.SignDataDigest(ctx, signRequestFor(keyMeta, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, digest[:]))
+	dataDigest := onlySignature(t, resp, err)
 	resp, _, err = store.SignData(ctx, signRequestFor(keyMeta, mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, message))
 	synchronous := onlySignature(t, resp, err)
 	accepted, _, err := store.SignData(ctx, signRequestFor(keyMeta, mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS, message))
@@ -134,13 +134,13 @@ func TestEveryModeSignsTheMessagesDigest(t *testing.T) {
 		t.Fatalf("SignDataStatus: %v", err)
 	}
 
-	if synchronous != prehashed {
-		t.Errorf("data mode signed %q, prehashed mode %q: both must sign the message's digest", synchronous, prehashed)
+	if synchronous != dataDigest {
+		t.Errorf("data mode signed %q, dataDigest mode %q: both must sign the message's digest", synchronous, dataDigest)
 	}
 	if got := status.Items[0].Signature; got == nil {
 		t.Error("asynchronous data mode completed without a signature")
-	} else if *got != prehashed {
-		t.Errorf("asynchronous data mode signed %q, want %q", *got, prehashed)
+	} else if *got != dataDigest {
+		t.Errorf("asynchronous data mode signed %q, want %q", *got, dataDigest)
 	}
 }
 
