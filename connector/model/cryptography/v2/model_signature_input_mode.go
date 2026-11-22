@@ -16,19 +16,19 @@ import (
 	"fmt"
 )
 
-// SignatureInputMode Whether each data item is the data itself or its digest. A hash-then-sign algorithm computes a digest of the data and signs that digest, while a pure algorithm signs the data itself. The platform sends prehashedDigest for raw signing, where its caller has already computed the digest
+// SignatureInputMode Whether each data item is the data to be signed or its digest. Under data the signer applies the complete signature algorithm, including any hashing the algorithm defines. Under dataDigest each item is already the digest of the data, as the signature algorithm fixes it
 type SignatureInputMode string
 
 // List of SignatureInputMode
 const (
 	SIGNATUREINPUTMODE_DATA SignatureInputMode = "data"
-	SIGNATUREINPUTMODE_PREHASHED_DIGEST SignatureInputMode = "prehashedDigest"
+	SIGNATUREINPUTMODE_DATA_DIGEST SignatureInputMode = "dataDigest"
 )
 
 // All allowed values of SignatureInputMode enum
 var AllowedSignatureInputModeEnumValues = []SignatureInputMode{
 	"data",
-	"prehashedDigest",
+	"dataDigest",
 }
 
 func (v *SignatureInputMode) UnmarshalJSON(src []byte) error {

@@ -209,15 +209,15 @@ func WithKeyList(p KeyListProvider) Option {
 	}
 }
 
-// WithPrehashedSigning registers the provider that signs prehashed requests.
-// Without it a prehashed request is answered 422 PARAMETER_UNSUPPORTED. See
-// PrehashedSignProvider for the feature flag.
-func WithPrehashedSigning(p PrehashedSignProvider) Option {
+// WithDataDigestSigning registers the provider that signs dataDigest requests.
+// Without it a dataDigest request is answered 422 PARAMETER_UNSUPPORTED. See
+// DataDigestSignProvider for the feature flag.
+func WithDataDigestSigning(p DataDigestSignProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {
-			return errors.New("prehashed sign provider must not be nil")
+			return errors.New("data digest sign provider must not be nil")
 		}
-		h.prehashed = p
+		h.dataDigest = p
 		return nil
 	}
 }

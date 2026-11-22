@@ -217,9 +217,9 @@ func TestNewHandlerAcceptsTheTransferFeaturesWithTheirProviders(t *testing.T) {
 			}, async...),
 			want: []string{"asynchronous", "keyImport", "keyExport"},
 		},
-		"prehashed signing": {
-			opts: []cryptography.Option{features(mdl.FEATUREFLAG_PREHASHED_SIGNING), cryptography.WithPrehashedSigning(&stubPrehashed{})},
-			want: []string{"prehashedSigning"},
+		"data digest signing": {
+			opts: []cryptography.Option{features(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING), cryptography.WithDataDigestSigning(&stubDataDigest{})},
+			want: []string{"dataDigestSigning"},
 		},
 		"providers without their features": {
 			opts: []cryptography.Option{

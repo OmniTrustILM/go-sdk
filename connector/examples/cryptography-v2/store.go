@@ -335,18 +335,18 @@ var signatureDigests = map[cryptography.SignatureAlgorithm]func() hash.Hash{
 	cryptography.SignatureAlgorithmSHA512WithECDSA:  sha512.New,
 }
 
-// digestToSign is the base64 digest a signature over item covers. A prehashed
+// digestToSign is the base64 digest a signature over item covers. A dataDigest
 // item already is that digest and is signed without hashing it again, the step
 // a real signer must not repeat. A data item is hashed first, so a signature
 // over a digest the caller computed verifies against the message. Both are
 // re-encoded, because the decoder accepts line breaks the signed form must not
 // carry.
-func digestToSign(algorithm cryptography.SignatureAlgorithm, item string, prehashed bool) (string, error) {
+func digestToSign(algorithm cryptography.SignatureAlgorithm, item string, dataDigest bool) (string, error) {
 	data, err := base64.StdEncoding.DecodeString(item)
 	if err != nil {
 		return "", err
 	}
-	if prehashed {
+	if dataDigest {
 		return base64.StdEncoding.EncodeToString(data), nil
 	}
 	h := signatureDigests[algorithm]()
@@ -668,13 +668,13 @@ func (s *Store) SignData(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*m
 	return s.sign(req, false)
 }
 
-// SignPrehashed signs digests the caller has already computed, without hashing
+// SignDataDigest signs digests the caller has already computed, without hashing
 // them again.
-func (s *Store) SignPrehashed(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error) {
+func (s *Store) SignDataDigest(ctx context.Context, req *mdl.SignDataRequestV2Dto) (*mdl.SignDataResponseV2Dto, bool, error) {
 	return s.sign(req, true)
 }
 
-func (s *Store) sign(req *mdl.SignDataRequestV2Dto, prehashed bool) (*mdl.SignDataResponseV2Dto, bool, error) {
+func (s *Store) sign(req *mdl.SignDataRequestV2Dto, dataDigest bool) (*mdl.SignDataResponseV2Dto, bool, error) {
 	keyID, ok := metaID(req.KeyMeta)
 	if !ok {
 		return nil, false, cryptography.ErrKeyNotFound
@@ -693,7 +693,7 @@ func (s *Store) sign(req *mdl.SignDataRequestV2Dto, prehashed bool) (*mdl.SignDa
 	}
 	items := make([]signItem, len(req.Data))
 	for i, d := range req.Data {
-		digest, err := digestToSign(algorithm, d.Data, prehashed)
+		digest, err := digestToSign(algorithm, d.Data, dataDigest)
 		if err != nil {
 			return nil, false, cryptography.ErrInvalidRequest.WithProperty("identifier", d.Identifier)
 		}

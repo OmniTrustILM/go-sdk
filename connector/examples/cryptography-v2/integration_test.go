@@ -403,7 +403,7 @@ func TestCryptographyV2InfoAndHealth(t *testing.T) {
 	if idx < 0 {
 		t.Fatalf("/v2/info missing {cryptography, v2} interface: %+v", info.Interfaces)
 	}
-	for _, feature := range []string{"asynchronous", "prehashedSigning"} {
+	for _, feature := range []string{"asynchronous", "dataDigestSigning"} {
 		if !slices.Contains(info.Interfaces[idx].Features, feature) {
 			t.Errorf("cryptography interface features = %v, want to contain %q", info.Interfaces[idx].Features, feature)
 		}
@@ -671,12 +671,12 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 		itest.AssertStatus(t, resp, http.StatusOK)
 	})
 
-	t.Run("a key pair signs a prehashed digest", func(t *testing.T) {
+	t.Run("a key pair signs a data digest", func(t *testing.T) {
 		digest := sha256.Sum256([]byte("sign-me"))
 		req := signRequestWith(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta,
 			[]mdl.SignatureDataV2Dto{{Data: b64(string(digest[:])), Identifier: "item-1"}},
 			selecting(cryptography.SignatureAlgorithmSHA256WithECDSA))
-		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST)
+		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_DATA_DIGEST)
 
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: req})
 
@@ -697,10 +697,10 @@ func TestCryptographyV2SignatureAlgorithm(t *testing.T) {
 		}
 	})
 
-	t.Run("a prehashed item of the wrong length is refused", func(t *testing.T) {
+	t.Run("a dataDigest item of the wrong length is refused", func(t *testing.T) {
 		req := signRequestWith(mdl.OPERATIONEXECUTIONMODE_SYNCHRONOUS, pairMeta, item,
 			selecting(cryptography.SignatureAlgorithmSHA256WithECDSA))
-		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_PREHASHED_DIGEST)
+		req.SetSignatureInputMode(mdl.SIGNATUREINPUTMODE_DATA_DIGEST)
 
 		resp := h.Do(t, itest.Request{Method: http.MethodPost, Path: pathSign, Body: req})
 
