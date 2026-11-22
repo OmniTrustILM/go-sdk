@@ -215,7 +215,7 @@ func WithKeyList(p KeyListProvider) Option {
 func WithDataDigestSigning(p DataDigestSignProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {
-			return errors.New("dataDigest sign provider must not be nil")
+			return errors.New("data digest sign provider must not be nil")
 		}
 		h.dataDigest = p
 		return nil

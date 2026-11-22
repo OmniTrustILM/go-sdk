@@ -209,7 +209,7 @@ func TestDataDigestSigningFeatureRequiresTheProvider(t *testing.T) {
 func TestWithDataDigestSigningRejectsNil(t *testing.T) {
 	_, err := cryptography.NewHandler(&stubProvider{}, cryptography.WithDataDigestSigning(nil))
 
-	if err == nil || !strings.Contains(err.Error(), "dataDigest sign provider must not be nil") {
+	if err == nil || !strings.Contains(err.Error(), "data digest sign provider must not be nil") {
 		t.Fatalf("NewHandler error = %v, want the nil refusal", err)
 	}
 }
