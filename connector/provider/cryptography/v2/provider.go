@@ -53,6 +53,9 @@ type Provider interface {
 	//     CreateKeyAttributes. Non-equivalent reuse returns
 	//     ErrKeyCreationConflict.
 	//   - validate publicKeySpki's DER encoding and algorithm
+	//   - give a key pair's private half the AlgorithmIdentifier of its
+	//     publicKeySpki, byte for byte, and state its length when that
+	//     identifier carries no size, as for RSA
 	//   - validate MetadataAttribute
 	//
 	// A connector that cannot execute asynchronously must leave
@@ -257,6 +260,7 @@ type KeyListProvider interface {
 	//     return code or the attribute a key lacks
 	//   - leave PublicKeyData nil for a private key whose public object is
 	//     missing
+	//   - describe each private half as CreateKey does
 	//   - return metadata that every later request accepts, as CreateKey
 	//     does; a secret key's KeyMeta is its only identity, so it must equal
 	//     what CreateKey returned for it
