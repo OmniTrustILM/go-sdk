@@ -870,7 +870,7 @@ func TestOneOfKeyCreationResponse(t *testing.T) {
 				"keyRequestType":"keyPair",
 				"publicKeyData":{
 					"keyMeta":[],
-					"keyData":{"type":"Public","algorithm":"RSA","length":3072,"publicKeySpki":"MIIB"}
+					"keyData":{"type":"Public","algorithm":"RSA","publicKeySpki":"MIIB"}
 				},
 				"privateKeyData":{
 					"keyMeta":[],
@@ -964,7 +964,7 @@ func TestOneOfKeyDataV2(t *testing.T) {
 		},
 		{
 			name:       "Public",
-			payload:    `{"type":"Public","algorithm":"RSA","length":3072,"publicKeySpki":"MIIB"}`,
+			payload:    `{"type":"Public","algorithm":"RSA","publicKeySpki":"MIIB"}`,
 			newWrapper: func() oneOfWrapper { return &KeyDataV2{} },
 			wantType:   &PublicKeyDataV2Dto{},
 			discSubstr: []string{`"type":"Public"`},
@@ -1075,20 +1075,19 @@ func pinnedProperties() []pinnedProperty {
 			mismatched: PublicKeyDataV2Dto{
 				Type:          "Private",
 				Algorithm:     KEYALGORITHM_RSA,
-				Length:        new(int32(3072)),
 				PublicKeySpki: "MIIB",
 			},
 			decodeInto: func() interface{} { return &PublicKeyDataV2Dto{} },
-			badPayload: `{"type":"Private","algorithm":"RSA","length":3072,"publicKeySpki":"MIIB"}`,
+			badPayload: `{"type":"Private","algorithm":"RSA","publicKeySpki":"MIIB"}`,
 		},
 		{
 			name:        "SecretKeyDataV2Dto.type",
-			constructed: NewSecretKeyDataV2Dto(KEYALGORITHM_RSA).Type,
+			constructed: NewSecretKeyDataV2Dto(KEYALGORITHM_RSA, 2048).Type,
 			pinnedValue: "Secret",
 			mismatched: SecretKeyDataV2Dto{
 				Type:      "Private",
 				Algorithm: KEYALGORITHM_RSA,
-				Length:    new(int32(2048)),
+				Length:    2048,
 			},
 			decodeInto: func() interface{} { return &SecretKeyDataV2Dto{} },
 			badPayload: `{"type":"Private","algorithm":"RSA","length":2048}`,

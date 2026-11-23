@@ -24,7 +24,7 @@ var _ MappedNullable = &PublicKeyDataResponseV2Dto{}
 type PublicKeyDataResponseV2Dto struct {
 	// Connector-defined opaque public-key handle. Metadata must identify the key durably—it must remain valid across connector restarts and sessions; ephemeral handles must not be used.
 	KeyMeta []MetadataAttribute `json:"keyMeta"`
-	// Public-key descriptor, optionally carrying the public key as SPKI
+	// Public-key descriptor carrying the public key as DER SubjectPublicKeyInfo
 	KeyData PublicKeyDataV2Dto `json:"keyData"`
 }
 
