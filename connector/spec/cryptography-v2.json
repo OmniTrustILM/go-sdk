@@ -7803,7 +7803,7 @@
       "PublicKeyDataV2Dto": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Public-key descriptor carrying the public key as DER SubjectPublicKeyInfo",
+        "description": "Public-key descriptor carrying the public key as DER SubjectPublicKeyInfo. Algorithm Unknown accepts any parseable public SPKI and skips algorithm-family matching.",
         "properties": {
           "type": {
             "type": "string",
@@ -7816,6 +7816,12 @@
           "algorithm": {
             "$ref": "#/components/schemas/KeyAlgorithm",
             "description": "Cryptographic algorithm of the key"
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Key length in bits, as connectors released before 2.21.0 send it; ignored, since the platform reads the size from `publicKeySpki`",
+            "deprecated": true
           },
           "metadata": {
             "type": "array",
