@@ -225,7 +225,7 @@ func TestRenewalInfoInvalidWindowBecomesRetry(t *testing.T) {
 	if got := out.Results[3].GetRetryAfter(); got != 300 {
 		t.Errorf("retryAfter = %d, want the provider's 300 kept", got)
 	}
-	if noStart.Status != mdl.CERTIFICATERENEWALINFOSTATUSV3_AVAILABLE {
+	if stub.resp.Results[0].Status != mdl.CERTIFICATERENEWALINFOSTATUSV3_AVAILABLE {
 		t.Error("the provider's result was mutated")
 	}
 }
