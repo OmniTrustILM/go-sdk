@@ -608,9 +608,9 @@
           "422": {
             "description": "Invalid request, such as more than 50 items or a duplicate reference",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CertificateRenewalInfoResponseDtoV3"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -618,9 +618,9 @@
           "429": {
             "description": "Rate limited by the CA — Core backs the batch off",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CertificateRenewalInfoResponseDtoV3"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
@@ -628,9 +628,9 @@
           "503": {
             "description": "CA unavailable — Core backs the batch off",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CertificateRenewalInfoResponseDtoV3"
+                  "$ref": "#/components/schemas/ProblemDetailExtended"
                 }
               }
             }
