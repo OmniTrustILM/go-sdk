@@ -21,7 +21,7 @@ const (
 	eventRevokeStatus       = "revoke_status"
 	eventCancelRevoke       = "cancel_revoke"
 	eventIdentify           = "identify"
-	eventRenewalInfo        = "renewalInfo"
+	eventRenewalInfo        = "renewal_info"
 	eventCheckConnection    = "check_authority_connection"
 	eventGetCrl             = "get_crl"
 	eventGetCaCertificates  = "get_ca_certificates"

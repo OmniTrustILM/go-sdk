@@ -279,7 +279,7 @@ func TestRenewalInfoNilResponseEventFollowsProviderError(t *testing.T) {
 	if code, _ := postRenewalInfo(t, srv, renewalInfoBody("a")); code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", code)
 	}
-	if rec.events["renewalInfo/ok"] != 1 || rec.events["renewalInfo/error"] != 0 {
-		t.Errorf("events = %v, want exactly one renewalInfo/ok", rec.events)
+	if rec.events["renewal_info/ok"] != 1 || rec.events["renewal_info/error"] != 0 {
+		t.Errorf("events = %v, want exactly one renewal_info/ok", rec.events)
 	}
 }
