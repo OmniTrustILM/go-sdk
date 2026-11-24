@@ -19,6 +19,8 @@ type Option func(*Handler) error
 //	        handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS)),
 //	    ),
 //	    cryptography.WithAsyncKeys(p),
+//	    cryptography.WithAsyncSign(p),
+//	    cryptography.WithKeyList(p),
 //	)
 //
 // handlerbase.WithStrictDecode has no effect here: every v2 request DTO's
@@ -197,8 +199,8 @@ func WithKeyExport(p KeyExportProvider) Option {
 }
 
 // WithKeyList registers the provider backing the key listing and resolution
-// routes. When absent they answer 404 OPERATION_NOT_SUPPORTED. See
-// KeyListProvider for the feature flag.
+// routes. A handler advertising unlistableToken goes without it. Its routes
+// then answer 404 OPERATION_NOT_SUPPORTED.
 func WithKeyList(p KeyListProvider) Option {
 	return func(h *Handler) error {
 		if p == nil {

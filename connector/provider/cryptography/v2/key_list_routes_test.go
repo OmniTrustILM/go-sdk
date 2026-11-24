@@ -73,8 +73,21 @@ func newKeyListServer(t *testing.T, keyList *stubKeyList) http.Handler {
 	return newTestServer(t, &stubProvider{}, cryptography.WithKeyList(keyList))
 }
 
-func TestListKeysRenders404WithoutItsProvider(t *testing.T) {
-	srv := newTestServer(t, &stubProvider{})
+func unlistableToken() cryptography.Option {
+	return cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_UNLISTABLE_TOKEN)))
+}
+
+func newUnlistableServer(t *testing.T) http.Handler {
+	t.Helper()
+	h, err := cryptography.NewHandler(&stubProvider{}, unlistableToken())
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	return mount(t, h)
+}
+
+func TestListKeysRenders404OnAnUnlistableToken(t *testing.T) {
+	srv := newUnlistableServer(t)
 
 	problem := assertProblem(t, post(t, srv, listKeysPath, listKeysBody(listKeyPairs)),
 		http.StatusNotFound, "OPERATION_NOT_SUPPORTED")
@@ -84,12 +97,19 @@ func TestListKeysRenders404WithoutItsProvider(t *testing.T) {
 	}
 }
 
-func TestKeyListFeatureRequiresTheProvider(t *testing.T) {
-	_, err := cryptography.NewHandler(&stubProvider{},
-		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_KEY_LIST))))
+func TestListableTokenRequiresTheKeyListProvider(t *testing.T) {
+	_, err := cryptography.NewHandler(&stubProvider{})
 
 	if err == nil || !strings.Contains(err.Error(), "WithKeyList") {
 		t.Fatalf("NewHandler error = %v, want one naming WithKeyList", err)
+	}
+}
+
+func TestUnlistableTokenRefusesTheKeyListProvider(t *testing.T) {
+	_, err := cryptography.NewHandler(&stubProvider{}, unlistableToken(), cryptography.WithKeyList(&stubKeyList{}))
+
+	if err == nil || !strings.Contains(err.Error(), "advertised with WithKeyList") {
+		t.Fatalf("NewHandler error = %v, want one refusing WithKeyList alongside unlistableToken", err)
 	}
 }
 
@@ -382,8 +402,8 @@ func resolution(t *testing.T, results ...string) *mdl.ResolveKeysResponseV2Dto {
 	return &out
 }
 
-func TestResolveKeysRenders404WithoutItsProvider(t *testing.T) {
-	srv := newTestServer(t, &stubProvider{})
+func TestResolveKeysRenders404OnAnUnlistableToken(t *testing.T) {
+	srv := newUnlistableServer(t)
 
 	problem := assertProblem(t, post(t, srv, resolveKeysPath, resolveBody(resolvePairs, resolveHandle("a", "0a"))),
 		http.StatusNotFound, "OPERATION_NOT_SUPPORTED")

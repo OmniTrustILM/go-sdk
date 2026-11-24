@@ -408,6 +408,9 @@ func TestCryptographyV2InfoAndHealth(t *testing.T) {
 			t.Errorf("cryptography interface features = %v, want to contain %q", info.Interfaces[idx].Features, feature)
 		}
 	}
+	if slices.Contains(info.Interfaces[idx].Features, "unlistableToken") {
+		t.Errorf("cryptography interface features = %v, want no %q since the connector lists keys", info.Interfaces[idx].Features, "unlistableToken")
+	}
 
 	h.AssertLogsConform(t)
 }

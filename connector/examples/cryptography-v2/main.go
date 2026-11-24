@@ -72,7 +72,6 @@ func main() {
 			string(mdl.FEATUREFLAG_ASYNCHRONOUS),
 			string(mdl.FEATUREFLAG_KEY_IMPORT),
 			string(mdl.FEATUREFLAG_KEY_EXPORT),
-			string(mdl.FEATUREFLAG_KEY_LIST),
 			string(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING),
 		)),
 	)

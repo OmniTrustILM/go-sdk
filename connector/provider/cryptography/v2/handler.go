@@ -67,13 +67,16 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 }
 
 // requireFeatureProviders refuses an ENFORCED feature advertised without the
-// providers behind the routes Core then calls. FeatureFlag.ASYNCHRONOUS covers
+// providers behind the routes Core then calls, and unlistableToken advertised
+// alongside the listing it refuses. FeatureFlag.ASYNCHRONOUS covers
 // the whole interface: once advertised, Core may select asynchronous
 // execution for key creation, key destruction, signing and key import alike,
 // so every accepted operation needs its status and cancel routes served.
 func (h *Handler) requireFeatureProviders() error {
 	advertised := func(flag mdl.FeatureFlag) bool { return slices.Contains(h.Features, string(flag)) }
 	async := advertised(mdl.FEATUREFLAG_ASYNCHRONOUS)
+	unlistable := advertised(mdl.FEATUREFLAG_UNLISTABLE_TOKEN)
+	requiresKeyList := !unlistable
 	switch {
 	case async && (h.asyncKeys == nil || h.asyncSign == nil):
 		return errors.New("cryptography: asynchronous feature advertised without both WithAsyncKeys and WithAsyncSign")
@@ -83,8 +86,10 @@ func (h *Handler) requireFeatureProviders() error {
 		return errors.New("cryptography: asynchronous and keyImport features advertised without WithAsyncKeyImport")
 	case advertised(mdl.FEATUREFLAG_KEY_EXPORT) && h.keyExport == nil:
 		return errors.New("cryptography: keyExport feature advertised without WithKeyExport")
-	case advertised(mdl.FEATUREFLAG_KEY_LIST) && h.keyList == nil:
-		return errors.New("cryptography: keyList feature advertised without WithKeyList")
+	case requiresKeyList && h.keyList == nil:
+		return errors.New("cryptography: WithKeyList is required unless unlistableToken is advertised")
+	case unlistable && h.keyList != nil:
+		return errors.New("cryptography: unlistableToken feature advertised with WithKeyList registered")
 	case advertised(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING) && h.dataDigest == nil:
 		return errors.New("cryptography: dataDigestSigning feature advertised without WithDataDigestSigning")
 	}
