@@ -1,6 +1,7 @@
 package authority
 
 import (
+	"context"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/authority/v3"
@@ -20,6 +21,7 @@ const (
 	eventRevokeStatus       = "revoke_status"
 	eventCancelRevoke       = "cancel_revoke"
 	eventIdentify           = "identify"
+	eventRenewalInfo        = "renewalInfo"
 	eventCheckConnection    = "check_authority_connection"
 	eventGetCrl             = "get_crl"
 	eventGetCaCertificates  = "get_ca_certificates"
@@ -281,6 +283,42 @@ func (h *Handler) identify(w http.ResponseWriter, r *http.Request) {
 	if writeErr := shared.WriteJSON(w, http.StatusOK, out); writeErr != nil {
 		h.LoggerFor(r).Error("write identify response", "err", writeErr)
 	}
+}
+
+// POST /v3/authorityProvider/certificates/renewalInfo
+// 200 with one result per item (the status carries the per-item outcome) |
+// 422 invalid request.
+func (h *Handler) getRenewalInfo(w http.ResponseWriter, r *http.Request) {
+	var in mdl.CertificateRenewalInfoRequestDtoV3
+	if err := shared.DecodeJSON(w, r, &in, h.MaxBytes, h.Strict); err != nil {
+		shared.EmitEvent(r.Context(), eventRenewalInfo, err)
+		shared.RenderError(w, r, err)
+		return
+	}
+	out, err := h.lookUpRenewalInfo(r.Context(), &in)
+	if err != nil {
+		shared.RenderError(w, r, err)
+		return
+	}
+	if writeErr := shared.WriteJSON(w, http.StatusOK, sanitizeRenewalInfoResponse(h.LoggerFor(r), out)); writeErr != nil {
+		h.LoggerFor(r).Error("write renewalInfo response", "err", writeErr)
+	}
+}
+
+// lookUpRenewalInfo validates the batch, asks the provider and emits the
+// renewalInfo event with the provider's error. A nil response without an error
+// is then reported as ErrNilResponse, as in the other handlers.
+func (h *Handler) lookUpRenewalInfo(ctx context.Context, in *mdl.CertificateRenewalInfoRequestDtoV3) (*mdl.CertificateRenewalInfoResponseDtoV3, error) {
+	if err := validateRenewalInfoRequest(in); err != nil {
+		shared.EmitEvent(ctx, eventRenewalInfo, err)
+		return nil, err
+	}
+	out, err := h.renewalInfo.RenewalInfo(ctx, in)
+	shared.EmitEvent(ctx, eventRenewalInfo, err)
+	if err == nil && out == nil {
+		err = ErrNilResponse
+	}
+	return out, err
 }
 
 // --- Authority Management ----------------------------------------------------

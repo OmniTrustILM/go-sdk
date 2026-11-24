@@ -115,3 +115,15 @@ type Provider interface {
 	// identified by the request attributes.
 	GetCaCertificates(ctx context.Context, req *mdl.CaCertificatesRequestDtoV3) (*mdl.CaCertificatesResponseDtoV3, error)
 }
+
+// RenewalInfoProvider is the optional contract behind
+// POST /v3/authorityProvider/certificates/renewalInfo. A connector that
+// declares the certificateRenewalInfo feature flag implements it and registers
+// it with WithRenewalInfo.
+type RenewalInfoProvider interface {
+	// RenewalInfo answers one result per request item. The handler has already
+	// validated the request (1 to 50 items, unique references) and rewrites an
+	// available result with an invalid window to retry; answer retry for items
+	// not finished in time.
+	RenewalInfo(ctx context.Context, req *mdl.CertificateRenewalInfoRequestDtoV3) (*mdl.CertificateRenewalInfoResponseDtoV3, error)
+}
