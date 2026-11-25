@@ -84,7 +84,7 @@ func (s *stubProvider) RandomData(ctx context.Context, req *mdl.RandomDataReques
 }
 
 func TestInterfaceReportsCryptographyV2(t *testing.T) {
-	h, err := cryptography.NewHandler(&stubProvider{})
+	h, err := cryptography.NewHandler(&stubProvider{}, listing()...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
@@ -103,11 +103,11 @@ func TestInterfaceReportsCryptographyV2(t *testing.T) {
 }
 
 func TestInterfaceAdvertisesAsynchronousWhenConfigured(t *testing.T) {
-	h, err := cryptography.NewHandler(&stubProvider{},
+	h, err := cryptography.NewHandler(&stubProvider{}, listing(
 		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_ASYNCHRONOUS))),
 		cryptography.WithAsyncKeys(&stubAsyncKeys{}),
 		cryptography.WithAsyncSign(&stubAsyncSign{}),
-	)
+	)...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestNewHandlerRejectsAsynchronousFeatureWithoutBothAsyncProviders(t *testin
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := cryptography.NewHandler(&stubProvider{}, tc.opts...); err == nil {
+			if _, err := cryptography.NewHandler(&stubProvider{}, listing(tc.opts...)...); err == nil {
 				t.Fatal("expected an error when asynchronous is advertised without both WithAsyncKeys and WithAsyncSign")
 			}
 		})
@@ -143,7 +143,7 @@ func TestNewHandlerRejectsAsynchronousFeatureWithoutBothAsyncProviders(t *testin
 }
 
 func TestNewHandlerRejectsNilProvider(t *testing.T) {
-	if _, err := cryptography.NewHandler(nil); err == nil {
+	if _, err := cryptography.NewHandler(nil, listing()...); err == nil {
 		t.Fatal("expected an error for a nil provider")
 	}
 }
@@ -157,7 +157,7 @@ func TestNewHandlerRejectsNilImportAndExportProviders(t *testing.T) {
 		"WithExportKeyAttributes": cryptography.WithExportKeyAttributes(nil),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := cryptography.NewHandler(&stubProvider{}, option); err == nil {
+			if _, err := cryptography.NewHandler(&stubProvider{}, listing(option)...); err == nil {
 				t.Fatal("expected an error for a nil provider")
 			}
 		})
@@ -187,7 +187,7 @@ func TestNewHandlerRejectsATransferFeatureWithoutItsProvider(t *testing.T) {
 	}
 	for name, opts := range cases {
 		t.Run(name, func(t *testing.T) {
-			if _, err := cryptography.NewHandler(&stubProvider{}, opts...); err == nil {
+			if _, err := cryptography.NewHandler(&stubProvider{}, listing(opts...)...); err == nil {
 				t.Fatal("expected an error")
 			}
 		})
@@ -233,7 +233,7 @@ func TestNewHandlerAcceptsTheTransferFeaturesWithTheirProviders(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			h, err := cryptography.NewHandler(&stubProvider{}, tc.opts...)
+			h, err := cryptography.NewHandler(&stubProvider{}, listing(tc.opts...)...)
 			if err != nil {
 				t.Fatalf("NewHandler: %v", err)
 			}

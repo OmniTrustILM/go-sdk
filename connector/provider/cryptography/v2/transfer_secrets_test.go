@@ -19,7 +19,7 @@ const transferPhrase = "a phrase no log may show"
 // log record, whatever its level, to logs.
 func newLoggingServer(t *testing.T, logs *bytes.Buffer, opt cryptography.Option) http.Handler {
 	t.Helper()
-	h, err := cryptography.NewHandler(&stubProvider{}, opt)
+	h, err := cryptography.NewHandler(&stubProvider{}, listing(opt)...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}

@@ -25,7 +25,7 @@ type ConnectorInterfaceInfo struct {
 	Code ConnectorInterface `json:"code"`
 	// Version of the implemented connector interface
 	Version string `json:"version"`
-	// Features supported by the connector interface
+	// Feature flags the connector advertises for the interface: capabilities it supports and restrictions it declares
 	Features []FeatureFlag `json:"features,omitempty"`
 	AdditionalProperties map[string]interface{}
 }

@@ -16,8 +16,9 @@ import (
 )
 
 // Provider is the surface every v2 cryptography connector implements. A
-// synchronous-only connector implements these nine methods and always returns
-// accepted == false; attribute schemas and async status/cancel live in separate
+// synchronous-only connector implements these nine methods, always returns
+// accepted == false, and also implements KeyListProvider unless it advertises
+// unlistableToken; attribute schemas and async status/cancel live in separate
 // interfaces.
 //
 // The handler rejects empty and duplicate-bearing batch lists with 422 before
@@ -243,8 +244,8 @@ type DataDigestSignProvider interface {
 }
 
 // KeyListProvider lets the platform onboard the keys a token already holds.
-// Register it with WithKeyList and advertise FeatureFlag.KEY_LIST, an
-// ENFORCED flag.
+// Every handler registers it with WithKeyList unless it advertises
+// mdl.FEATUREFLAG_UNLISTABLE_TOKEN, an ENFORCED flag.
 type KeyListProvider interface {
 	// ListKeys returns one full page of the token's keys of req.KeyRequestType,
 	// at most req.Limit of them after skipping req.Offset. Implementers must:

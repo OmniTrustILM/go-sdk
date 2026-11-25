@@ -6526,7 +6526,7 @@
           },
           "features": {
             "type": "array",
-            "description": "Features supported by the connector interface",
+            "description": "Feature flags the connector advertises for the interface: capabilities it supports and restrictions it declares",
             "items": {
               "$ref": "#/components/schemas/FeatureFlag"
             }
@@ -6545,7 +6545,7 @@
           "asynchronous",
           "keyImport",
           "keyExport",
-          "keyList",
+          "unlistableToken",
           "dataDigestSigning",
           "secretVersioning",
           "secretRotation",

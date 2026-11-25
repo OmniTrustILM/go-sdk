@@ -26,7 +26,7 @@ const (
 	FEATUREFLAG_ASYNCHRONOUS FeatureFlag = "asynchronous"
 	FEATUREFLAG_KEY_IMPORT FeatureFlag = "keyImport"
 	FEATUREFLAG_KEY_EXPORT FeatureFlag = "keyExport"
-	FEATUREFLAG_KEY_LIST FeatureFlag = "keyList"
+	FEATUREFLAG_UNLISTABLE_TOKEN FeatureFlag = "unlistableToken"
 	FEATUREFLAG_DATA_DIGEST_SIGNING FeatureFlag = "dataDigestSigning"
 	FEATUREFLAG_SECRET_VERSIONING FeatureFlag = "secretVersioning"
 	FEATUREFLAG_SECRET_ROTATION FeatureFlag = "secretRotation"
@@ -51,7 +51,7 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"asynchronous",
 	"keyImport",
 	"keyExport",
-	"keyList",
+	"unlistableToken",
 	"dataDigestSigning",
 	"secretVersioning",
 	"secretRotation",

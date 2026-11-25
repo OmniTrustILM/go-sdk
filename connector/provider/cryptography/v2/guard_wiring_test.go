@@ -382,7 +382,7 @@ type recordingMetrics struct{ events map[string]int }
 // newMeteredServer is newTestServer with mc recording connector events.
 func newMeteredServer(t *testing.T, p cryptography.Provider, mc *recordingMetrics, opts ...cryptography.Option) http.Handler {
 	t.Helper()
-	h, err := cryptography.NewHandler(p, opts...)
+	h, err := cryptography.NewHandler(p, listing(opts...)...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}

@@ -15,10 +15,21 @@ import (
 // this helper, so its signature is load-bearing beyond this file.
 func newTestServer(t *testing.T, p cryptography.Provider, opts ...cryptography.Option) http.Handler {
 	t.Helper()
-	h, err := cryptography.NewHandler(p, opts...)
+	h, err := cryptography.NewHandler(p, listing(opts...)...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
+	return mount(t, h)
+}
+
+// listing registers an empty key-list stub ahead of opts, which may replace it.
+// Every connector without unlistableToken must list keys.
+func listing(opts ...cryptography.Option) []cryptography.Option {
+	return append([]cryptography.Option{cryptography.WithKeyList(&stubKeyList{})}, opts...)
+}
+
+func mount(t *testing.T, h *cryptography.Handler) http.Handler {
+	t.Helper()
 	c, err := shared.New(
 		shared.WithInfo(shared.Info{ID: "a", Name: "a", Version: "0.0.1"}),
 		shared.Register(h),
@@ -94,7 +105,7 @@ func TestOptionsRejectNilProviders(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := cryptography.NewHandler(&stubProvider{}, tc.opt); err == nil {
+			if _, err := cryptography.NewHandler(&stubProvider{}, listing(tc.opt)...); err == nil {
 				t.Errorf("%s(nil) should error", tc.name)
 			}
 		})

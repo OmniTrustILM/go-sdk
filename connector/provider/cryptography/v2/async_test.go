@@ -753,7 +753,7 @@ func TestStatusAndCancelRoutesRejectMissingOperationMeta(t *testing.T) {
 
 func TestMountRegistersEveryRoute(t *testing.T) {
 	for name, opts := range map[string][]cryptography.Option{
-		"without sub-interfaces": nil,
+		"without sub-interfaces": {unlistableToken()},
 		"fully configured": {
 			cryptography.WithAsyncKeys(&stubAsyncKeys{}),
 			cryptography.WithAsyncSign(&stubAsyncSign{}),

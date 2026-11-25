@@ -199,7 +199,7 @@ func TestDataAndAbsentModeReachSignData(t *testing.T) {
 
 func TestDataDigestSigningFeatureRequiresTheProvider(t *testing.T) {
 	_, err := cryptography.NewHandler(&stubProvider{},
-		cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))))
+		listing(cryptography.Base(handlerbase.WithFeatures(string(mdl.FEATUREFLAG_DATA_DIGEST_SIGNING))))...)
 
 	if err == nil || !strings.Contains(err.Error(), "WithDataDigestSigning") {
 		t.Fatalf("NewHandler error = %v, want one naming WithDataDigestSigning", err)
