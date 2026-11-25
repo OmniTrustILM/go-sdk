@@ -25,7 +25,7 @@ type CertificateRenewalInfoRequestDtoV3 struct {
 	AuthorityAttributes []RequestAttribute `json:"authorityAttributes"`
 	// RA profile attributes
 	RaProfileAttributes []RequestAttribute `json:"raProfileAttributes"`
-	// Certificates to look up, 1 to 50 per request; references must be unique
+	// Certificates to look up, 1 to 50 per request. Each `reference` must be unique within the request.
 	Certificates []CertificateRenewalInfoRequestItemDtoV3 `json:"certificates"`
 	AdditionalProperties map[string]interface{}
 }

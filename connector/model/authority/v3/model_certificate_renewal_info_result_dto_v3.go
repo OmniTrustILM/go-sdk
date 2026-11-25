@@ -26,15 +26,15 @@ type CertificateRenewalInfoResultDtoV3 struct {
 	Reference string `json:"reference"`
 	// Outcome for the certificate
 	Status CertificateRenewalInfoStatusV3 `json:"status"`
-	// Start of the window in which the CA advises renewing. Required when status=available; a start in the past means renew now
+	// Start of the window in which the CA advises renewing. Required when `status` is `available`. A start in the past means renew now.
 	WindowStart *time.Time `json:"windowStart,omitempty"`
-	// End of the renewal window, after windowStart. Required when status=available
+	// End of the renewal window, after `windowStart`. Required when `status` is `available`.
 	WindowEnd *time.Time `json:"windowEnd,omitempty"`
 	// URL of a page explaining the CA's advice
 	ExplanationUrl *string `json:"explanationUrl,omitempty"`
 	// Seconds until Core should ask again for this certificate
 	RetryAfter *int32 `json:"retryAfter,omitempty"`
-	// Curated explanation text, never a raw exception message
+	// Human-readable explanation of the outcome. Must not contain raw internal error messages.
 	Reason *string `json:"reason,omitempty"`
 	AdditionalProperties map[string]interface{}
 }

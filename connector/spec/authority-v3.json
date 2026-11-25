@@ -582,7 +582,7 @@
           "Certificate Management v3"
         ],
         "summary": "Get certificate renewal information",
-        "description": "Return the CA's advised renewal window for a batch of 1 to 50 certificates. Optional endpoint, served only by connectors that declare the certificateRenewalInfo feature flag (FeatureFlag.CERTIFICATE_RENEWAL_INFO). Called only by the Core refresh job.",
+        "description": "Return the CA's advised renewal window for a batch of 1 to 50 certificates.\n\nOptional endpoint. Only connectors that declare the `certificateRenewalInfo` feature flag serve it. Only the Core refresh job calls it.",
         "operationId": "renewalInfo",
         "requestBody": {
           "content": {
@@ -596,7 +596,7 @@
         },
         "responses": {
           "200": {
-            "description": "Batch processed; per-item outcome is in the result statuses",
+            "description": "Batch processed. The outcome of each item is in the `status` of its result.",
             "content": {
               "application/json": {
                 "schema": {
@@ -606,7 +606,7 @@
             }
           },
           "422": {
-            "description": "Invalid request, such as more than 50 items or a duplicate reference",
+            "description": "Invalid request, such as more than 50 items or a duplicate `reference`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6669,7 +6669,7 @@
           },
           "certificates": {
             "type": "array",
-            "description": "Certificates to look up, 1 to 50 per request; references must be unique",
+            "description": "Certificates to look up, 1 to 50 per request. Each `reference` must be unique within the request.",
             "items": {
               "$ref": "#/components/schemas/CertificateRenewalInfoRequestItemDtoV3"
             },
@@ -6716,12 +6716,12 @@
           "retryAfter": {
             "type": "integer",
             "format": "int32",
-            "description": "Default seconds until Core should ask again, for results without their own retryAfter",
+            "description": "Default number of seconds until Core should ask again. Applies to results without their own `retryAfter`.",
             "minimum": 0
           },
           "results": {
             "type": "array",
-            "description": "One result per request item; an item missing here is treated as retry",
+            "description": "One result per request item. Core treats a missing item as status `retry`.",
             "items": {
               "$ref": "#/components/schemas/CertificateRenewalInfoResultDtoV3"
             }
@@ -6745,12 +6745,12 @@
           "windowStart": {
             "type": "string",
             "format": "date-time",
-            "description": "Start of the window in which the CA advises renewing. Required when status=available; a start in the past means renew now"
+            "description": "Start of the window in which the CA advises renewing. Required when `status` is `available`. A start in the past means renew now."
           },
           "windowEnd": {
             "type": "string",
             "format": "date-time",
-            "description": "End of the renewal window, after windowStart. Required when status=available"
+            "description": "End of the renewal window, after `windowStart`. Required when `status` is `available`."
           },
           "explanationUrl": {
             "type": "string",
@@ -6764,7 +6764,7 @@
           },
           "reason": {
             "type": "string",
-            "description": "Curated explanation text, never a raw exception message"
+            "description": "Human-readable explanation of the outcome. Must not contain raw internal error messages."
           }
         },
         "required": [

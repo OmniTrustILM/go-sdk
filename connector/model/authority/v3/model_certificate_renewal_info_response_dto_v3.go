@@ -21,9 +21,9 @@ var _ MappedNullable = &CertificateRenewalInfoResponseDtoV3{}
 
 // CertificateRenewalInfoResponseDtoV3 struct for CertificateRenewalInfoResponseDtoV3
 type CertificateRenewalInfoResponseDtoV3 struct {
-	// Default seconds until Core should ask again, for results without their own retryAfter
+	// Default number of seconds until Core should ask again. Applies to results without their own `retryAfter`.
 	RetryAfter *int32 `json:"retryAfter,omitempty"`
-	// One result per request item; an item missing here is treated as retry
+	// One result per request item. Core treats a missing item as status `retry`.
 	Results []CertificateRenewalInfoResultDtoV3 `json:"results"`
 	AdditionalProperties map[string]interface{}
 }
