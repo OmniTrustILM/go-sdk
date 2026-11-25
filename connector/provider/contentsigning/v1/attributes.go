@@ -65,18 +65,27 @@ func (v Values) merge(list []mdl.RequestAttribute, allowed map[string]definition
 			return AttributesRejected("attribute %q is sent more than once", name)
 		}
 		seen[name] = true
-		if a.RequestAttributeV3 == nil {
-			return AttributesRejected("attribute %q must use schema version v3", name)
-		}
-		if got := a.RequestAttributeV3.ContentType; got != def.ContentType {
-			return AttributesRejected("attribute %q has content type %q, want %q", name, got, def.ContentType)
-		}
-		for _, c := range a.RequestAttributeV3.Content {
-			if got := contentTypeOf(c); got != def.ContentType {
-				return AttributesRejected("attribute %q has content of type %q, want %q", name, got, def.ContentType)
-			}
+		if err := checkValue(name, a.RequestAttributeV3, def); err != nil {
+			return err
 		}
 		v[name] = a.RequestAttributeV3.Content
+	}
+	return nil
+}
+
+// checkValue checks that a value uses schema v3 and that it and every content
+// item carry the content type of its definition.
+func checkValue(name string, a *mdl.RequestAttributeV3, def definition) error {
+	if a == nil {
+		return AttributesRejected("attribute %q must use schema version v3", name)
+	}
+	if a.ContentType != def.ContentType {
+		return AttributesRejected("attribute %q has content type %q, want %q", name, a.ContentType, def.ContentType)
+	}
+	for _, c := range a.Content {
+		if got := contentTypeOf(c); got != def.ContentType {
+			return AttributesRejected("attribute %q has content of type %q, want %q", name, got, def.ContentType)
+		}
 	}
 	return nil
 }

@@ -99,7 +99,7 @@ func collectAttributes(in SignedAttributesInput) ([]Attribute, error) {
 }
 
 // appendExtra adds the caller's attributes, refusing empty ones and any type already present.
-func appendExtra(attrs []Attribute, extra []Attribute) ([]Attribute, error) {
+func appendExtra(attrs, extra []Attribute) ([]Attribute, error) {
 	seen := make(map[string]bool, len(attrs)+len(extra))
 	for _, oid := range []asn1.ObjectIdentifier{oidAttrContentType, oidAttrMessageDigest, oidAttrSigningTime} {
 		seen[oid.String()] = true

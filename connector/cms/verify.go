@@ -50,7 +50,7 @@ func verifyRSA(alg Algorithm, pub *rsa.PublicKey, digest, signature []byte) erro
 	if alg.Signature.Algorithm.Equal(oidRSAPSS) {
 		err = rsa.VerifyPSS(pub, alg.Hash, digest, signature, &rsa.PSSOptions{SaltLength: alg.Hash.Size()})
 	} else {
-		err = rsa.VerifyPKCS1v15(pub, alg.Hash, digest, signature)
+		err = rsa.VerifyPKCS1v15(pub, alg.Hash, digest, signature) // NOSONAR - verifies an RFC 5754 sha*WithRSAEncryption signature; nothing is encrypted
 	}
 	if err != nil {
 		return fmt.Errorf("%w: %v", errBadSignature, err)
