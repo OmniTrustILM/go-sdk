@@ -5,8 +5,7 @@ Run `go run ./connector/examples/contentsigning-v1` from the SDK repository root
 
 The connector advertises `contentSigningFormatting/v1` with v2 info and health
 endpoints and the SDK metrics endpoint. It serves one signature family, `demo`,
-at the `signed` level, with `inline` document transfer and no restriction on the
-signature algorithm.
+at the `signed` level, with `inline` document transfer.
 
 The family has no real format. It declares one profile attribute of
 `computeDtbs`, `prefix` (a required string), accepts the signature algorithm
