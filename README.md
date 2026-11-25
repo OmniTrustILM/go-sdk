@@ -7,7 +7,7 @@ It provides the two things a connector author would otherwise hand-roll:
 - **Contract types** — Go DTOs for every connector interface, generated from the platform's OpenAPI specs (`connector/model/<interface>/<version>`) and patched for correct polymorphic (`oneOf`) JSON round-tripping.
 - **Server scaffolding** — `connector/shared` gives you the HTTP server, `/v2/info` + `/v2/health`, RFC 9457 problem responses, structured `connector.log` logging with W3C trace/correlation context, a small router, and an optional Prometheus `/v1/metrics` endpoint (enabled with `WithMetrics`). `connector/provider/<interface>/<version>` turns your business logic (a `Provider` interface you implement) into the interface's routes.
 
-Supported provider interfaces: `authority`, `compliance`, `credential`, `cryptography`, `discovery`, `entity`, `notification`, `secret`, plus the connector-global Attributes v2 surface (`attributes`). One connector process can register several.
+Supported provider interfaces: `authority`, `compliance`, `contentSigningFormatting`, `credential`, `cryptography`, `discovery`, `entity`, `notification`, `secret`, plus the connector-global Attributes v2 surface (`attributes`). One connector process can register several.
 
 Requires **Go 1.26.5+**. Build with the patch release that the `toolchain` directive in `go.mod` requests, unless `GOTOOLCHAIN` overrides it: earlier 1.26 patches ship standard-library vulnerabilities that `govulncheck` reports for anything built with them.
 
@@ -71,6 +71,8 @@ Runnable reference connectors live under [`connector/examples/`](connector/examp
 ```sh
 go run ./connector/examples/secret-v1
 ```
+
+The [`contentsigning-v1` example](connector/examples/contentsigning-v1) serves the `contentSigningFormatting` interface with a demo signature family at the signed level.
 
 They double as the SDK's integration-test suite (see `connector/examples/internal/itest`).
 

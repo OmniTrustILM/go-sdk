@@ -164,6 +164,7 @@ var (
 		"PARAMETER_UNSUPPORTED":        {category: CategoryConnector, retryable: false},
 		"SIGNATURE_PLACEMENT_REJECTED": {category: CategoryConnector, retryable: false},
 		"DOCUMENT_SIGNING_FORBIDDEN":   {category: CategoryConnector, retryable: false},
+		"ATTRIBUTES_REJECTED":          {category: CategoryConnector, retryable: false},
 
 		// connector/authority, non-retryable
 		"CSR_MALFORMED":            {category: CategoryConnector, iface: ifaceAuthority, retryable: false},
