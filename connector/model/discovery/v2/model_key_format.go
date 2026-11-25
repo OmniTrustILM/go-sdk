@@ -26,6 +26,7 @@ const (
 	KEYFORMAT_PRIVATE_KEY_INFO KeyFormat = "PrivateKeyInfo"
 	KEYFORMAT_ENCRYPTED_PRIVATE_KEY_INFO KeyFormat = "EncryptedPrivateKeyInfo"
 	KEYFORMAT_CUSTOM KeyFormat = "Custom"
+	KEYFORMAT_ALGORITHM_IDENTIFIER KeyFormat = "AlgorithmIdentifier"
 )
 
 // All allowed values of KeyFormat enum
@@ -35,6 +36,7 @@ var AllowedKeyFormatEnumValues = []KeyFormat{
 	"PrivateKeyInfo",
 	"EncryptedPrivateKeyInfo",
 	"Custom",
+	"AlgorithmIdentifier",
 }
 
 func (v *KeyFormat) UnmarshalJSON(src []byte) error {

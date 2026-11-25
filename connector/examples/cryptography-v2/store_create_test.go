@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -54,6 +55,99 @@ func TestCreateKeyReplaysAnRSAPair(t *testing.T) {
 	if len(store.keys) != 1 {
 		t.Errorf("the store holds %d keys, want 1", len(store.keys))
 	}
+}
+
+const (
+	rsaEncryptionIdentifier = "MA0GCSqGSIb3DQEBAQUA"
+	p256Identifier          = "MBMGByqGSM49AgEGCCqGSM49AwEH"
+)
+
+// A pair's private half carries the SPKI's AlgorithmIdentifier and a length
+// only for RSA. The RSA identifier leaves the modulus size out.
+func TestCreateKeyDescribesThePrivateKeyParameters(t *testing.T) {
+	cases := map[mdl.KeyAlgorithm]struct {
+		identifier string
+		length     string
+	}{
+		mdl.KEYALGORITHM_RSA:   {rsaEncryptionIdentifier, "2048"},
+		mdl.KEYALGORITHM_ECDSA: {p256Identifier, "absent"},
+	}
+	for algorithm, want := range cases {
+		for response, privateDescriptor := range privateDescriptorReaders {
+			t.Run(string(algorithm)+"/"+response, func(t *testing.T) {
+				private := privateDescriptor(t, NewStore(0), algorithm)
+				if got := private.GetAlgorithmIdentifier(); got != want.identifier {
+					t.Errorf("private algorithmIdentifier = %q, want %q", got, want.identifier)
+				}
+				if got := statedLength(private.Length); got != want.length {
+					t.Errorf("private length = %s, want %s", got, want.length)
+				}
+			})
+		}
+	}
+}
+
+var privateDescriptorReaders = map[string]func(*testing.T, *Store, mdl.KeyAlgorithm) mdl.PrivateKeyDataV2Dto{
+	"CreateKey": func(t *testing.T, s *Store, algorithm mdl.KeyAlgorithm) mdl.PrivateKeyDataV2Dto {
+		return createdPair(t, s, algorithm).PrivateKeyData.KeyData
+	},
+	"CreateKeyStatus": func(t *testing.T, s *Store, algorithm mdl.KeyAlgorithm) mdl.PrivateKeyDataV2Dto {
+		req := keyPairRequest("creation-1", algorithm)
+		req.ExecutionMode = mdl.OPERATIONEXECUTIONMODE_ASYNCHRONOUS
+		accepted, _, err := s.CreateKey(context.Background(), req)
+		if err != nil {
+			t.Fatalf("CreateKey: %v", err)
+		}
+		status, err := s.CreateKeyStatus(context.Background(), &mdl.OperationTrackingRequestV2Dto{
+			OperationMeta: accepted.KeyPairDataResponseV2Dto.OperationMeta,
+		})
+		if err != nil {
+			t.Fatalf("CreateKeyStatus: %v", err)
+		}
+		result := status.KeyPairOperationStatusResponseV2Dto.Result
+		if result == nil {
+			t.Fatalf("status %s carries no result", status.KeyPairOperationStatusResponseV2Dto.Status)
+		}
+		return result.PrivateKeyData.KeyData
+	},
+	"ListKeys": func(t *testing.T, s *Store, algorithm mdl.KeyAlgorithm) mdl.PrivateKeyDataV2Dto {
+		createdPair(t, s, algorithm)
+		page, err := s.ListKeys(context.Background(), pairListing(0, 10))
+		if err != nil {
+			t.Fatalf("ListKeys: %v", err)
+		}
+		if len(page.Items) != 1 {
+			t.Fatalf("ListKeys listed %d pairs, want 1", len(page.Items))
+		}
+		return page.Items[0].Key.ListedKeyPairV2Dto.PrivateKeyData.KeyData
+	},
+	"ResolveKeys": func(t *testing.T, s *Store, algorithm mdl.KeyAlgorithm) mdl.PrivateKeyDataV2Dto {
+		created := createdPair(t, s, algorithm)
+		out, err := s.ResolveKeys(context.Background(), resolution(mdl.KeyHandleV2Dto{Identifier: "a", KeyMeta: created.KeyPairMeta}))
+		if err != nil {
+			t.Fatalf("ResolveKeys: %v", err)
+		}
+		if len(out.Results) != 1 || out.Results[0].Key == nil {
+			t.Fatalf("results = %+v, want one found pair", out.Results)
+		}
+		return out.Results[0].Key.ListedKeyPairV2Dto.PrivateKeyData.KeyData
+	},
+}
+
+func createdPair(t *testing.T, s *Store, algorithm mdl.KeyAlgorithm) *mdl.KeyPairDataResponseV2Dto {
+	t.Helper()
+	out, _, err := s.CreateKey(context.Background(), keyPairRequest("creation-1", algorithm))
+	if err != nil {
+		t.Fatalf("CreateKey: %v", err)
+	}
+	return out.KeyPairDataResponseV2Dto
+}
+
+func statedLength(length *int32) string {
+	if length == nil {
+		return "absent"
+	}
+	return strconv.Itoa(int(*length))
 }
 
 func TestConcurrentCreateKeysWithOneKeyCreationIdCreateOneKey(t *testing.T) {

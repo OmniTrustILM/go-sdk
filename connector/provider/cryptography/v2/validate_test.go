@@ -274,14 +274,14 @@ func TestValidateKeyCreationShape(t *testing.T) {
 	secretComplete := &mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 			KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-			KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
+			KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256),
 			KeyMeta:        []mdl.MetadataAttribute{{MetadataAttributeV2: &mdl.MetadataAttributeV2{}}},
 		},
 	}
 	secretPartial := &mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 			KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-			KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048), // KeyMeta missing
+			KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256), // KeyMeta missing
 		},
 	}
 	secretAccepted := &mdl.KeyCreationResponse{
@@ -344,7 +344,7 @@ func TestValidateKeyCreationShape(t *testing.T) {
 	// contract violation.
 	noDiscriminator := &mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
-			KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
+			KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256),
 			KeyMeta: []mdl.MetadataAttribute{{MetadataAttributeV2: &mdl.MetadataAttributeV2{}}},
 		},
 	}
@@ -543,7 +543,7 @@ func TestKeyCreationHasPayload(t *testing.T) {
 		t.Error("neither variant set: want false")
 	}
 	if !keyCreationHasPayload(&mdl.KeyCreationResponse{
-		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048)},
+		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256)},
 	}) {
 		t.Error("secret arm with KeyData only: want true (OR)")
 	}
@@ -581,7 +581,7 @@ func TestKeyCreationHasPayload(t *testing.T) {
 
 func TestValidateKeyCreationPayload(t *testing.T) {
 	const incomplete = "key creation completed synchronously must carry a result payload"
-	secretKey := func() *mdl.SecretKeyDataV2Dto { return newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048) }
+	secretKey := func() *mdl.SecretKeyDataV2Dto { return mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256) }
 
 	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{}, "key creation completed synchronously"), incomplete)
 	wantResponseShapeError(t, validateKeyCreationPayload(&mdl.KeyCreationResponse{
@@ -622,7 +622,7 @@ func keyPair(mutate func(*mdl.KeyPairDataResponseV2Dto)) *mdl.KeyPairDataRespons
 		KeyPairMeta:    []mdl.MetadataAttribute{metaAttr()},
 		PublicKeyData: &mdl.PublicKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metaAttr()},
-			KeyData: *newPublicKeyData(mdl.KEYALGORITHM_RSA, 2048, "AA=="),
+			KeyData: *mdl.NewPublicKeyDataV2Dto(mdl.KEYALGORITHM_RSA, "AA=="),
 		},
 		PrivateKeyData: &mdl.PrivateKeyDataResponseV2Dto{
 			KeyMeta: []mdl.MetadataAttribute{metaAttr()},
@@ -633,38 +633,11 @@ func keyPair(mutate func(*mdl.KeyPairDataResponseV2Dto)) *mdl.KeyPairDataRespons
 	return v
 }
 
-// TestValidateKeyDescriptorLength pins the spec's length rule: required for
-// RSA, ECDSA and AES, optional for every other algorithm, positive when set.
-func TestValidateKeyDescriptorLength(t *testing.T) {
-	cases := []struct {
-		algorithm  mdl.KeyAlgorithm
-		length     *int32
-		wantDetail string
-	}{
-		{mdl.KEYALGORITHM_RSA, new(int32(2048)), ""},
-		{mdl.KEYALGORITHM_RSA, nil, "keyData must carry a key length for RSA keys"},
-		{mdl.KEYALGORITHM_ECDSA, nil, "keyData must carry a key length for ECDSA keys"},
-		{mdl.KEYALGORITHM_AES, nil, "keyData must carry a key length for AES keys"},
-		{mdl.KEYALGORITHM_AES, new(int32(0)), "keyData must carry a positive key length"},
-		{mdl.KEYALGORITHM_ML_DSA, nil, ""},
-		{mdl.KEYALGORITHM_ML_KEM, nil, ""},
-		{mdl.KEYALGORITHM_FALCON, new(int32(512)), ""},
-		{mdl.KEYALGORITHM_SLH_DSA, new(int32(-1)), "keyData must carry a positive key length"},
-	}
-	for _, tc := range cases {
-		got := "nil"
-		if tc.length != nil {
-			got = strconv.Itoa(int(*tc.length))
-		}
-		t.Run(string(tc.algorithm)+"/"+got, func(t *testing.T) {
-			err := validateKeyDescriptor(keyTypeSecret, keyTypeSecret, tc.algorithm, tc.length, "keyData")
-			if tc.wantDetail == "" {
-				wantNoError(t, err)
-				return
-			}
-			wantResponseShapeError(t, err, tc.wantDetail)
-		})
-	}
+func ecdsaKeyPair(v *mdl.KeyPairDataResponseV2Dto) {
+	v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
+	v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
+	v.PrivateKeyData.KeyData.Length = nil
+	v.PrivateKeyData.KeyData.SetAlgorithmIdentifier(p256Identifier)
 }
 
 func TestValidateKeyPairPayload(t *testing.T) {
@@ -680,15 +653,12 @@ func TestValidateKeyPairPayload(t *testing.T) {
 		{"private keyMeta missing", func(v *mdl.KeyPairDataResponseV2Dto) {
 			v.PrivateKeyData.KeyMeta = nil
 		}, "key creation completed synchronously must carry a result payload"},
-		{"public length not positive", func(v *mdl.KeyPairDataResponseV2Dto) {
-			v.PublicKeyData.KeyData.Length = new(int32(0))
-		}, "publicKeyData.keyData must carry a positive key length"},
 		{"private length not positive", func(v *mdl.KeyPairDataResponseV2Dto) {
 			v.PrivateKeyData.KeyData.Length = new(int32(0))
 		}, "privateKeyData.keyData must carry a positive key length"},
-		{"public length negative", func(v *mdl.KeyPairDataResponseV2Dto) {
-			v.PublicKeyData.KeyData.Length = new(int32(-1))
-		}, "publicKeyData.keyData must carry a positive key length"},
+		{"RSA without a private length", func(v *mdl.KeyPairDataResponseV2Dto) {
+			v.PrivateKeyData.KeyData.Length = nil
+		}, ""},
 		{"private algorithm unknown", func(v *mdl.KeyPairDataResponseV2Dto) {
 			v.PrivateKeyData.KeyData.Algorithm = mdl.KeyAlgorithm("bogus")
 		}, "privateKeyData.keyData must carry a known key algorithm"},
@@ -698,21 +668,22 @@ func TestValidateKeyPairPayload(t *testing.T) {
 		{"algorithms disagree", func(v *mdl.KeyPairDataResponseV2Dto) {
 			v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
 		}, "public and private key algorithms must match"},
-		{"public length missing for RSA", func(v *mdl.KeyPairDataResponseV2Dto) {
-			v.PublicKeyData.KeyData.Length = nil
-		}, "publicKeyData.keyData must carry a key length for RSA keys"},
-		{"lengths omitted for ML-DSA", func(v *mdl.KeyPairDataResponseV2Dto) {
+		{"AES halves", func(v *mdl.KeyPairDataResponseV2Dto) {
+			v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_AES
+			v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_AES
+		}, "privateKeyData.keyData must carry an algorithm of key type Private"},
+		{"ML-DSA named by its identifier", func(v *mdl.KeyPairDataResponseV2Dto) {
 			v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ML_DSA
 			v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ML_DSA
-			v.PublicKeyData.KeyData.Length = nil
 			v.PrivateKeyData.KeyData.Length = nil
+			v.PrivateKeyData.KeyData.SetAlgorithmIdentifier("MAsGCWCGSAFlAwQDEg==")
 		}, ""},
-		{"distinct positive lengths", func(v *mdl.KeyPairDataResponseV2Dto) {
-			v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
-			v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
-			v.PublicKeyData.KeyData.Length = new(int32(512))
-			v.PrivateKeyData.KeyData.Length = new(int32(256))
+		{"ECDSA named by its identifier", func(v *mdl.KeyPairDataResponseV2Dto) {
+			ecdsaKeyPair(v)
 		}, ""},
+		{"private algorithmIdentifier not base64", func(v *mdl.KeyPairDataResponseV2Dto) {
+			v.PrivateKeyData.KeyData.SetAlgorithmIdentifier("not base64!")
+		}, "privateKeyData.keyData must carry a base64-encoded algorithmIdentifier"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -881,7 +852,7 @@ func TestValidateKeyCreationShapeRejectsBothArms(t *testing.T) {
 	both := &mdl.KeyCreationResponse{
 		SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 			KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-			KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
+			KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256),
 			KeyMeta:        []mdl.MetadataAttribute{{MetadataAttributeV2: &mdl.MetadataAttributeV2{}}},
 		},
 		KeyPairDataResponseV2Dto: &mdl.KeyPairDataResponseV2Dto{
@@ -940,26 +911,26 @@ func TestValidateKeyCreationStatusShapeChecksCompletedResult(t *testing.T) {
 	}{
 		{
 			name:   "complete result",
-			result: &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048), KeyMeta: oneMeta},
+			result: &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256), KeyMeta: oneMeta},
 		},
 		{
 			name:       "partial payload: keyData without keyMeta",
-			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048)},
+			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256)},
 			wantDetail: "completed key creation result must carry a result payload",
 		},
 		{
 			name:       "absent discriminator",
-			result:     &mdl.SecretKeyDataResponseV2Dto{KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048), KeyMeta: oneMeta},
+			result:     &mdl.SecretKeyDataResponseV2Dto{KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256), KeyMeta: oneMeta},
 			wantDetail: "keyRequestType is required on the populated key data variant",
 		},
 		{
 			name:       "mismatched discriminator",
-			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR, KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048), KeyMeta: oneMeta},
+			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_KEY_PAIR, KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256), KeyMeta: oneMeta},
 			wantDetail: "keyRequestType must match the populated key data variant",
 		},
 		{
 			name:       "forbidden operationMeta on the result",
-			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048), KeyMeta: oneMeta, OperationMeta: oneMeta},
+			result:     &mdl.SecretKeyDataResponseV2Dto{KeyRequestType: mdl.KEYREQUESTTYPE_SECRET, KeyData: mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256), KeyMeta: oneMeta, OperationMeta: oneMeta},
 			wantDetail: "completed key creation result must not carry operationMeta",
 		},
 	}
@@ -1003,12 +974,7 @@ func TestValidateKeyCreationStatusShapeChecksCompletedKeyPairResult(t *testing.T
 		}
 	}
 
-	complete := keyPair(func(v *mdl.KeyPairDataResponseV2Dto) {
-		v.PublicKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
-		v.PrivateKeyData.KeyData.Algorithm = mdl.KEYALGORITHM_ECDSA
-		v.PublicKeyData.KeyData.Length = new(int32(512))
-		v.PrivateKeyData.KeyData.Length = new(int32(256))
-	})
+	complete := keyPair(ecdsaKeyPair)
 	wantNoError(t, validateKeyCreationStatusShape(completedWith(complete)))
 
 	// Only the public half: a partial key pair, not a completed creation.
@@ -1183,7 +1149,7 @@ func TestValidateMetadataElements(t *testing.T) {
 func TestValidateKeyCreationShapeRejectsZeroValueMetadataElements(t *testing.T) {
 	secret := &mdl.KeyCreationResponse{SecretKeyDataResponseV2Dto: &mdl.SecretKeyDataResponseV2Dto{
 		KeyRequestType: mdl.KEYREQUESTTYPE_SECRET,
-		KeyData:        newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048),
+		KeyData:        mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256),
 		KeyMeta:        []mdl.MetadataAttribute{{}},
 	}}
 	wantResponseShapeError(t, validateKeyCreationShape(false, secret), "keyMeta entries must populate exactly one metadata attribute variant")
@@ -1251,7 +1217,7 @@ func listedPair() *mdl.ListedKeyPairV2Dto {
 }
 
 func listedSecret() *mdl.ListedSecretKeyV2Dto {
-	return mdl.NewListedSecretKeyV2Dto([]mdl.MetadataAttribute{metaAttr()}, *newSecretKeyData(mdl.KEYALGORITHM_AES, 256))
+	return mdl.NewListedSecretKeyV2Dto([]mdl.MetadataAttribute{metaAttr()}, *mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256))
 }
 
 func availableEntry(key mdl.ListedKeyV2) mdl.ListedKeyEntryV2Dto {
@@ -1320,6 +1286,8 @@ func TestValidateListedSecretKeyChecksTheEntry(t *testing.T) {
 			"keyData must carry key type Secret"},
 		"a key pair algorithm": {func(k *mdl.ListedSecretKeyV2Dto) { k.KeyData.Algorithm = mdl.KEYALGORITHM_RSA },
 			"keyData must carry an algorithm of key type Secret"},
+		"a zero length": {func(k *mdl.ListedSecretKeyV2Dto) { k.KeyData.Length = 0 },
+			"keyData must carry a positive key length"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -1530,7 +1498,7 @@ func TestValidateListKeysResponseAcceptsAnEmptyPagePastItsTotal(t *testing.T) {
 }
 
 func TestValidateListKeysResponseChecksEachUnaddressableKeysKeyData(t *testing.T) {
-	secret := mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256))
+	secret := mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256))
 	cases := map[string]struct {
 		mutate func(*mdl.ListedKeyEntryV2Dto)
 		want   string
@@ -1549,6 +1517,9 @@ func TestValidateListKeysResponseChecksEachUnaddressableKeysKeyData(t *testing.T
 			"keyData must carry a positive key length"},
 		"a symmetric algorithm": {func(k *mdl.ListedKeyEntryV2Dto) { k.KeyData.PrivateKeyDataV2Dto.Algorithm = mdl.KEYALGORITHM_AES },
 			"keyData must carry an algorithm of key type Private"},
+		"an algorithmIdentifier that is not base64": {func(k *mdl.ListedKeyEntryV2Dto) {
+			k.KeyData.PrivateKeyDataV2Dto.SetAlgorithmIdentifier("not base64!")
+		}, "keyData must carry a base64-encoded algorithmIdentifier"},
 		"zero-value metadata element": {func(k *mdl.ListedKeyEntryV2Dto) {
 			k.KeyData.PrivateKeyDataV2Dto.Metadata = []mdl.MetadataAttribute{{}}
 		}, "keyData.metadata entries must populate exactly one metadata attribute variant"},
@@ -1565,12 +1536,14 @@ func TestValidateListKeysResponseChecksAnUnaddressableSecretKeysKeyData(t *testi
 		keyData mdl.KeyDataV2
 		want    string
 	}{
-		"a secret key": {mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_AES, 256)), ""},
+		"a secret key": {mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 256)), ""},
 		"a private key": {mdl.PrivateKeyDataV2DtoAsKeyDataV2(newPrivateKeyData(mdl.KEYALGORITHM_RSA, 2048)),
 			"keyData must describe a key of the requested key request type"},
-		"a secret key of a key pair algorithm": {mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_RSA, 2048)),
+		"a secret key of a key pair algorithm": {mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_RSA, 2048)),
 			"keyData must carry an algorithm of key type Secret"},
-		"a secret key of an unknown algorithm": {mdl.SecretKeyDataV2DtoAsKeyDataV2(newSecretKeyData(mdl.KEYALGORITHM_UNKNOWN, 256)), ""},
+		"a secret key of an unknown algorithm": {mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_UNKNOWN, 256)), ""},
+		"a secret key of zero length": {mdl.SecretKeyDataV2DtoAsKeyDataV2(mdl.NewSecretKeyDataV2Dto(mdl.KEYALGORITHM_AES, 0)),
+			"keyData must carry a positive key length"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

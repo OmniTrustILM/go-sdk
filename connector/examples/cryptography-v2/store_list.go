@@ -62,7 +62,7 @@ func (s *Store) ResolveKeys(ctx context.Context, req *mdl.ResolveKeysRequestV2Dt
 // listedPair is the entry of a live key pair, as ListKeys and ResolveKeys list it.
 func (s *Store) listedPair(pairID string) mdl.ListedKeyEntryV2Dto {
 	rec := s.keys[pairID]
-	pair := buildKeyPairPayload(pairID, rec.algorithm, rec.length, rec.spki)
+	pair := buildKeyPairPayload(pairID, rec.algorithm, rec.privateLengthBits, rec.spki)
 	listed := mdl.NewListedKeyPairV2Dto(pair.KeyPairMeta, *pair.PrivateKeyData)
 	listed.PublicKeyData = pair.PublicKeyData
 	key := mdl.ListedKeyPairV2DtoAsListedKeyV2(listed)
