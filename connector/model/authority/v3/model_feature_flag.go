@@ -40,6 +40,7 @@ const (
 	FEATUREFLAG_CERTIFICATE_REQUEST_STRUCTURED FeatureFlag = "certificateRequestStructured"
 	FEATUREFLAG_CERTIFICATE_IDENTITY_OVERRIDE FeatureFlag = "certificateIdentityOverride"
 	FEATUREFLAG_DISCOVERY_STOP_RESUME FeatureFlag = "discoveryStopResume"
+	FEATUREFLAG_CERTIFICATE_RENEWAL_INFO FeatureFlag = "certificateRenewalInfo"
 	FEATUREFLAG_DISCOVERY_INCREMENTAL FeatureFlag = "discoveryIncremental"
 )
 
@@ -64,6 +65,7 @@ var AllowedFeatureFlagEnumValues = []FeatureFlag{
 	"certificateRequestStructured",
 	"certificateIdentityOverride",
 	"discoveryStopResume",
+	"certificateRenewalInfo",
 	"discoveryIncremental",
 }
 

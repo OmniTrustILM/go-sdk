@@ -101,3 +101,17 @@ func WithAttributeDefinitions(p AttributeDefinitionsProvider) Option {
 		return nil
 	}
 }
+
+// WithRenewalInfo registers the provider backing
+// POST /v3/authorityProvider/certificates/renewalInfo. The route is mounted
+// only when this option is set, and NewHandler fails when the
+// certificateRenewalInfo feature flag is advertised without it.
+func WithRenewalInfo(p RenewalInfoProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("renewal info provider must not be nil")
+		}
+		h.renewalInfo = p
+		return nil
+	}
+}
