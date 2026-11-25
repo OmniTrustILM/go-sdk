@@ -37,6 +37,9 @@ func (h *Handler) validate(q request) error {
 			return ValidationFailed("%s must not be empty", f.name)
 		}
 	}
+	if !familyCode.MatchString(q.family) {
+		return ValidationFailed("family %q must match %s", q.family, familyCode)
+	}
 	fam := h.decl.family
 	if q.family != fam.Code {
 		return ParameterUnsupported("family %q is not supported; supported: %s", q.family, fam.Code)
@@ -73,7 +76,6 @@ func (h *Handler) checkEmbedSignatureValue(in *mdl.EmbedSignatureValueRequest) e
 		fields: []field{
 			text("family", in.Family),
 			text("signatureValue", in.SignatureValue),
-			text("formattingContext", in.FormattingContext),
 		},
 		algorithm: in.SignatureAlgorithm,
 	})
@@ -128,7 +130,10 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) error {
 	if !errors.As(err, &se) {
 		return err
 	}
-	if se.Status == http.StatusBadRequest && (se.ErrorCode != "INVALID_JSON" || se.Cause == nil || isUnreadable(se.Cause)) {
+	if se.Status == http.StatusBadRequest && se.Cause != nil && isTransferModeError(se.Cause) {
+		return shared.BadRequest("BAD_REQUEST", "a document must carry a transferMode of inline or digestOnly").WithCause(err)
+	}
+	if se.Status == http.StatusBadRequest && (se.ErrorCode != "INVALID_JSON" || se.Cause == nil || isSyntaxError(se.Cause)) {
 		return shared.BadRequest("BAD_REQUEST", "%s", se.Detail).WithCause(err)
 	}
 	if name, ok := se.Properties["field"]; ok {
@@ -137,13 +142,18 @@ func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) error {
 	return ValidationFailed("%s", se.Detail).WithCause(err)
 }
 
-// isUnreadable reports whether a decode failed on the JSON itself, or on a
-// document transfer whose transferMode is absent or unknown, rather than on a
-// generated decoder rejecting a well-formed value.
-func isUnreadable(err error) bool {
+// isSyntaxError reports whether a decode failed on the JSON itself rather than
+// on a generated decoder rejecting a well-formed value.
+func isSyntaxError(err error) bool {
 	var syntaxErr *json.SyntaxError
-	return errors.As(err, &syntaxErr) || errors.Is(err, io.ErrUnexpectedEOF) ||
-		strings.Contains(err.Error(), "DocumentTransfer: unknown transferMode")
+	return errors.As(err, &syntaxErr) || errors.Is(err, io.ErrUnexpectedEOF)
+}
+
+// isTransferModeError reports whether a decode failed on a document transfer
+// whose transferMode is absent or unknown, which the contract treats as an
+// unreadable body.
+func isTransferModeError(err error) bool {
+	return strings.Contains(err.Error(), "DocumentTransfer: unknown transferMode")
 }
 
 func (h *Handler) unsupportedLevel(level mdl.SignatureLevel) error {

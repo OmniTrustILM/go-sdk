@@ -329,7 +329,9 @@ func TestBodiesThatAreNotRequests(t *testing.T) {
 			if _, ok := b.(body)["signedDocument"]; ok {
 				route = "extendToLevel"
 			}
-			wantProblem(t, post(t, c, route, b), 400, "BAD_REQUEST")
+			if detail := wantProblem(t, post(t, c, route, b), 400, "BAD_REQUEST"); !strings.Contains(detail, "transferMode") {
+				t.Fatalf("detail %q does not name transferMode", detail)
+			}
 		})
 	}
 	for name, b := range map[string]any{
@@ -360,6 +362,7 @@ func TestComputeDtbsRejections(t *testing.T) {
 	}{
 		"empty chain":         {dtbsBody.with("signerCertificateChain", []string{}), "VALIDATION_FAILED", "signerCertificateChain"},
 		"empty family":        {dtbsBody.with("family", ""), "VALIDATION_FAILED", "family"},
+		"malformed family":    {dtbsBody.with("family", "Demo"), "VALIDATION_FAILED", "must match"},
 		"empty document":      {dtbsBody.with("document", body{"transferMode": "inline", "document": ""}), "VALIDATION_FAILED", "document"},
 		"empty digest":        {dtbsBody.with("document", digestDoc.with("documentDigest", "")), "VALIDATION_FAILED", "documentDigest"},
 		"other family":        {dtbsBody.with("family", "other"), "PARAMETER_UNSUPPORTED", "demo"},
@@ -430,6 +433,9 @@ func TestEmbedSignatureValue(t *testing.T) {
 				t.Fatalf("detail %q does not name %s", detail, f)
 			}
 		})
+	}
+	if w := post(t, c, "embedSignatureValue", embedBody.with("formattingContext", "")); w.Code != 200 {
+		t.Fatalf("an empty formattingContext must reach the provider: %d %s", w.Code, w.Body.String())
 	}
 	wantProblem(t, post(t, c, "embedSignatureValue", embedBody.with("family", "other")), 422, "PARAMETER_UNSUPPORTED")
 	wantProblem(t, post(t, c, "embedSignatureValue", embedBody.with("signatureValue", "")), 422, "VALIDATION_FAILED")
