@@ -3,7 +3,9 @@ package authority
 import (
 	"errors"
 	"net/http"
+	"slices"
 
+	mdl "github.com/OmniTrustILM/go-sdk/connector/model/authority/v3"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
 	"github.com/OmniTrustILM/go-sdk/connector/shared/handlerbase"
 )
@@ -31,6 +33,7 @@ type Handler struct {
 	revokeAttrs    RevokeAttributeProvider
 	registerAttrs  RegisterAttributeProvider
 	attributeDefs  AttributeDefinitionsProvider
+	renewalInfo    RenewalInfoProvider
 }
 
 // NewHandler builds a Handler for the given Provider.
@@ -44,6 +47,9 @@ func NewHandler(p Provider, opts ...Option) (*Handler, error) {
 	}
 	if err := handlerbase.ApplyOptions(h, opts, "authority"); err != nil {
 		return nil, err
+	}
+	if slices.Contains(h.Features, string(mdl.FEATUREFLAG_CERTIFICATE_RENEWAL_INFO)) && h.renewalInfo == nil {
+		return nil, errors.New("authority: certificateRenewalInfo feature advertised without WithRenewalInfo")
 	}
 	return h, nil
 }
@@ -82,6 +88,11 @@ func (h *Handler) Mount(r shared.Router) {
 
 	// Certificate management: identify.
 	r.Handle(http.MethodPost, base+"/certificates/identify", h.identify)
+
+	// Certificate management: renewal information (optional).
+	if h.renewalInfo != nil {
+		r.Handle(http.MethodPost, base+"/certificates/renewalInfo", h.getRenewalInfo)
+	}
 
 	// Authority management.
 	r.Handle(http.MethodPost, base+"/authorities", h.checkAuthorityConnection)
