@@ -460,7 +460,32 @@ func TestValidateProfile(t *testing.T) {
 		if len(got.Errors) != 1 || got.Errors[0].AttributeName != "x" {
 			t.Fatalf("response = %+v", got)
 		}
+		if s := post(t, c, "validateProfile", profileBody).Body.String(); !strings.Contains(s, `"transferModes":[]`) {
+			t.Fatalf("transferModes must be []: %s", s)
+		}
 	})
+	t.Run("validator without transfer modes", func(t *testing.T) {
+		c := serve(t, fixedValidator{basic: newBasic(levelSigned), out: mdl.ValidateProfileResponse{}})
+		got := decodeBody[mdl.ValidateProfileResponse](t, post(t, c, "validateProfile", profileBody))
+		if len(got.Errors) != 0 || !slices.Equal(got.TransferModes, []mdl.DocumentTransferMode{mdl.DOCUMENTTRANSFERMODE_INLINE}) {
+			t.Fatalf("response = %+v", got)
+		}
+	})
+	t.Run("validator with an undeclared transfer mode", func(t *testing.T) {
+		out := mdl.ValidateProfileResponse{TransferModes: []mdl.DocumentTransferMode{mdl.DOCUMENTTRANSFERMODE_DIGEST_ONLY}}
+		c := serve(t, fixedValidator{basic: newBasic(levelSigned), out: out})
+		wantProblem(t, post(t, c, "validateProfile", profileBody), 500, "INTERNAL_SERVER_ERROR")
+	})
+}
+
+type fixedValidator struct {
+	*basic
+	out mdl.ValidateProfileResponse
+}
+
+func (v fixedValidator) ValidateProfile(context.Context, *mdl.ValidateProfileRequest) (*mdl.ValidateProfileResponse, error) {
+	out := v.out
+	return &out, nil
 }
 
 type optionalRoute struct {
@@ -492,6 +517,7 @@ func TestOptionalRoutesWithoutCapability(t *testing.T) {
 	wantProblem(t, post(t, c, "extendToLevel/status", scopedBody), 404, "OPERATION_NOT_TRACKED")
 	wantProblem(t, post(t, c, "extendToLevel/cancel", scopedBody), 404, "OPERATION_NOT_TRACKED")
 	wantProblem(t, post(t, c, "extendToLevel/status", scopedBody.with("family", "other")), 422, "PARAMETER_UNSUPPORTED")
+	wantProblem(t, post(t, c, "extendToLevel", extendBody.with("targetLevel", "archival")), 422, "VALIDATION_FAILED")
 	wantProblem(t, post(t, c, "extendToLevel/status", scopedBody.with("operationMeta", []any{})), 422, "VALIDATION_FAILED")
 	wantProblem(t, post(t, c, "extendToLevel/cancel", scopedBody.with("operationMeta", nil)), 422, "VALIDATION_FAILED")
 	for _, op := range operations {

@@ -2,7 +2,9 @@ package contentsigning
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"slices"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/contentsigning/v1"
 	"github.com/OmniTrustILM/go-sdk/connector/shared"
@@ -52,13 +54,28 @@ func (h *Handler) validateProfile(w http.ResponseWriter, r *http.Request) {
 				return mdl.NewValidateProfileResponse([]mdl.ProfileAttributeError{}, h.decl.family.TransferModes), nil
 			}
 			out, err := h.validator.ValidateProfile(ctx, in)
-			if out != nil {
-				copyOut := *out
-				copyOut.Errors = shared.EnsureSlice(copyOut.Errors)
-				out = &copyOut
+			if out == nil || err != nil {
+				return out, err
 			}
-			return out, err
+			return h.completeValidation(*out)
 		})
+}
+
+// completeValidation fills what a validator may leave out: an empty error
+// list, and the family's transfer modes when the profile is valid and the
+// validator names none. A mode the family does not declare is a provider bug.
+func (h *Handler) completeValidation(out mdl.ValidateProfileResponse) (*mdl.ValidateProfileResponse, error) {
+	out.Errors = shared.EnsureSlice(out.Errors)
+	if len(out.TransferModes) == 0 && len(out.Errors) == 0 {
+		out.TransferModes = h.decl.family.TransferModes
+	}
+	for _, m := range out.TransferModes {
+		if !slices.Contains(h.decl.family.TransferModes, m) {
+			return nil, fmt.Errorf("profile validator returned transfer mode %q, which the family does not declare", m)
+		}
+	}
+	out.TransferModes = shared.EnsureSlice(out.TransferModes)
+	return &out, nil
 }
 
 func (h *Handler) computeDtbs(w http.ResponseWriter, r *http.Request) {

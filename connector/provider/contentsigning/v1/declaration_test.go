@@ -58,6 +58,17 @@ func TestNewHandler(t *testing.T) {
 			}
 			return p
 		}, ""},
+		{"request attributes outside computeDtbs", func() Provider {
+			return withAttrs(embed, Attributes{Request: list(str("t", "T"))})
+		}, "only computeDtbs may list request attributes"},
+		{"request attribute that is a profile attribute elsewhere", func() Provider {
+			p := newBasic(levelSigned)
+			p.attrs = map[Operation]Attributes{
+				computeDtbs: {Request: list(str("a", "A"))},
+				embed:       {Profile: list(str("a", "A"))},
+			}
+			return p
+		}, `"a" is a profile attribute of one operation and a request attribute of another`},
 		{"timestamped without SignatureTimestamper", func() Provider { return newBasic(levelSigned, levelTimestamped) }, "SignatureTimestamper"},
 		{"long_term without Extender", func() Provider {
 			return withTimestamp{basic: newBasic(levelSigned, levelTimestamped, levelLongTerm)}

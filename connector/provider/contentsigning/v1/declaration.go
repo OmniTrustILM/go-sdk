@@ -43,10 +43,10 @@ func newDeclaration(p Provider) (*declaration, error) {
 	if err := checkFamily(d.family); err != nil {
 		return nil, err
 	}
-	seen := map[string][]byte{}
+	seen := map[string]definition{}
 	for _, op := range operations {
 		a := p.Attributes(op)
-		if err := checkAttributes(a, seen); err != nil {
+		if err := checkAttributes(op, a, seen); err != nil {
 			return nil, fmt.Errorf("attributes of %s: %w", op, err)
 		}
 		d.attrs[op] = a
@@ -82,6 +82,7 @@ type definition struct {
 	Type        mdl.AttributeType        `json:"type"`
 	ContentType mdl.AttributeContentType `json:"contentType"`
 	raw         []byte
+	request     bool
 }
 
 func define(a mdl.BaseAttributeDto) (definition, error) {
@@ -113,8 +114,13 @@ func defineAll(list []mdl.BaseAttributeDto) ([]definition, error) {
 }
 
 // checkAttributes checks one operation's definitions; seen carries the
-// definition each name had in the operations checked before.
-func checkAttributes(a Attributes, seen map[string][]byte) error {
+// definition each name had in the operations checked before. Only
+// computeDtbs may list request attributes, and a request attribute's name
+// may not be a profile attribute of any operation.
+func checkAttributes(op Operation, a Attributes, seen map[string]definition) error {
+	if len(a.Request) > 0 && op != mdl.CONTENTSIGNINGFORMATTINGOPERATION_COMPUTE_DTBS {
+		return errors.New("only computeDtbs may list request attributes")
+	}
 	profile, err := defineAll(a.Profile)
 	if err != nil {
 		return err
@@ -122,6 +128,9 @@ func checkAttributes(a Attributes, seen map[string][]byte) error {
 	request, err := defineAll(a.Request)
 	if err != nil {
 		return err
+	}
+	for i := range request {
+		request[i].request = true
 	}
 	for _, d := range request {
 		if slices.ContainsFunc(profile, func(p definition) bool { return p.Name == d.Name }) {
@@ -132,10 +141,14 @@ func checkAttributes(a Attributes, seen map[string][]byte) error {
 		}
 	}
 	for _, d := range append(profile, request...) {
-		if prev, ok := seen[d.Name]; ok && !bytes.Equal(prev, d.raw) {
+		prev, ok := seen[d.Name]
+		switch {
+		case ok && prev.request != d.request:
+			return fmt.Errorf("attribute %q is a profile attribute of one operation and a request attribute of another", d.Name)
+		case ok && !bytes.Equal(prev.raw, d.raw):
 			return fmt.Errorf("attribute %q has two different definitions", d.Name)
 		}
-		seen[d.Name] = d.raw
+		seen[d.Name] = d
 	}
 	return nil
 }
