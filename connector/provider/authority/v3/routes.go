@@ -2,6 +2,8 @@ package authority
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/authority/v3"
@@ -324,7 +326,7 @@ func (h *Handler) lookUpRenewalInfo(ctx context.Context, in *mdl.CertificateRene
 // --- Authority Management ----------------------------------------------------
 
 // POST /v3/authorityProvider/authorities
-// 204 reachable | error otherwise.
+// 200 reachable with metadata | 204 reachable | error otherwise.
 func (h *Handler) checkAuthorityConnection(w http.ResponseWriter, r *http.Request) {
 	var attrs []mdl.RequestAttribute
 	if err := shared.DecodeJSON(w, r, &attrs, h.MaxBytes, h.Strict); err != nil {
@@ -332,13 +334,36 @@ func (h *Handler) checkAuthorityConnection(w http.ResponseWriter, r *http.Reques
 		shared.RenderError(w, r, err)
 		return
 	}
-	if err := h.provider.CheckAuthorityConnection(r.Context(), attrs); err != nil {
-		shared.EmitEvent(r.Context(), eventCheckConnection, err)
+	metadata, err := h.checkConnection(r.Context(), attrs)
+	var body []byte
+	if err == nil && len(metadata) > 0 {
+		if body, err = json.Marshal(mdl.NewAuthorityConnectionResponseDto(metadata)); err != nil {
+			err = fmt.Errorf("encode authority metadata: %w", err)
+		}
+	}
+	shared.EmitEvent(r.Context(), eventCheckConnection, err)
+	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	shared.EmitEvent(r.Context(), eventCheckConnection, nil)
-	w.WriteHeader(http.StatusNoContent)
+	if body == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, writeErr := w.Write(body); writeErr != nil {
+		h.LoggerFor(r).Error("write checkAuthorityConnection response", "err", writeErr)
+	}
+}
+
+// checkConnection asks the metadata provider when one is registered, else the
+// mandatory Provider, which returns no metadata.
+func (h *Handler) checkConnection(ctx context.Context, attrs []mdl.RequestAttribute) ([]mdl.MetadataAttribute, error) {
+	if h.authorityMetadata != nil {
+		return h.authorityMetadata.CheckAuthorityConnectionWithMetadata(ctx, attrs)
+	}
+	return nil, h.provider.CheckAuthorityConnection(ctx, attrs)
 }
 
 // POST /v3/authorityProvider/authorities/crl

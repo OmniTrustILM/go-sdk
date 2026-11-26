@@ -105,7 +105,8 @@ type Provider interface {
 
 	// CheckAuthorityConnection validates the supplied authority attributes
 	// by attempting to reach the upstream CA. Nil renders 204; failures
-	// should return ErrConnectionFailed or a validation error.
+	// should return ErrConnectionFailed or a validation error. Not called
+	// when an AuthorityMetadataProvider is registered.
 	CheckAuthorityConnection(ctx context.Context, attrs []mdl.RequestAttribute) error
 
 	// GetCrl returns the latest CRL (delta when req.Delta and supported).
@@ -126,4 +127,18 @@ type RenewalInfoProvider interface {
 	// available result with an invalid window to retry; answer retry for items
 	// not finished in time.
 	RenewalInfo(ctx context.Context, req *mdl.CertificateRenewalInfoRequestDtoV3) (*mdl.CertificateRenewalInfoResponseDtoV3, error)
+}
+
+// AuthorityMetadataProvider is the optional contract that lets
+// POST /v3/authorityProvider/authorities return metadata about the authority,
+// which Core stores and shows on the authority detail page. A connector
+// registers it with WithAuthorityMetadata; the route then calls it instead of
+// Provider.CheckAuthorityConnection.
+type AuthorityMetadataProvider interface {
+	// CheckAuthorityConnectionWithMetadata validates the authority attributes
+	// like CheckAuthorityConnection and returns the authority's metadata. A
+	// non-empty list renders 200 with {"metadata": [...]}, an empty one 204.
+	// Metadata is shown to every user who can see the authority, so it must
+	// never contain secrets.
+	CheckAuthorityConnectionWithMetadata(ctx context.Context, attrs []mdl.RequestAttribute) ([]mdl.MetadataAttribute, error)
 }
