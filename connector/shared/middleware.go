@@ -133,7 +133,7 @@ func completedLevel(r *http.Request, status int) slog.Level {
 
 // logScope is the request-scoped logging state withSlogLogger shares with
 // withSpanLogger. fields are the request attributes bound after the trace
-// fields; current holds the logger and context the completion line uses,
+// fields; current holds the logger and span the completion line uses,
 // replaced by withSpanLogger once a tracer middleware has started a span.
 type logScope struct {
 	base    *slog.Logger
@@ -142,8 +142,8 @@ type logScope struct {
 }
 
 type scopedLogger struct {
-	log *slog.Logger
-	ctx context.Context
+	log  *slog.Logger
+	span trace.SpanContext
 }
 
 // bind returns the scope's logger with the trace fields of ctx, stores it in
@@ -159,7 +159,7 @@ func (s *logScope) bind(ctx context.Context) context.Context {
 	}
 	log := s.base.With(append(args, s.fields...)...)
 	ctx = context.WithValue(ctx, ctxKeyLogger, log)
-	s.current.Store(&scopedLogger{log: log, ctx: ctx})
+	s.current.Store(&scopedLogger{log: log, span: trace.SpanContextFromContext(ctx)})
 	return ctx
 }
 
@@ -168,7 +168,7 @@ func (s *logScope) bind(ctx context.Context) context.Context {
 func (s *logScope) isBound(ctx context.Context) bool {
 	cur := s.current.Load()
 	return ctx.Value(ctxKeyLogger) == cur.log &&
-		trace.SpanContextFromContext(ctx).Equal(trace.SpanContextFromContext(cur.ctx))
+		trace.SpanContextFromContext(ctx).Equal(cur.span)
 }
 
 // withSlogLogger builds the request-scoped logger and emits the built-in
@@ -201,7 +201,10 @@ func withSlogLogger(base *slog.Logger) Middleware {
 			next.ServeHTTP(rec, r.WithContext(ctx))
 
 			final := scope.current.Load()
-			final.log.Log(final.ctx, completedLevel(r, rec.status), "request completed",
+			if final.span.IsValid() {
+				ctx = trace.ContextWithSpanContext(ctx, final.span)
+			}
+			final.log.Log(ctx, completedLevel(r, rec.status), "request completed",
 				"status", rec.status,
 				"bytes", rec.bytes,
 				"duration_ms", time.Since(start).Milliseconds(),
