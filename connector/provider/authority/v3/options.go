@@ -115,3 +115,16 @@ func WithRenewalInfo(p RenewalInfoProvider) Option {
 		return nil
 	}
 }
+
+// WithAuthorityMetadata registers the provider whose metadata
+// POST /v3/authorityProvider/authorities returns. Without it the route calls
+// Provider.CheckAuthorityConnection and always answers 204.
+func WithAuthorityMetadata(p AuthorityMetadataProvider) Option {
+	return func(h *Handler) error {
+		if p == nil {
+			return errors.New("authority metadata provider must not be nil")
+		}
+		h.authorityMetadata = p
+		return nil
+	}
+}

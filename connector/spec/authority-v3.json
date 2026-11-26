@@ -1677,6 +1677,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "Upstream CA is reachable with these attributes; the response carries metadata about the authority",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorityConnectionResponseDto"
+                }
+              }
+            }
+          },
           "204": {
             "description": "Upstream CA is reachable with these attributes"
           },
@@ -2714,6 +2724,21 @@
         "enum": [
           "v2",
           "v3"
+        ]
+      },
+      "AuthorityConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "type": "array",
+            "description": "Metadata about the authority, stored by Core as authority metadata. Must not contain secrets.",
+            "items": {
+              "$ref": "#/components/schemas/MetadataAttribute"
+            }
+          }
+        },
+        "required": [
+          "metadata"
         ]
       },
       "BaseAttributeConstraint": {

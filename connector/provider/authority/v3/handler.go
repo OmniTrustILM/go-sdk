@@ -34,6 +34,8 @@ type Handler struct {
 	registerAttrs  RegisterAttributeProvider
 	attributeDefs  AttributeDefinitionsProvider
 	renewalInfo    RenewalInfoProvider
+
+	authorityMetadata AuthorityMetadataProvider
 }
 
 // NewHandler builds a Handler for the given Provider.
