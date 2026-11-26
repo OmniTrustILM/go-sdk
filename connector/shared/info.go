@@ -20,6 +20,8 @@ const (
 	InterfaceCodeCryptography = "cryptography"
 	InterfaceCodeNotification = "notification"
 	InterfaceCodeSecret       = "secret"
+
+	InterfaceCodeContentSigningFormatting = "contentSigningFormatting"
 )
 
 // Version constants used by interface version fields. All version strings in

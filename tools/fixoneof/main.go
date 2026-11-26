@@ -284,6 +284,16 @@ var wrappers = []wrapper{
 			"Secret":  "SecretKeyDataV2Dto",
 		},
 	},
+	{
+		// How a content-signing request carries the document.
+		fileSuffix:    "model_document_transfer.go",
+		typeName:      "DocumentTransfer",
+		discriminator: "transferMode",
+		cases: map[string]string{
+			"inline":     "InlineDocumentTransfer",
+			"digestOnly": "DigestOnlyDocumentTransfer",
+		},
+	},
 }
 
 // knownUnpatchable lists oneOf wrappers the generator emits but for which

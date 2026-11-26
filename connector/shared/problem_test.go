@@ -328,6 +328,7 @@ func TestResolveProblemTypeURI(t *testing.T) {
 		{name: "registered key lifecycle code", errorCode: "SIGNER_MISMATCH", want: "https://docs.otilm.com/problems/connector/keyLifecycle/SIGNER_MISMATCH"},
 		{name: "registered replay-context code with no interface", errorCode: "CONTEXT_MISMATCH", want: "https://docs.otilm.com/problems/connector/CONTEXT_MISMATCH"},
 		{name: "registered connector code with no interface", errorCode: "DOCUMENT_TOO_LARGE", want: "https://docs.otilm.com/problems/connector/DOCUMENT_TOO_LARGE"},
+		{name: "registered attribute rejection code with no interface", errorCode: "ATTRIBUTES_REJECTED", want: "https://docs.otilm.com/problems/connector/ATTRIBUTES_REJECTED"},
 		{name: "unregistered code falls back to common", errorCode: "WIDGET_EXPLODED", want: "https://docs.otilm.com/problems/common/WIDGET_EXPLODED"},
 		{name: "about:blank resolves", errorCode: "VALIDATION_FAILED", typeURI: "about:blank", want: "https://docs.otilm.com/problems/common/VALIDATION_FAILED"},
 		{name: "empty error code falls back to internal server error", errorCode: "", want: "https://docs.otilm.com/problems/common/INTERNAL_SERVER_ERROR"},

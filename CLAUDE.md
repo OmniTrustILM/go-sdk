@@ -33,6 +33,10 @@ this module, so its exported API is a compatibility surface.
   go.mod tool directive)
 - Regenerate models: `./gen.sh` (Docker required); commit spec and generated
   changes together
+- Produce a spec: in `interface-documentation`, run `mvn -B -o clean verify`
+  (JDK 21); it writes `openapi/<group id>.yaml` (ids in `groups.yaml`). Convert
+  it to JSON with PyYAML `SafeLoader` minus the timestamp resolver, then
+  `json.dumps(indent=2, ensure_ascii=False)` plus a trailing newline.
 
 Run every command above from the repo root before considering a change done.
 
