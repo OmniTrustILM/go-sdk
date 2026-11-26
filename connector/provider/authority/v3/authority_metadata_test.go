@@ -166,3 +166,27 @@ func TestCheckAuthorityConnectionUnencodableMetadata(t *testing.T) {
 		t.Fatal("want a problem body, got an empty response")
 	}
 }
+
+func TestCheckAuthorityConnectionUnencodableMetadataEventIsError(t *testing.T) {
+	rec := &eventRecorder{events: map[string]int{}}
+	stub := &authorityMetadataStub{metadata: []mdl.MetadataAttribute{{}}}
+	h, err := authority.NewHandler(stubProvider{}, authority.WithAuthorityMetadata(stub))
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	c, err := shared.New(
+		shared.WithInfo(shared.Info{ID: "meta", Name: "meta", Version: "0.0.1"}),
+		shared.WithMetrics(rec),
+		shared.Register(h),
+	)
+	if err != nil {
+		t.Fatalf("shared.New: %v", err)
+	}
+	srv := httptest.NewServer(c.Handler())
+	t.Cleanup(srv.Close)
+
+	postAuthorities(t, srv)
+	if rec.events["check_authority_connection/ok"] != 0 || rec.events["check_authority_connection/error"] != 1 {
+		t.Errorf("events = %v, want exactly one check_authority_connection/error", rec.events)
+	}
+}

@@ -335,18 +335,19 @@ func (h *Handler) checkAuthorityConnection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	metadata, err := h.checkConnection(r.Context(), attrs)
+	var body []byte
+	if err == nil && len(metadata) > 0 {
+		if body, err = json.Marshal(mdl.NewAuthorityConnectionResponseDto(metadata)); err != nil {
+			err = fmt.Errorf("encode authority metadata: %w", err)
+		}
+	}
 	shared.EmitEvent(r.Context(), eventCheckConnection, err)
 	if err != nil {
 		shared.RenderError(w, r, err)
 		return
 	}
-	if len(metadata) == 0 {
+	if body == nil {
 		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	body, err := json.Marshal(mdl.NewAuthorityConnectionResponseDto(metadata))
-	if err != nil {
-		shared.RenderError(w, r, fmt.Errorf("encode authority metadata: %w", err))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
