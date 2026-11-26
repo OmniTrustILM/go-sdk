@@ -153,3 +153,16 @@ func TestWithAuthorityMetadataRejectsNil(t *testing.T) {
 		t.Fatal("NewHandler accepted a nil authority metadata provider")
 	}
 }
+
+func TestCheckAuthorityConnectionUnencodableMetadata(t *testing.T) {
+	stub := &authorityMetadataStub{metadata: []mdl.MetadataAttribute{{}}}
+	srv := authoritiesServer(t, stubProvider{}, authority.WithAuthorityMetadata(stub))
+
+	code, body := postAuthorities(t, srv)
+	if code < http.StatusInternalServerError {
+		t.Fatalf("status = %d, want a server error for metadata that cannot be encoded", code)
+	}
+	if len(body) == 0 {
+		t.Fatal("want a problem body, got an empty response")
+	}
+}

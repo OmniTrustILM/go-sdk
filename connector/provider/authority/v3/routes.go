@@ -2,6 +2,8 @@ package authority
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	mdl "github.com/OmniTrustILM/go-sdk/connector/model/authority/v3"
@@ -342,7 +344,14 @@ func (h *Handler) checkAuthorityConnection(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if writeErr := shared.WriteJSON(w, http.StatusOK, mdl.NewAuthorityConnectionResponseDto(metadata)); writeErr != nil {
+	body, err := json.Marshal(mdl.NewAuthorityConnectionResponseDto(metadata))
+	if err != nil {
+		shared.RenderError(w, r, fmt.Errorf("encode authority metadata: %w", err))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, writeErr := w.Write(body); writeErr != nil {
 		h.LoggerFor(r).Error("write checkAuthorityConnection response", "err", writeErr)
 	}
 }
