@@ -93,3 +93,48 @@ func TestRequestLogCarriesTracerMiddlewareSpan(t *testing.T) {
 		})
 	}
 }
+
+// TestRequestLogRebindsOnRepeatedHandlerCall covers a tracer middleware that
+// calls the handler twice with the same request: both handler records carry
+// the tracer's span ids, not the synthesized ones.
+func TestRequestLogRebindsOnRepeatedHandlerCall(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	tracer := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)).Tracer("test")
+	twice := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, span := tracer.Start(r.Context(), "server")
+			defer span.End()
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	var buf bytes.Buffer
+	c := newTestConnector(t, &buf,
+		WithMiddleware(twice),
+		WithExtraEndpoints(ExtraEndpoint{
+			FunctionGroupCode: "test", Method: http.MethodGet, Context: "/traced", Name: "traced",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				LoggerFromContext(r.Context()).Info("handler record")
+			},
+		}),
+	)
+	c.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/traced", nil))
+
+	sc := recorder.Ended()[0].SpanContext()
+	records := 0
+	for _, l := range logLines(t, &buf) {
+		if l["message"] != "handler record" {
+			continue
+		}
+		records++
+		if l["trace_id"] != sc.TraceID().String() || l["span_id"] != sc.SpanID().String() {
+			t.Errorf("handler record %d ids = (%v, %v), want the span's (%s, %s)",
+				records, l["trace_id"], l["span_id"], sc.TraceID(), sc.SpanID())
+		}
+	}
+	if records != 2 {
+		t.Fatalf("handler records = %d, want 2", records)
+	}
+}

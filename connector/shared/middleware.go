@@ -163,6 +163,14 @@ func (s *logScope) bind(ctx context.Context) context.Context {
 	return ctx
 }
 
+// isBound reports whether ctx already carries the scope's current logger,
+// bound to the span ctx holds.
+func (s *logScope) isBound(ctx context.Context) bool {
+	cur := s.current.Load()
+	return ctx.Value(ctxKeyLogger) == cur.log &&
+		trace.SpanContextFromContext(ctx).Equal(trace.SpanContextFromContext(cur.ctx))
+}
+
 // withSlogLogger builds the request-scoped logger and emits the built-in
 // "request completed" line, at the level completedLevel gives it. It binds
 // trace_id / span_id / trace_flags (from the span context established by the
@@ -212,8 +220,7 @@ func withSpanLogger() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			scope, ok := r.Context().Value(ctxKeyLogScope).(*logScope)
-			sc := trace.SpanContextFromContext(r.Context())
-			if ok && sc.IsValid() && !sc.Equal(trace.SpanContextFromContext(scope.current.Load().ctx)) {
+			if ok && trace.SpanContextFromContext(r.Context()).IsValid() && !scope.isBound(r.Context()) {
 				r = r.WithContext(scope.bind(r.Context()))
 			}
 			next.ServeHTTP(w, r)
