@@ -23,7 +23,7 @@ func TestRoutingErrorsRenderThroughErrorRenderer(t *testing.T) {
 		{name: "unknown path", method: http.MethodGet, path: "/v2/nothing",
 			wantStatus: http.StatusNotFound, wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "wrong method", method: http.MethodPost, path: "/v2/info",
-			wantStatus: http.StatusMethodNotAllowed, wantCode: "OPERATION_NOT_SUPPORTED", wantAllow: "GET, HEAD"},
+			wantStatus: http.StatusMethodNotAllowed, wantCode: "BAD_REQUEST", wantAllow: "GET, HEAD"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

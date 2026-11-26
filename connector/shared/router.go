@@ -49,7 +49,9 @@ func routingErrors(mux *http.ServeMux) http.Handler {
 		case http.StatusNotFound:
 			RenderError(w, r, NotFound("RESOURCE_NOT_FOUND", "no route for %s", r.URL.Path))
 		case http.StatusMethodNotAllowed:
-			RenderError(w, r, newError(http.StatusMethodNotAllowed, "OPERATION_NOT_SUPPORTED",
+			// Not OPERATION_NOT_SUPPORTED: clients read that code as the
+			// connector deliberately declining an operation it knows.
+			RenderError(w, r, newError(http.StatusMethodNotAllowed, "BAD_REQUEST",
 				"method %s is not allowed for %s", r.Method, r.URL.Path))
 		}
 	})
