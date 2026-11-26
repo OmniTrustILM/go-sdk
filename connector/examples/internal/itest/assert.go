@@ -176,9 +176,10 @@ func (h *Harness) AssertHealthy(t *testing.T, path string) map[string]any {
 }
 
 // AssertNotServed asserts that GET on each path is the router's own 404 for
-// an unmatched route: status 404 and no JSON body (the stdlib mux answers
-// text/plain; a JSON 404 would mean a mounted handler rendered it). Use it for
-// surfaces an example must not expose, e.g. /v2/info on a v1-family connector.
+// an unmatched route: status 404 rendered through the connector's error
+// renderer with the router's "no route for <path>" detail, which a mounted
+// handler's 404 would not carry. Use it for surfaces an example must not
+// expose, e.g. /v2/info on a v1-family connector.
 func (h *Harness) AssertNotServed(t *testing.T, paths ...string) {
 	t.Helper()
 	for _, path := range paths {
@@ -187,8 +188,8 @@ func (h *Harness) AssertNotServed(t *testing.T, paths ...string) {
 			t.Errorf("GET %s status = %d, want 404 (route not served)\nbody: %s", path, resp.Status, resp.Body)
 			continue
 		}
-		if ct := resp.Header.Get("Content-Type"); isJSONMediaType(ct) {
-			t.Errorf("GET %s 404 Content-Type = %q, want the mux's non-JSON 404 (a mounted handler answered)\nbody: %s", path, ct, resp.Body)
+		if !strings.Contains(string(resp.Body), "no route for "+path) {
+			t.Errorf("GET %s 404 is not the router's unmatched-route reply (a mounted handler answered)\nbody: %s", path, resp.Body)
 		}
 	}
 }

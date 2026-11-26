@@ -537,8 +537,7 @@ func TestLegacyAuthV1Attributes(t *testing.T) {
 	itest.AssertV1ValidationErrors(t, resp)
 
 	// Attribute routes are mounted per literal kind, so an unknown kind never
-	// reaches the provider: the mux answers with its text/plain 404 (not the
-	// v1 envelope).
+	// reaches the provider: the router answers with its unmatched-route 404.
 	h.AssertNotServed(t, base+"/not-a-kind/attributes")
 
 	// RA profile attributes: [] and 200 validate. The routes never consult the

@@ -191,21 +191,21 @@ func (c *Connector) StrictDecode() bool { return c.cfg.strictDecode }
 //  2. tracing                  (W3C traceparent/tracestate extraction; server span context; ahead of logging so log records can carry trace ids)
 //  3. correlation id           (reads/generates Correlation-Id; echoes it back; ctx value)
 //  4. error renderer           (attaches connector-wide ErrorRenderer to ctx)
-//  5. slog logger              (creates statusRecorder; attaches request-scoped logger with trace + correlation fields; logs completion)
+//  5. slog logger              (creates statusRecorder; attaches request-scoped logger with trace + correlation fields; logs completion with the innermost span's ids)
 //  6. metrics                  (records request totals, latency, in-flight; sits outside recover so panics count as 500)
 //  7. recover                  (catches panics, renders 500 via WriteProblem)
-//  8. user middleware          (WithMiddleware order preserved)
+//  8. user middleware          (WithMiddleware order preserved; inside each, a span logger rebinds the request-scoped logger to a span the middleware started, e.g. otelhttp)
 //  9. auth                     (WithAuth)
 //
-// 10. mux                      (provider routes + builtins)
+// 10. mux                      (provider routes + builtins; unroutable requests render through the ErrorRenderer)
 func (c *Connector) buildHandler() http.Handler {
-	var h http.Handler = c.mux
+	h := routingErrors(c.mux)
 
 	if c.cfg.auth != nil {
 		h = c.cfg.auth(h)
 	}
 	for i := len(c.cfg.middleware) - 1; i >= 0; i-- {
-		h = c.cfg.middleware[i](h)
+		h = c.cfg.middleware[i](withSpanLogger()(h))
 	}
 	h = withRecover(c.cfg.logger, c.cfg.errorRenderer)(h)
 	if c.cfg.metrics != nil {

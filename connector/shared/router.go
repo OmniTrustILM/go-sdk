@@ -29,3 +29,53 @@ func (r *muxRouter) Handle(method, pattern string, h http.HandlerFunc) {
 	}
 	r.mux.Handle(fmt.Sprintf("%s %s", method, pattern), h)
 }
+
+// routingErrors serves mux and renders the requests it cannot route (an
+// unknown path or a method the path does not accept) through the
+// connector's ErrorRenderer instead of the mux's plain-text replies. The
+// status code and, on 405, the mux's Allow header are kept. Other
+// unmatched outcomes, such as the mux's path-cleaning redirects, and the
+// "*" request target the mux rejects itself pass through unchanged.
+func routingErrors(mux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h, pattern := mux.Handler(r)
+		if pattern != "" || r.RequestURI == "*" {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		rw := &routingErrorWriter{ResponseWriter: w}
+		h.ServeHTTP(rw, r)
+		switch rw.status {
+		case http.StatusNotFound:
+			RenderError(w, r, NotFound("RESOURCE_NOT_FOUND", "no route for %s", r.URL.Path))
+		case http.StatusMethodNotAllowed:
+			// Not OPERATION_NOT_SUPPORTED: clients read that code as the
+			// connector deliberately declining an operation it knows.
+			RenderError(w, r, newError(http.StatusMethodNotAllowed, "BAD_REQUEST",
+				"method %s is not allowed for %s", r.Method, r.URL.Path))
+		}
+	})
+}
+
+// routingErrorWriter swallows the mux's plain-text 404 and 405 replies so
+// routingErrors can render them; any other reply is written through. Header
+// changes reach the underlying writer, which keeps the mux's Allow header.
+type routingErrorWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *routingErrorWriter) WriteHeader(code int) {
+	if code == http.StatusNotFound || code == http.StatusMethodNotAllowed {
+		w.status = code
+		return
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *routingErrorWriter) Write(b []byte) (int, error) {
+	if w.status != 0 {
+		return len(b), nil
+	}
+	return w.ResponseWriter.Write(b)
+}

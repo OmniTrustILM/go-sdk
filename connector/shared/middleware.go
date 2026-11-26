@@ -7,7 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"sync/atomic"
 	"time"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ctxKey int
@@ -18,6 +21,7 @@ const (
 	ctxKeyMetrics
 	ctxKeyErrorRenderer
 	ctxKeyTrace
+	ctxKeyLogScope
 )
 
 // CorrelationHeader is the canonical correlation header per the ILM
@@ -127,45 +131,102 @@ func completedLevel(r *http.Request, status int) slog.Level {
 	return slog.LevelDebug
 }
 
+// logScope is the request-scoped logging state withSlogLogger shares with
+// withSpanLogger. fields are the request attributes bound after the trace
+// fields; current holds the logger and span the completion line uses,
+// replaced by withSpanLogger once a tracer middleware has started a span.
+type logScope struct {
+	base    *slog.Logger
+	fields  []any
+	current atomic.Pointer[scopedLogger]
+}
+
+type scopedLogger struct {
+	log  *slog.Logger
+	span trace.SpanContext
+}
+
+// bind returns the scope's logger with the trace fields of ctx, stores it in
+// ctx and makes both the scope's current pair.
+func (s *logScope) bind(ctx context.Context) context.Context {
+	args := make([]any, 0, 6+len(s.fields))
+	if tid, sid, flags, ok := traceFieldsFromContext(ctx); ok {
+		args = append(args,
+			logKeyTraceID, tid,
+			logKeySpanID, sid,
+			logKeyTraceFlags, flags,
+		)
+	}
+	log := s.base.With(append(args, s.fields...)...)
+	ctx = context.WithValue(ctx, ctxKeyLogger, log)
+	s.current.Store(&scopedLogger{log: log, span: trace.SpanContextFromContext(ctx)})
+	return ctx
+}
+
+// isBound reports whether ctx already carries the scope's current logger,
+// bound to the span ctx holds.
+func (s *logScope) isBound(ctx context.Context) bool {
+	cur := s.current.Load()
+	return ctx.Value(ctxKeyLogger) == cur.log &&
+		trace.SpanContextFromContext(ctx).Equal(cur.span)
+}
+
 // withSlogLogger builds the request-scoped logger and emits the built-in
 // "request completed" line, at the level completedLevel gives it. It binds
 // trace_id / span_id / trace_flags (from the span context established by the
 // tracing middleware) and correlation_id onto the logger, so every record
 // logged through LoggerFromContext carries the spec's conditional fields even
 // when callers use the context-free slog methods. The connector.log handler
-// promotes those bound keys to top-level envelope fields.
+// promotes those bound keys to top-level envelope fields. When a tracer
+// middleware further in starts a span, withSpanLogger rebinds the logger to
+// it and the completion line carries that span's ids.
 func withSlogLogger(base *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			args := make([]any, 0, 14)
-			if tid, sid, flags, ok := traceFieldsFromContext(r.Context()); ok {
-				args = append(args,
-					logKeyTraceID, tid,
-					logKeySpanID, sid,
-					logKeyTraceFlags, flags,
-				)
-			}
+			fields := make([]any, 0, 8)
 			if cid := CorrelationIDFromContext(r.Context()); cid != "" {
-				args = append(args, logKeyCorrelationID, cid)
+				fields = append(fields, logKeyCorrelationID, cid)
 			}
-			args = append(args,
+			fields = append(fields,
 				"method", r.Method,
 				"path", r.URL.Path,
 				"remote", r.RemoteAddr,
 			)
-			log := base.With(args...)
-			ctx := context.WithValue(r.Context(), ctxKeyLogger, log)
+			scope := &logScope{base: base, fields: fields}
+			ctx := scope.bind(context.WithValue(r.Context(), ctxKeyLogScope, scope))
 
 			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rec, r.WithContext(ctx))
 
-			log.Log(ctx, completedLevel(r, rec.status), "request completed",
+			final := scope.current.Load()
+			if final.span.IsValid() {
+				ctx = trace.ContextWithSpanContext(ctx, final.span)
+			}
+			final.log.Log(ctx, completedLevel(r, rec.status), "request completed",
 				"status", rec.status,
 				"bytes", rec.bytes,
 				"duration_ms", time.Since(start).Milliseconds(),
 			)
+		})
+	}
+}
+
+// withSpanLogger sits inside each user middleware. When one of them (e.g.
+// otelhttp) put a new span context on the request, it rebinds the
+// request-scoped logger to that span, so handler records and the completion
+// line carry ids the tracing backend knows rather than the synthesized ones,
+// even when a later middleware answers without calling the handler. Without
+// such a span it does nothing.
+func withSpanLogger() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			scope, ok := r.Context().Value(ctxKeyLogScope).(*logScope)
+			if ok && trace.SpanContextFromContext(r.Context()).IsValid() && !scope.isBound(r.Context()) {
+				r = r.WithContext(scope.bind(r.Context()))
+			}
+			next.ServeHTTP(w, r)
 		})
 	}
 }

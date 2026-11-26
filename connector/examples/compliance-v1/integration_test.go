@@ -101,7 +101,7 @@ func TestComplianceV1InfoAndHealth(t *testing.T) {
 	itest.AssertV1HealthDto[mdl.HealthDto, mdl.HealthStatus](t, h)
 
 	// A v1-family connector mounts no v2 management surface; these are
-	// unmatched mux paths (stdlib text/plain 404).
+	// unmatched routes (the router's 404).
 	h.AssertNotServed(t, "/v2/health", "/v2/info")
 
 	// Decode into the generated InfoResponse model (the /v1
