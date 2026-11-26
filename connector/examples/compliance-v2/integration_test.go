@@ -126,8 +126,8 @@ func TestComplianceV2InfoAndHealth(t *testing.T) {
 	itest.AssertV1HealthDto[mdl.HealthDto, mdl.HealthStatus](t, h)
 
 	// v1-family info/health per compliance-v2.json: the /v2 info and health
-	// routes are not mounted, so the stdlib mux answers 404 (text/plain,
-	// never the v1 envelope).
+	// routes are not mounted, so the router answers with its unmatched-route
+	// 404.
 	h.AssertNotServed(t, "/v2/health", "/v2/health/liveness", "/v2/info")
 
 	// Decode into the generated InfoResponse model (the /v1

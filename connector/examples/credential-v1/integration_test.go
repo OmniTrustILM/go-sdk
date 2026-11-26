@@ -110,8 +110,8 @@ func TestCredentialV1InfoAndHealth(t *testing.T) {
 	// the status enum and the nested parts decode into the spec's types.
 	itest.AssertV1HealthDto[mdl.HealthDto, mdl.HealthStatus](t, h)
 
-	// v1-family only: the v2 management surface is not mounted, so the mux
-	// answers with its stdlib 404 (text/plain).
+	// v1-family only: the v2 management surface is not mounted, so the
+	// router answers with its unmatched-route 404.
 	h.AssertNotServed(t, "/v2/health", "/v2/info")
 
 	// Decode into the generated InfoResponse model (the /v1
